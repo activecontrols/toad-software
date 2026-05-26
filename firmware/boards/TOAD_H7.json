@@ -10,7 +10,7 @@
     "cpu": "cortex-m7",
     "mcu": "stm32h747",
     "variants_dir": "boards",
-    "variant": "toad_h7",
+    "variant": "TOAD_H7",
     "extra_flags": [
       "-DCORE_CM7",
       "-DSTM32H747xx"
