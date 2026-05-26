@@ -1,0 +1,31 @@
+{
+  "name": "TOAD Flight Controller and Engine Controller",
+  "vendor": "Custom PCB",
+  "url": "https://purdue-space-program.atlassian.net/wiki/spaces/PAC/pages/2045575171/Configuring+a+custom+board+with+PlatformIO",
+  "frameworks": [
+    "arduino"
+  ],
+  "build": {
+    "core": "stm32",
+    "cpu": "cortex-m7",
+    "mcu": "stm32h747",
+    "variants_dir": "boards",
+    "variant": "toad_h7",
+    "extra_flags": [
+      "-DCORE_CM7",
+      "-DSTM32H747xx"
+    ]
+  },
+  "upload": {
+    "maximum_ram_size": 131072,
+    "maximum_size": 524288,
+    "protocol": "stlink",
+    "protocols": [
+      "stlink"
+    ]
+  },
+  "debug": {
+    "openocd_target": "stm32h7x_dual_bank",
+    "load_mode": "default"
+  }
+}

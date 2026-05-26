@@ -1,0 +1,18 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "firmware"
+		},
+		{
+			"path": "UI"
+		}
+	],
+	"settings": {
+		"C_Cpp.clang_format_style": "file",
+		"editor.formatOnSave": true,
+		"editor.formatOnPaste": true,
+	}
+}
