@@ -216,6 +216,8 @@
 #define NUM_DUALPAD_PINS 2
 #define NUM_ANALOG_INPUTS 32
 
+// TODO - all these defaults need to be dealt with
+
 // On-board LED pin number
 #ifndef LED_BUILTIN
 #define LED_BUILTIN PA7

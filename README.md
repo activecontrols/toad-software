@@ -16,6 +16,11 @@ In order to handle multiple boards, we have defined individual PlatformIO enviro
 
 TOAD uses custom PCBs, these are defined in the [firmware/boards](firmware/boards/) folder and documented at https://purdue-space-program.atlassian.net/wiki/spaces/PAC/pages/2045575171/Configuring+a+custom+board+with+PlatformIO
 
+#### FC / EC Shared Codebase
+
+The FC and EC projects are built from the same codebase, using a few rules to define the binary for each. First, each has their own `main.cpp`, as [firmware/src/fc_main.cpp](firmware/src/fc_main.cpp) and [firmware/src/ec_main.cpp](firmware/src/ec_main.cpp). These main files pull in the modules each board needs, so having a [firmware/lib/](firmware/lib/) folder that is only used on one project is fine. Additional control is provided through the `TOAD_FLIGHT_CONTROLLER_ONLY` and `TOAD_ENGINE_CONTROLLER_ONLY` flags, which can be used (sparingly) with `#ifdef`. This setup is controlled in [firmware/platformio.ini](firmware/platformio.ini). The active enviroment can be selected from the VSCode lower toolbar, which will say `Default (firwmare)` by default, but can be customized to view the project with the specific compiler flags for the FC or EC.
+
+The STM32F4 codebase is located in [src/f4_main.cpp](src/f4_main.cpp) (coming soon). This is a much smaller codebase and makes much less use of the shared libraries.
 
 ### UI / Groundstation
 
@@ -33,6 +38,10 @@ Running `mingw32-make -f UI.mk` in the toad-software folder should build the pro
 #### Intellisense
 Intellisense should "just work" once you have mingw installed (along with https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools). If it doesn't, make sure that you can run g++ from the command line. If something isn't working, look at [c_cpp_properties.json](UI/.vscode/c_cpp_properties.json) and the intellisense status in the bottom right of the VSCode window.
 
+
+## Documentation
+
+For details on high level architecture decisions, see [docs/](docs/). Individual functions and modules are documented in-line.
 
 ## Contributing
 
