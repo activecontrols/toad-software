@@ -12,8 +12,11 @@
 #define PT_10 PT_FU_03_chamber
 #define PT_11 PT_FU_04_igniter
 #define PT_12 PT_FU_05_venturi_upstream
+static_assert(NUM_PT_BOARDS == 6);
 
 struct pressure_readings_t {
+  uint8_t crc_errors;
+
   float PT_1;
   float PT_2;
   float PT_3;
