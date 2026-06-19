@@ -2,6 +2,10 @@
 
 Writing C++ for embedded systems requires different software design patterns than typical applications. A few styles used in PSP AC's codebases are described below, along with justification.
 
+## begin()
+
+Each module should define a `begin()` function that sets up all hardware in that module. If a failure is possible (such as not detecting a device), begin() should print an error message and return false. Hardware should not be setup in class constructors, as all hardware classes should be declared at compile time. See `ADS131M02.cpp` and `ADS131M02.h` for an example of this pattern.
+
 ## Use Clear and Concise Variable and Function Names
 
 Variables and functions should have the shortest name that makes their use unambiguous. If not obvious, including units in the variable name (`wait_time_ms` instead of `wait_time`) reduces the chance of mistakes. Functions names should generally be verbs / actions (`get_last_packet()` instead of `last_packet()`). Function names can rely on the namespace they are in (`PressureSenors::calibrate()` is fine, `PressureSensors::calibrate_pressure_sensors()` is unecessary). 

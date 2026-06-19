@@ -72,6 +72,8 @@ Commits should generally by single sub-features and have a short, descriptive me
 
 Please delete branches after merging.
 
+If your change is not fully tested before merging, make a note in `PendingVerification.md` to track the additional testing work. Adding `// TODO - short desc` as appropriate in the code is also helpful, and is mandatory if a change disables functionality that must be re-enabled before flight, such as a safety check that must be bypassed for testing.
+
 ### Bugfixes
 
 For new features, create a branch of with the name `bugfix/quick_description` such as `bugfix/fix_imu_axes`. Follow the same merging conventions as above. For very simple fixes (such as changing a single value), a commit directly to main is acceptable.
