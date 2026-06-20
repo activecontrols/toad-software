@@ -1,4 +1,5 @@
 #pragma once
+#include "ec_pins.h"
 
 // Canonical PT Names
 #define PT_1 PT_N2_01_tank
@@ -13,6 +14,7 @@
 #define PT_10 PT_FU_03_chamber
 #define PT_11 PT_FU_04_igniter
 #define PT_12 PT_FU_05_venturi_upstream
+// TODO - add other PTs / TCs
 static_assert(NUM_PT_BOARDS == 6);
 
 // Canonical TC Names
@@ -48,6 +50,4 @@ struct temperature_readings_t {
   float TC_4;
 };
 
-#define CONCAT_(a, b) a##b
-#define CONCAT(a, b) CONCAT_(a, b)
 #define PT_CALIBRATION(n) CONCAT(CONCAT(PT_, n), _calibration)

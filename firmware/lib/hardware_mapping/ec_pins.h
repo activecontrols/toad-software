@@ -29,6 +29,27 @@
 #define PIN_PT_TC_SPI_3_MISO NC
 #define PIN_PT_TC_SPI_3_SCK NC
 
+// DOs
+#define PIN_SV_BV_LATCH_ENABLE NC
+
+#define NUM_SV_BV_VALVES 16
+#define PIN_SV_DO_1 NC
+#define PIN_SV_DO_2 NC
+#define PIN_SV_DO_3 NC
+#define PIN_SV_DO_4 NC
+#define PIN_SV_DO_5 NC
+#define PIN_SV_DO_6 NC
+#define PIN_SV_DO_7 NC
+#define PIN_SV_DO_8 NC
+#define PIN_SV_DO_9 NC
+#define PIN_BV_DO_10 NC
+#define PIN_BV_DO_11 NC
+#define PIN_BV_DO_12 NC
+#define PIN_BV_DO_13 NC
+#define PIN_BV_DO_14 NC
+#define PIN_BV_DO_15 NC
+#define PIN_BV_DO_16 NC
+
 // BOARDS
 // these are declared in ec_main
 extern SPIClass PT_TC_SPI_1;
@@ -67,3 +88,10 @@ extern SPIClass PT_TC_SPI_3;
 
 #define TC_BOARD_4_SPI_BUS PT_TC_SPI_3
 #define PIN_TC_BOARD_4_CS NC
+
+// utility macros
+#define CONCAT_(a, b) a##b
+#define CONCAT(a, b) CONCAT_(a, b)
+
+#define STRINGIFY_(x) #x
+#define STRINGIFY(x) STRINGIFY_(x)

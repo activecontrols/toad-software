@@ -3,6 +3,8 @@
 #include "CommandRouter.h"
 #include "CommsSerial.h"
 #include "PressureSensors.h"
+#include "RCS.h"
+#include "SolenoidValves.h"
 #include "TVC_Actuators.h"
 #include "TemperatureSensors.h"
 #include "ThrottleValves.h"
@@ -47,6 +49,7 @@ void setup() {
   all_modules_ok &= PressureSensors::begin();
   all_modules_ok &= TemperatureSensors::begin();
   all_modules_ok &= ThrottleValves::begin();
+  all_modules_ok &= SolenoidValves::begin();
   all_modules_ok &= TVC_Actuators::begin();
   all_modules_ok &= ValveController::begin();
 
@@ -82,6 +85,7 @@ void flight_loop() {
   // TODO - reset sensors and outputs
   ThrottleValves::set_angles_ox_fu(STARTING_VALVE_ANGLE_OX, STARTING_VALVE_ANGLE_FU);
   TVC_Actuators::set_angles_pitch_yaw(0.0, 0.0);
+  RCS::reset();
 
   while (true) {
     while (CommsSerial.available()) {
@@ -98,11 +102,15 @@ void flight_loop() {
 
     // RUN CONTROLLER
     valve_controller_output_t vco = ValveController::get_controller_output(pt_readings, tc_readings);
+    float tvc_pitch = 0.0; // TODO - these come from the FC over CAN
+    float tvc_yaw = 0.0;
+    float rcs_force = 0.0;
 
     // OUTPUT - only if armed
     if (arm_flag) {
       ThrottleValves::set_angles_ox_fu(vco.ox_angle, vco.fu_angle);
-      TVC_Actuators::set_angles_pitch_yaw(0.0, 0.0); // TODO - these angles come from the FC over CAN
+      TVC_Actuators::set_angles_pitch_yaw(tvc_pitch, tvc_yaw);
+      RCS::update_rcs_valves(rcs_force);
     }
   }
 }
