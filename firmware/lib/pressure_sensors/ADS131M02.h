@@ -1,3 +1,5 @@
+#pragma once
+
 #include "SPI.h"
 
 struct adc_reading_t {

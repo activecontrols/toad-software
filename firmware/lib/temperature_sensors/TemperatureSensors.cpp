@@ -1,0 +1,40 @@
+#include "TemperatureSensors.h"
+#include "CommsSerial.h"
+
+#define C_TO_KELVIN 273.15
+
+namespace TemperatureSensors {
+
+Adafruit_MAX31856 tc_chip_1(TC_BOARD_1_SPI_BUS, PIN_TC_BOARD_1_CS, MAX31856_TCTYPE_K);
+Adafruit_MAX31856 tc_chip_2(TC_BOARD_1_SPI_BUS, PIN_TC_BOARD_2_CS, MAX31856_TCTYPE_K);
+Adafruit_MAX31856 tc_chip_3(TC_BOARD_1_SPI_BUS, PIN_TC_BOARD_3_CS, MAX31856_TCTYPE_K);
+Adafruit_MAX31856 tc_chip_4(TC_BOARD_1_SPI_BUS, PIN_TC_BOARD_4_CS, MAX31856_TCTYPE_K);
+static_assert(NUM_TC_CHIPS == 4);
+
+// Configures each TC chip.
+// Always returns true.
+bool begin() {
+  tc_chip_1.begin();
+  tc_chip_2.begin();
+  tc_chip_3.begin();
+  tc_chip_4.begin();
+
+  return true; // TODO - do some kind of check that we are actually talking to a chip, like read an ID reg or something
+}
+
+// Read pressure value from all PTs, recording CRC errors if they occur.
+temperature_readings_t read_tcs() {
+  temperature_readings_t tc_readings;
+
+  // TODO - for performance, consider parallelizing across the busses (only if needed)
+  tc_readings.TC_1 = tc_chip_1.readThermocoupleTemperature() + C_TO_KELVIN;
+  tc_readings.TC_2 = tc_chip_2.readThermocoupleTemperature() + C_TO_KELVIN;
+  tc_readings.TC_3 = tc_chip_3.readThermocoupleTemperature() + C_TO_KELVIN;
+  tc_readings.TC_4 = tc_chip_4.readThermocoupleTemperature() + C_TO_KELVIN;
+
+  return tc_readings;
+}
+
+// TODO - command to print TC readings
+
+} // namespace TemperatureSensors

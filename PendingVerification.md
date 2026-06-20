@@ -9,3 +9,4 @@ when PT board connected and that CRC is false when PT board disconnected.`
  - All the PT changes - verify all functionality in pressure_sensors/ (Robert)
  - serial_comms import - pulled from ASTRA, we should still test
  - Fallback serial - should see `[Fallback Serial]` prints during begin()
+ - All the TC changes - verify all functionality in temperature_sensors/

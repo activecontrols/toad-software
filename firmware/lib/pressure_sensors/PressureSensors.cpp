@@ -53,10 +53,12 @@ bool begin() {
   return true;
 }
 
+// Read pressure value from all PTs, recording CRC errors if they occur.
 pressure_readings_t read_pts() {
   pressure_readings_t pt_readings;
   pt_readings.crc_errors = NO_PT_CRC_ERRS;
 
+  // TODO - for performance, consider parallelizing across the busses (only if needed)
   pt_readings.crc_errors |= pt_board_1_2.read_pts(&pt_readings.PT_1, &pt_readings.PT_2) ? NO_PT_CRC_ERRS : PT_BOARD_1_2_CRC_ERR;
   pt_readings.crc_errors |= pt_board_3_4.read_pts(&pt_readings.PT_3, &pt_readings.PT_4) ? NO_PT_CRC_ERRS : PT_BOARD_3_4_CRC_ERR;
   pt_readings.crc_errors |= pt_board_5_6.read_pts(&pt_readings.PT_5, &pt_readings.PT_6) ? NO_PT_CRC_ERRS : PT_BOARD_5_6_CRC_ERR;
@@ -67,6 +69,7 @@ pressure_readings_t read_pts() {
   return pt_readings;
 }
 
+// Print the pt board numbers that encountered CRC errors.
 void print_pt_crc_errors(pressure_readings_t pt_readings) {
   CommsSerial.print("CRC errors were detected on the following PT boards: ");
   for (int i = 0; i < NUM_PT_BOARDS; i++) {
@@ -76,5 +79,7 @@ void print_pt_crc_errors(pressure_readings_t pt_readings) {
     CommsSerial.println();
   }
 }
+
+// TODO - command to print PT readings
 
 } // namespace PressureSensors

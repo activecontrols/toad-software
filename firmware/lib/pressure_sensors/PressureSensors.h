@@ -1,3 +1,5 @@
+#pragma once
+
 #include "ADS131M02.h"
 #include "ec_pins.h"
 #include "ec_sensors.h"

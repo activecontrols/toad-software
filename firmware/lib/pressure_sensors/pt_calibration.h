@@ -1,3 +1,5 @@
+#pragma once
+
 // sensor name _ calibration, slope, offset
 #define PT_N2_01_tank_calibration 0, 10
 #define PT_N2_02_reg_calibration 0, 10

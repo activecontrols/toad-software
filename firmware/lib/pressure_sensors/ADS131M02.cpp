@@ -1,12 +1,12 @@
 #include "ADS131M02.h"
-#include "Arduino.h"
+#include <Arduino.h>
 
 // Datasheet: https://www.ti.com/lit/ds/symlink/ads131m02.pdf
-// Citations are indicated as [pg#]
+// Citations are indicated as [pg#].
 
 // Clock speed and SPI mode for the ADC [34].
-// TODO - verify clock integrity with a scope
-SPISettings ADS131M02_SPI_SETTINGS(4000000000, MSBFIRST, SPI_MODE1);
+// TODO - verify clock integrity with a scope.
+SPISettings ADS131M02_SPI_SETTINGS(4000000, MSBFIRST, SPI_MODE1);
 
 #define DISCARD_CRC nullptr
 
