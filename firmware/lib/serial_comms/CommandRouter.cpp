@@ -12,11 +12,19 @@ bool escaped; // was the last character an escape char
 
 std::vector<command> commands;
 
+// demo command to test connectivity
+void ping(const char *args) {
+  CommsSerial.println("pong");
+  CommsSerial.print("args: ");
+  CommsSerial.println(args == nullptr ? "null" : args);
+}
+
 void begin() {
   escaped = false;
   command_buffer_pos = 0;
   commands.clear();
   add(help, "help", "lists all commands or provides help for an individual command");
+  add(ping, "ping", "prints pong");
 }
 
 void call_cmd(uint8_t *buffer, size_t buffer_len) {
