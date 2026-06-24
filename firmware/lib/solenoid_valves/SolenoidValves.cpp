@@ -8,8 +8,8 @@
 namespace SolenoidValves {
 
 struct sv_bv_t {
-  int pin;
-  char *name;
+  unsigned int pin;
+  const char *name;
   valve_state_t default_state;
 };
 

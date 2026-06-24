@@ -93,7 +93,7 @@ typedef enum { MAX31856_ONESHOT, MAX31856_ONESHOT_NOWAIT, MAX31856_CONTINUOUS } 
 
 class Adafruit_MAX31856 {
 public:
-  Adafruit_MAX31856(SPIClass spi_bus, int cs_pin, max31856_thermocoupletype_t tc_type) : spi_bus(spi_bus), cs_pin(cs_pin), tc_type(tc_type) {}
+  Adafruit_MAX31856(SPIClass spi_bus, unsigned int cs_pin, max31856_thermocoupletype_t tc_type) : spi_bus(spi_bus), cs_pin(cs_pin), tc_type(tc_type) {}
 
   void begin(void);
 
@@ -117,7 +117,7 @@ public:
 
 private:
   SPIClass spi_bus;
-  int cs_pin;
+  unsigned int cs_pin;
 
   max31856_conversion_mode_t conversionMode;
   max31856_thermocoupletype_t tc_type;
