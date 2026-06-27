@@ -14,5 +14,20 @@
 		"C_Cpp.clang_format_style": "file",
 		"editor.formatOnSave": true,
 		"editor.formatOnPaste": true,
+		"todohighlight.exclude": [
+			"**/node_modules/**",
+			"**/bower_components/**",
+			"**/dist/**",
+			"**/build/**",
+			"**/.vscode/**",
+			"**/.github/**",
+			"**/_output/**",
+			"**/*.min.*",
+			"**/*.map",
+			"**/.next/**",
+			"**/imgui/**",
+			"**/implot/**",
+			"**/implot3d/**"
+		]
 	}
 }

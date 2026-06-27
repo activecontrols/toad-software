@@ -47,6 +47,8 @@ bool begin() {
   }
 
   CommandRouter::add(open_valve_by_name, "open_valve", "Opens a solenoid or ball valve. Provide either the P&ID name `SV_N2_01` or the full name `SV_N2_01_rcs_pos_1`.");
+  CommandRouter::add(close_valve_by_name, "close_valve", "Closes a solenoid or ball valve. Provide either the P&ID name `SV_N2_01` or the full name `SV_N2_01_rcs_pos_1`.");
+  CommandRouter::add(set_valves_from_valve_state_cmd, "sv_ui", "Sets all valves, intended to be used as a UI cmd.");
 
   return true;
 }
@@ -71,12 +73,20 @@ void pulse_latch_enable() {
 
 // Sets valves from a bitmask of valve states, 1 = OPEN, 0 = CLOSED.
 // Bit positions are based on the valve_ids enum.
-// TODO - make this accessible as a command from the UI
 void set_valves_from_valve_state(uint32_t valve_states) {
   for (int i = 0; i < NUM_SV_BV_VALVES; i++) {
     set_valve_by_num(i, valve_states & (1 << i) ? VALVE_OPEN : VALVE_CLOSE, false);
   }
   pulse_latch_enable();
+}
+
+void set_valves_from_valve_state_cmd(const uint8_t *cmd_packet, size_t len) {
+  if (len != sizeof(uint32_t)) {
+    CommsSerial.println("Invalid valve_state size.");
+    return;
+  }
+  uint32_t valve_states = *(uint32_t *)(cmd_packet);
+  set_valves_from_valve_state(valve_states);
 }
 
 // Set valve by its numerical ID. The valve_ids enum allows using the canonical names with this function.

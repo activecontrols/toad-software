@@ -8,5 +8,6 @@ namespace TemperatureSensors {
 
 bool begin();
 temperature_readings_t read_tcs();
+void print_tc_readings();
 
 } // namespace TemperatureSensors

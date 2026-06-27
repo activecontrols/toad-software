@@ -34,6 +34,8 @@ enum valve_ids { SV_1, SV_2, SV_3, SV_4, SV_5, SV_6, SV_7, SV_8, SV_9, BV_10, BV
 enum valve_state_t { VALVE_CLOSE, VALVE_OPEN };
 } // namespace SolenoidValves
 
+// TODO - global valve state with extra bits to check if we have pulsed latch yet, UI state, etc.
+
 // Default Valve Positions
 // TODO CONOPS - audit
 

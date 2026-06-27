@@ -1,4 +1,5 @@
 #include "TemperatureSensors.h"
+#include "CommandRouter.h"
 #include "CommsSerial.h"
 
 #define C_TO_KELVIN 273.15
@@ -19,6 +20,8 @@ bool begin() {
   tc_chip_3.begin();
   tc_chip_4.begin();
 
+  CommandRouter::add(print_tc_readings, "print_tc", "Print TC readings in Fahrenheit.");
+
   return true; // TODO - do some kind of check that we are actually talking to a chip, like read an ID reg or something
 }
 
@@ -35,6 +38,18 @@ temperature_readings_t read_tcs() {
   return tc_readings;
 }
 
-// TODO - command to print TC readings
+// Convert Celsius to Fahrenheit.
+float c_to_f(float c) {
+  return (c * 9.0 / 5.0) + 32;
+}
+
+// print TC readings in Fahrenheit.
+void print_tc_readings() {
+  CommsSerial.print("TC Readings:");
+  CommsSerial.printf("%20s: %6.2f C\n", STRINGIFY(TC_1), c_to_f(tc_chip_1.readThermocoupleTemperature()));
+  CommsSerial.printf("%20s: %6.2f C\n", STRINGIFY(TC_2), c_to_f(tc_chip_2.readThermocoupleTemperature()));
+  CommsSerial.printf("%20s: %6.2f C\n", STRINGIFY(TC_3), c_to_f(tc_chip_3.readThermocoupleTemperature()));
+  CommsSerial.printf("%20s: %6.2f C\n", STRINGIFY(TC_4), c_to_f(tc_chip_4.readThermocoupleTemperature()));
+}
 
 } // namespace TemperatureSensors

@@ -1,4 +1,5 @@
 #include "PressureSensors.h"
+#include "CommandRouter.h"
 #include "CommsSerial.h"
 #include "pt_calibration.h"
 
@@ -45,10 +46,11 @@ bool begin() {
 
   pressure_readings_t pt_readings = read_pts();
   if (pt_readings.crc_errors != NO_PT_CRC_ERRS) {
-    CommsSerial.println("CRC Errors detected on PT board - check connection.");
     print_pt_crc_errors(pt_readings);
     return false;
   }
+
+  CommandRouter::add(print_pt_readings, "print_pt", "Print PT readings in psi.");
 
   return true;
 }
@@ -80,6 +82,27 @@ void print_pt_crc_errors(pressure_readings_t pt_readings) {
   }
 }
 
-// TODO - command to print PT readings
+// print PT readings in psi.
+void print_pt_readings() {
+  pressure_readings_t pt_readings = read_pts();
+
+  CommsSerial.print("PT Readings:");
+  CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_1), pt_readings.PT_1);
+  CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_2), pt_readings.PT_2);
+  CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_3), pt_readings.PT_3);
+  CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_4), pt_readings.PT_4);
+  CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_5), pt_readings.PT_5);
+  CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_6), pt_readings.PT_6);
+  CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_7), pt_readings.PT_7);
+  CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_8), pt_readings.PT_8);
+  CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_9), pt_readings.PT_9);
+  CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_10), pt_readings.PT_10);
+  CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_11), pt_readings.PT_11);
+  CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_12), pt_readings.PT_12);
+
+  if (pt_readings.crc_errors != NO_PT_CRC_ERRS) {
+    print_pt_crc_errors(pt_readings);
+  }
+}
 
 } // namespace PressureSensors

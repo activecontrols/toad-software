@@ -35,5 +35,6 @@ namespace PressureSensors {
 bool begin();
 pressure_readings_t read_pts();
 void print_pt_crc_errors(pressure_readings_t pt_readings);
+void print_pt_readings();
 
 } // namespace PressureSensors
