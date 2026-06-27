@@ -27,10 +27,10 @@ void flight_loop();
 void setup() {
   // All shared interfaces are begun here.
 
-  // 57600 is the radio baud, so for consistency it is used on all Comm Serials.
-  USB_CommsSerial.begin(57600);
-  HW_CommsSerial.begin(57600);
-  HW_FallbackSerial.begin(57600);
+  // Use same baud rate on all Comm Serials for consistency.
+  USB_CommsSerial.begin(RADIO_BAUD);
+  HW_CommsSerial.begin(RADIO_BAUD);
+  HW_FallbackSerial.begin(RADIO_BAUD);
 
   RS485_1.begin(9600); // TODO - what baud?
   RS485_4.begin(9600);

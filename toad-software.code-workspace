@@ -14,20 +14,26 @@
 		"C_Cpp.clang_format_style": "file",
 		"editor.formatOnSave": true,
 		"editor.formatOnPaste": true,
+		"todohighlight.include": [
+			"**/*.cpp",
+			"**/*.hpp",
+			"**/*.c",
+			"**/*.h",
+			"**/*.py",
+			"**/*.ini"
+		],
 		"todohighlight.exclude": [
-			"**/node_modules/**",
-			"**/bower_components/**",
-			"**/dist/**",
+			"**/.venv/**",
 			"**/build/**",
 			"**/.vscode/**",
 			"**/.github/**",
-			"**/_output/**",
-			"**/*.min.*",
-			"**/*.map",
-			"**/.next/**",
+			"**/.pio/libdeps/**",
 			"**/imgui/**",
 			"**/implot/**",
 			"**/implot3d/**"
-		]
+		],
+		"todohighlight.keywords": [
+			"TODO"
+		],
 	}
 }
