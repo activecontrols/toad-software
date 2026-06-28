@@ -95,7 +95,7 @@ class Adafruit_MAX31856 {
 public:
   Adafruit_MAX31856(SPIClass spi_bus, unsigned int cs_pin, max31856_thermocoupletype_t tc_type) : spi_bus(spi_bus), cs_pin(cs_pin), tc_type(tc_type) {}
 
-  void begin(void);
+  bool begin(void);
 
   void setConversionMode(max31856_conversion_mode_t mode);
   max31856_conversion_mode_t getConversionMode(void);

@@ -15,14 +15,15 @@ static_assert(NUM_TC_CHIPS == 4);
 // Configures each TC chip.
 // Always returns true.
 bool begin() {
-  tc_chip_1.begin();
-  tc_chip_2.begin();
-  tc_chip_3.begin();
-  tc_chip_4.begin();
+  bool all_chips_connected = true;
+  all_chips_connected &= tc_chip_1.begin();
+  all_chips_connected &= tc_chip_2.begin();
+  all_chips_connected &= tc_chip_3.begin();
+  all_chips_connected &= tc_chip_4.begin();
 
   CommandRouter::add(print_tc_readings, "print_tc", "Print TC readings in Fahrenheit.");
 
-  return true; // TODO - do some kind of check that we are actually talking to a chip, like read an ID reg or something
+  return all_chips_connected;
 }
 
 // Read pressure value from all PTs, recording CRC errors if they occur.
@@ -30,6 +31,7 @@ temperature_readings_t read_tcs() {
   temperature_readings_t tc_readings;
 
   // TODO - for performance, consider parallelizing across the busses (only if needed)
+  // TODO - read fault reg and sanity check values
   tc_readings.TC_1 = tc_chip_1.readThermocoupleTemperature() + C_TO_KELVIN;
   tc_readings.TC_2 = tc_chip_2.readThermocoupleTemperature() + C_TO_KELVIN;
   tc_readings.TC_3 = tc_chip_3.readThermocoupleTemperature() + C_TO_KELVIN;

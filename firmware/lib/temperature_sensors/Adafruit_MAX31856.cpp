@@ -51,11 +51,10 @@ SPISettings Adafruit_MAX31856_SPI_SETTINGS(4000000, MSBFIRST, SPI_MODE1);
 /*!
     @brief  Initialize MAX31856 attach/set pins or SPI device, default to K
    thermocouple
-    @returns Always returns true at this time (no known way of detecting chip
-   ID)
+    @returns Returns true if chip is connected
 */
 /**************************************************************************/
-void Adafruit_MAX31856::begin(void) {
+bool Adafruit_MAX31856::begin(void) {
   pinMode(cs_pin, OUTPUT);
   pinMode(cs_pin, HIGH);
 
@@ -73,6 +72,9 @@ void Adafruit_MAX31856::begin(void) {
 
   // set continous conversion mode
   setConversionMode(MAX31856_CONTINUOUS);
+
+  // read back a factory default value to ensure we are talking to a working chip
+  return readRegister8(MAX31856_CJLF_REG) == 0xC0;
 }
 
 /**************************************************************************/

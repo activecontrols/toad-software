@@ -61,6 +61,7 @@ pressure_readings_t read_pts() {
   pt_readings.crc_errors = NO_PT_CRC_ERRS;
 
   // TODO - for performance, consider parallelizing across the busses (only if needed)
+  // TODO - sanity check values
   pt_readings.crc_errors |= pt_board_1_2.read_pts(&pt_readings.PT_1, &pt_readings.PT_2) ? NO_PT_CRC_ERRS : PT_BOARD_1_2_CRC_ERR;
   pt_readings.crc_errors |= pt_board_3_4.read_pts(&pt_readings.PT_3, &pt_readings.PT_4) ? NO_PT_CRC_ERRS : PT_BOARD_3_4_CRC_ERR;
   pt_readings.crc_errors |= pt_board_5_6.read_pts(&pt_readings.PT_5, &pt_readings.PT_6) ? NO_PT_CRC_ERRS : PT_BOARD_5_6_CRC_ERR;
