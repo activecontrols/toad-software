@@ -85,7 +85,8 @@ void set_valves_from_valve_state_cmd(const uint8_t *cmd_packet, size_t len) {
     CommsSerial.println("Invalid valve_state size.");
     return;
   }
-  uint32_t valve_states = *(uint32_t *)(cmd_packet);
+  uint32_t valve_states;
+  memcpy(&valve_states, cmd_packet, sizeof(valve_states));
   set_valves_from_valve_state(valve_states);
 }
 

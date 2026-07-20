@@ -1,2 +1,3 @@
 AllowShortFunctionsOnASingleLine: Empty
 ColumnLimit: 200
+AlignEscapedNewlines: Left

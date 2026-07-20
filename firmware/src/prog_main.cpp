@@ -2,6 +2,7 @@
 
 #include "CommsSerial.h"
 #include "f4_prog_pins.h"
+#include "toad_can_bus.h"
 
 // Based on https://www.st.com/resource/en/application_note/an4286-how-to-use-spi-protocol-in-bootloader-on-stm32-mcus-stmicroelectronics.pdf
 // Citations commented as [pg#]
@@ -41,7 +42,7 @@ constexpr size_t NUM_WRITE_CHUNKS_PER_PAGE = PAGE_CACHE_SIZE / WRITE_CHUNK_SIZE;
 constexpr size_t NUM_PAGE_CACHES = 512;
 static_assert(PAGE_CACHE_SIZE * NUM_PAGE_CACHES == 2097152);
 
-uint32_t active_pg_id;
+uint32_t active_pg_addr;
 uint8_t page_cache[PAGE_CACHE_SIZE];
 bool chunk_rcv[NUM_CAN_CHUNKS_PER_PAGE];
 
@@ -168,67 +169,65 @@ void loop() {
   // can.pump_events() or similar
   // process commands - note that each command must be guaranteed to not halt
   // TODO - figure out how to parse the incoming cmd and payload
-  uint8_t cmd = 0x00;
+  uint8_t *raw_bytes;
+  size_t raw_msg_len;
 
-  if (cmd == 0x00) {
-    // probably some heartbeat or status thing
-  } else if (cmd == 0x00) {
+  CAN_Msg_Decoder<prog_state_t> raw_msg(raw_bytes, raw_msg_len, prog_state);
+
+  if (const auto msg = raw_msg.decode<can_msg_heartbeat_t>()) {
+    // TODO - this
+
+  } else if (const auto msg = raw_msg.decode<can_msg_reset_controller_t>()) {
+    // TODO - enforce state
     reset_h7();
 
-  } else if (cmd = 0x00) { // enter bootloader
-    if (prog_state == STATE_IDLE) {
-      enter_bootloader();
+  } else if (const auto msg = raw_msg.decode_and_enforce_state<can_msg_enter_bootloader_t>(STATE_IDLE)) {
+    if (enter_bootloader()) {
       prog_state = STATE_PRE_ERASE;
     } else {
-      // TODO - handle wrong state
+      // TODO - handle error
     }
 
-  } else if (cmd = 0x00) { // erase
-    if (prog_state == STATE_PRE_ERASE) {
-      erase_memory();
+  } else if (const auto msg = raw_msg.decode_and_enforce_state<can_msg_erase_flash_t>(STATE_PRE_ERASE)) {
+    if (erase_memory()) {
       prog_state = STATE_READY;
     } else {
-      // TODO - handle wrong state
+      // TODO - handle error
     }
 
-  } else if (cmd = 0x00) { // select page
-    if (prog_state == STATE_READY) {
-      prog_state = STATE_PAGE_SELECTED;
-      active_pg_id = 0x00;
-      for (size_t i = 0; i < NUM_CAN_CHUNKS_PER_PAGE; i++) {
-        chunk_rcv[i] = false;
-      }
+  } else if (const auto msg = raw_msg.decode_and_enforce_state<can_msg_select_page_t>(STATE_READY)) {
+    prog_state = STATE_PAGE_SELECTED;
+    active_pg_addr = msg->page_addr;
+    for (size_t i = 0; i < NUM_CAN_CHUNKS_PER_PAGE; i++) {
+      chunk_rcv[i] = false;
+    }
+
+  } else if (const auto msg = raw_msg.decode_and_enforce_state<can_msg_mem_packet_t>(STATE_PAGE_SELECTED)) {
+    if (msg->page_addr == active_pg_addr) {
+      static_assert(sizeof(msg->flash_bytes) == CAN_CHUNK_SIZE);
+      memcpy(&page_cache[msg->chunk_addr * CAN_CHUNK_SIZE], msg->flash_bytes, CAN_CHUNK_SIZE);
+      chunk_rcv[msg->chunk_addr] = true;
     } else {
-      // TODO - handle wrong state
+      // TODO - handle wrong page addr
+    }
+
+  } else if (const auto msg = raw_msg.decode_and_enforce_state<can_msg_write_flash_t>(STATE_PAGE_SELECTED)) {
+    bool all_chunk_rcv = true;
+    for (size_t i = 0; i < NUM_CAN_CHUNKS_PER_PAGE; i++) {
+      if (!chunk_rcv) {
+        // TODO - send request message
+        all_chunk_rcv = false;
+      }
+    }
+
+    if (all_chunk_rcv) {
+      for (size_t i = 0; i < NUM_WRITE_CHUNKS_PER_PAGE; i++) {
+        static_assert(WRITE_CHUNK_SIZE <= 256);
+        write_memory(active_pg_addr * PAGE_CACHE_SIZE + WRITE_CHUNK_SIZE * i, &page_cache[WRITE_CHUNK_SIZE * i], WRITE_CHUNK_SIZE);
+      }
+      prog_state = STATE_READY;
     }
   }
 
-  else if (cmd = 0x00) { // write mem
-    if (prog_state == STATE_PAGE_SELECTED) {
-      bool all_chunk_rcv = true;
-      for (size_t i = 0; i < NUM_CAN_CHUNKS_PER_PAGE; i++) {
-        if (!chunk_rcv) {
-          // TODO - send request message
-          all_chunk_rcv = false;
-        }
-      }
-
-      if (all_chunk_rcv) {
-        for (size_t i = 0; i < NUM_WRITE_CHUNKS_PER_PAGE; i++) {
-          static_assert(WRITE_CHUNK_SIZE <= 256);
-          write_memory(active_pg_id * PAGE_CACHE_SIZE + WRITE_CHUNK_SIZE * i, &page_cache[WRITE_CHUNK_SIZE * i], WRITE_CHUNK_SIZE);
-        }
-        prog_state = STATE_READY;
-      }
-    } else {
-      // TODO - handle wrong state
-    }
-
-  } else if (cmd = 0x00) { // rcv chunk
-    // page_cache[] = incoming;
-    // chunk_rcv[] = true;
-
-  } else {
-    // TODO
-  }
+  raw_msg.send_error_if_not_decoded();
 }
