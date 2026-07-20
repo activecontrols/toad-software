@@ -1,7 +1,7 @@
 #include <Arduino.h>
 
 #include "CommsSerial.h"
-#include "f4_prog_pins.h"
+#include "prog_pins.h"
 #include "toad_can_bus.h"
 
 // Based on https://www.st.com/resource/en/application_note/an4286-how-to-use-spi-protocol-in-bootloader-on-stm32-mcus-stmicroelectronics.pdf
