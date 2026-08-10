@@ -7,15 +7,18 @@
 // - Introduction, links and more at the top of imgui.cpp
 
 // Modified by RobertJN64 to add plot support and split render into its own file
-
-#include "fluids_data.h"
 #include "imgui.h"
 #include "imgui_impl_dx11.h"
 #include "imgui_impl_win32.h"
-#include "pid_diagram.h"
-#include "ui.h"
+#include "implot.h"
+#include "implot3d.h"
 #include <d3d11.h>
 #include <tchar.h>
+
+#include "flight_data.h"
+#include "fluids_data.h"
+#include "pid_diagram.h"
+#include "ui.h"
 
 // Data
 static ID3D11Device *g_pd3dDevice = nullptr;
@@ -36,6 +39,9 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 int main(int argc, char **argv) {
   init_diagram();
   init_fluids_data();
+  // init_flight_data();
+
+  // platform_begin();
 
   // Make process DPI aware and obtain main monitor scale
   ImGui_ImplWin32_EnableDpiAwareness();
@@ -60,6 +66,8 @@ int main(int argc, char **argv) {
   // Setup Dear ImGui context
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
+  ImPlot::CreateContext();
+  ImPlot3D::CreateContext();
   ImGuiIO &io = ImGui::GetIO();
   (void)io;
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
@@ -87,6 +95,14 @@ int main(int argc, char **argv) {
     style.WindowRounding = 0.0f;
     style.Colors[ImGuiCol_WindowBg].w = 1.0f;
   }
+
+  ImPlotStyle &plotStyle = ImPlot::GetStyle();
+  plotStyle.PlotBorderSize = 1.0f;                                                             // thickness of border
+  plotStyle.Colors[ImPlotCol_FrameBg] = style.Colors[ImGuiCol_ChildBg];                        // Plot background
+  plotStyle.Colors[ImPlotCol_PlotBorder] = ImVec4(205 / 255.0, 159 / 255.0, 38 / 255.0, 1.0f); // Plot border
+
+  ImPlot3DStyle &plot3DStyle = ImPlot3D::GetStyle();
+  plot3DStyle.Colors[ImPlot3DCol_FrameBg] = style.Colors[ImGuiCol_ChildBg]; // Plot background
 
   // Setup Platform/Renderer backends
   ImGui_ImplWin32_Init(hwnd);
@@ -135,6 +151,7 @@ int main(int argc, char **argv) {
     }
 
     fluids_data_periodic();
+    // flight_data_periodic();
 
     // Start the Dear ImGui frame
     ImGui_ImplDX11_NewFrame();
@@ -164,13 +181,16 @@ int main(int argc, char **argv) {
   // Cleanup
   ImGui_ImplDX11_Shutdown();
   ImGui_ImplWin32_Shutdown();
-
+  ImPlot3D::DestroyContext();
+  ImPlot::DestroyContext();
   ImGui::DestroyContext();
   deinit_fluids_data();
 
   CleanupDeviceD3D();
   ::DestroyWindow(hwnd);
   ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+
+  // deinit_flight_data();
 
   return 0;
 }
