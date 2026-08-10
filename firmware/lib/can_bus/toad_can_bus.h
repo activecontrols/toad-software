@@ -65,6 +65,13 @@ struct can_msg_unexpected_state_t {
 };
 
 // Telemetry Messages (ID range 0b0001_XXXX)
+struct can_msg_fc_telemetry {
+  uint8_t cmd_id = 0x10;
+};
+
+struct can_msg_ec_telemetry {
+  uint8_t cmd_id = 0x11;
+};
 
 // Flight Commands (ID range 0b0010_XXXX)
 
@@ -95,6 +102,8 @@ struct can_msg_mem_packet_t {
 
 struct can_msg_request_mem_packet_t {
   uint8_t cmd_id = 0x35;
+  uint8_t chunk_addr;
+  uint16_t page_addr;
 };
 
 struct can_msg_write_flash_t {

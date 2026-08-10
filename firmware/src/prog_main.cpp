@@ -215,6 +215,9 @@ void loop() {
     bool all_chunk_rcv = true;
     for (size_t i = 0; i < NUM_CAN_CHUNKS_PER_PAGE; i++) {
       if (!chunk_rcv) {
+        can_msg_request_mem_packet_t resp;
+        resp.chunk_addr = i;
+        resp.page_addr = active_pg_addr;
         // TODO - send request message
         all_chunk_rcv = false;
       }
@@ -224,6 +227,7 @@ void loop() {
       for (size_t i = 0; i < NUM_WRITE_CHUNKS_PER_PAGE; i++) {
         static_assert(WRITE_CHUNK_SIZE <= 256);
         write_memory(active_pg_addr * PAGE_CACHE_SIZE + WRITE_CHUNK_SIZE * i, &page_cache[WRITE_CHUNK_SIZE * i], WRITE_CHUNK_SIZE);
+        // TODO - send ok
       }
       prog_state = STATE_READY;
     }
