@@ -85,7 +85,7 @@ void flight_loop() {
   // TODO - reset sensors and outputs
   ThrottleValves::set_angles_ox_fu(STARTING_VALVE_ANGLE_OX, STARTING_VALVE_ANGLE_FU);
   TVC_Actuators::set_angles_pitch_yaw(0.0, 0.0);
-  RCS::reset();
+  RCS::close();
 
   while (true) {
     while (CommsSerial.available()) {
@@ -113,4 +113,8 @@ void flight_loop() {
       RCS::update_rcs_valves(rcs_force);
     }
   }
+
+  // TODO - safe remaining valves
+  ThrottleValves::stop();
+  RCS::close();
 }

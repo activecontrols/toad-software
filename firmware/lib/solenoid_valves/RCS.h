@@ -2,7 +2,7 @@
 
 namespace RCS {
 
-void reset();
+void close();
 void update_rcs_valves(float rcs_force);
 
 } // namespace RCS

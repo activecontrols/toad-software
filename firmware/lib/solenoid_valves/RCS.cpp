@@ -5,7 +5,7 @@
 
 namespace RCS {
 
-void reset() {
+void close() {
   SolenoidValves::set_valve_by_num(SolenoidValves::SV_N2_01_rcs_pos_1, SolenoidValves::VALVE_CLOSE, false);
   SolenoidValves::set_valve_by_num(SolenoidValves::SV_N2_01_rcs_pos_1, SolenoidValves::VALVE_CLOSE, false);
   SolenoidValves::set_valve_by_num(SolenoidValves::SV_N2_01_rcs_pos_1, SolenoidValves::VALVE_CLOSE, false);
