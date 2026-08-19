@@ -18,11 +18,13 @@ jobs:
           msystem: MINGW64
           update: true
           install: >-
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-make
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-make
 
       - name: Build UI with mingw32-make
-        shell: msys2 {0}
+        shell: cmd
+        env:
+          PATH: C:\msys64\ucrt64\bin;%PATH%
         run: |
           mingw32-make -f UI.mk
 
