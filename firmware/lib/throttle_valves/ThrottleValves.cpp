@@ -1,8 +1,10 @@
 #include "ThrottleValves.h"
+#include "ec_pins.h"
 #include "toad_can_bus.h"
 
 void ThrottleValve::begin() {
   motor.begin();
+  encoder.begin();
 }
 
 void ThrottleValve::stop() {
@@ -14,6 +16,9 @@ void ThrottleValve::stop() {
 // could use heartbeat to solve
 // TODO - control loop logic
 void ThrottleValve::set_position(float angle) {
+  float current_angle;
+  // TODO - handle return value
+  (void)encoder.read_pos(&current_angle);
   // current_angle = encoder.get_pos();
   // target_speed = (angle - current_angle) * K;
   motor.set_speed();
@@ -21,8 +26,9 @@ void ThrottleValve::set_position(float angle) {
 
 namespace ThrottleValves {
 
-ThrottleValve ox_valve(CAN_ID_STEPPER_OX);
-ThrottleValve fu_valve(CAN_ID_STEPPER_FU);
+// TODO - set encoder ID?
+ThrottleValve ox_valve(CAN_ID_STEPPER_OX, OX_ENC_RS485_BUS, PIN_OX_ENC_DE, PIN_OX_ENC_RE, 0);
+ThrottleValve fu_valve(CAN_ID_STEPPER_FU, FU_ENC_RS485_BUS, PIN_FU_ENC_DE, PIN_FU_ENC_RE, 0);
 
 // TODO - don't just return true here!
 bool begin() {
@@ -38,7 +44,10 @@ void stop() {
   fu_valve.stop();
 }
 
-// TODO - this function
-void set_angles_ox_fu(float ox_angle, float fu_angle) {}
+// Set target position of both valves.
+void set_angles_ox_fu(float ox_angle, float fu_angle) {
+  ox_valve.set_position(ox_angle);
+  fu_valve.set_position(fu_angle);
+}
 
 } // namespace ThrottleValves

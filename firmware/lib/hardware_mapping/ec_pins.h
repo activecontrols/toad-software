@@ -16,10 +16,24 @@
 #define PIN_HW_FALLBACK_SERIAL_TX NC
 
 // RS485 Busses (UART1 and UART4)
+// these are declared in ec_main
+extern HardwareSerial RS485_1; // RS485 on UART 1
+extern HardwareSerial RS485_4; // RS485 on UART 4
+
+// TODO - consider making an RS485 device struct that bundles these per device
+
 #define PIN_RS485_1_RX NC
 #define PIN_RS485_1_TX NC
 #define PIN_RS485_4_RX NC
 #define PIN_RS485_4_TX NC
+
+#define OX_ENC_RS485_BUS RS485_1
+#define PIN_OX_ENC_DE NC
+#define PIN_OX_ENC_RE NC
+
+#define FU_ENC_RS485_BUS RS485_4
+#define PIN_FU_ENC_DE NC
+#define PIN_FU_ENC_RE NC
 
 // SPI
 #define PIN_PT_TC_SPI_1_MOSI NC
