@@ -1,0 +1,35 @@
+name: Windows UI Build
+
+on: [push]
+  
+jobs:
+  build-ui:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Set up MSYS2 (MinGW)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-make
+
+      - name: Build UI with mingw32-make
+        shell: msys2 {0}
+        run: |
+          mingw32-make -f UI.mk
+
+      - name: Upload executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: toad-ui
+          path: |
+            UI/imgui/misc/fonts/Cousine-Regular.ttf
+            UI/app.exe
