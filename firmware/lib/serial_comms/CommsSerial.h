@@ -56,7 +56,8 @@ public:
   }
 
   // "multi-print"
-  template <typename T, typename... Args> void mprint(const T &t, const Args &...args) { // recursive case. all of this is done at compile time.
+  template <typename T, typename... Args>
+  void mprint(const T &t, const Args &...args) { // recursive case. all of this is done at compile time.
     BaseSerial::print(t);
     mprint(args...);
   }

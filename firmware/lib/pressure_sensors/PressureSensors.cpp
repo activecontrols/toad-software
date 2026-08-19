@@ -62,12 +62,14 @@ pressure_readings_t read_pts() {
 
   // TODO - for performance, consider parallelizing across the busses (only if needed)
   // TODO - sanity check values
-  pt_readings.crc_errors |= pt_board_1_2.read_pts(&pt_readings.PT_1, &pt_readings.PT_2) ? NO_PT_CRC_ERRS : PT_BOARD_1_2_CRC_ERR;
-  pt_readings.crc_errors |= pt_board_3_4.read_pts(&pt_readings.PT_3, &pt_readings.PT_4) ? NO_PT_CRC_ERRS : PT_BOARD_3_4_CRC_ERR;
-  pt_readings.crc_errors |= pt_board_5_6.read_pts(&pt_readings.PT_5, &pt_readings.PT_6) ? NO_PT_CRC_ERRS : PT_BOARD_5_6_CRC_ERR;
-  pt_readings.crc_errors |= pt_board_7_8.read_pts(&pt_readings.PT_7, &pt_readings.PT_8) ? NO_PT_CRC_ERRS : PT_BOARD_7_8_CRC_ERR;
-  pt_readings.crc_errors |= pt_board_9_10.read_pts(&pt_readings.PT_9, &pt_readings.PT_10) ? NO_PT_CRC_ERRS : PT_BOARD_9_10_CRC_ERR;
+  /* clang-format off */
+  pt_readings.crc_errors |= pt_board_1_2.read_pts(  &pt_readings.PT_1,  &pt_readings.PT_2)  ? NO_PT_CRC_ERRS : PT_BOARD_1_2_CRC_ERR;
+  pt_readings.crc_errors |= pt_board_3_4.read_pts(  &pt_readings.PT_3,  &pt_readings.PT_4)  ? NO_PT_CRC_ERRS : PT_BOARD_3_4_CRC_ERR;
+  pt_readings.crc_errors |= pt_board_5_6.read_pts(  &pt_readings.PT_5,  &pt_readings.PT_6)  ? NO_PT_CRC_ERRS : PT_BOARD_5_6_CRC_ERR;
+  pt_readings.crc_errors |= pt_board_7_8.read_pts(  &pt_readings.PT_7,  &pt_readings.PT_8)  ? NO_PT_CRC_ERRS : PT_BOARD_7_8_CRC_ERR;
+  pt_readings.crc_errors |= pt_board_9_10.read_pts( &pt_readings.PT_9,  &pt_readings.PT_10) ? NO_PT_CRC_ERRS : PT_BOARD_9_10_CRC_ERR;
   pt_readings.crc_errors |= pt_board_11_12.read_pts(&pt_readings.PT_11, &pt_readings.PT_12) ? NO_PT_CRC_ERRS : PT_BOARD_11_12_CRC_ERR;
+  /* clang-format on */
 
   return pt_readings;
 }

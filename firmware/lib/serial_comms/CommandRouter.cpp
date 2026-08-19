@@ -77,7 +77,8 @@ void receive_byte(uint8_t c) {
     command_buffer_pos++;
     escaped = false;
     if (command_buffer_pos == MAX_CMD_LEN) { // we need an extra byte at the end to guarantee a safe null-terminate
-      command_buffer_pos = 0;                // something went wrong and we never saw a non-escaped END_CHAR so just go back to 0 and try again
+      // something went wrong and we never saw a non-escaped END_CHAR so just go back to 0 and try again
+      command_buffer_pos = 0;
     }
   }
 }
@@ -117,7 +118,9 @@ void add(std::function<void(const uint8_t *, size_t)> f, const char *name, const
 
 // register a function that takes a null terminated buffer
 void add(std::function<void(const char *)> fstr, const char *name, const char *help) {
-  std::function<void(const uint8_t *, size_t)> f = [fcap = fstr](const uint8_t *str, size_t) { fcap((const char *)str); };
+  std::function<void(const uint8_t *, size_t)> f = [fcap = fstr](const uint8_t *str, size_t) {
+    fcap((const char *)str);
+  };
   commands.push_back({f, name, help});
 }
 

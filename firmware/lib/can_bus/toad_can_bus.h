@@ -42,7 +42,8 @@ struct can_msg_heartbeat_t {
   uint8_t cmd_id = 0x00;
 };
 
-// Sent as an error reply when device receives a command with an invalid ID, or that command is not supported on this device.
+// Sent as an error reply when device receives a command with an invalid ID,
+// or that command is not supported on this device.
 struct can_msg_invalid_cmd_t {
   uint8_t cmd_id = 0x01;
   uint8_t rcv_cmd_id; // The command that was received.
@@ -120,7 +121,8 @@ template <typename state_t> class CAN_Msg_Decoder {
 
 public:
   // Helper for decoding a raw buffer into a can msg with error handling.
-  CAN_Msg_Decoder(const uint8_t *raw_bytes, size_t len, state_t state) : decoded(false), raw_bytes(raw_bytes), len(len), state(state) {};
+  CAN_Msg_Decoder(const uint8_t *raw_bytes, size_t len, state_t state)
+      : decoded(false), raw_bytes(raw_bytes), len(len), state(state) {};
 
   // Decode a raw buffer into a CAN message of the specified type and verify the state machine state.
   // If the command has already been decoded, does nothing and returns std::nullopt.

@@ -46,9 +46,14 @@ bool begin() {
     pinMode(sv_and_bvs[i].pin, OUTPUT);
   }
 
-  CommandRouter::add(open_valve_by_name, "open_valve", "Opens a solenoid or ball valve. Provide either the P&ID name `SV_N2_01` or the full name `SV_N2_01_rcs_pos_1`.");
-  CommandRouter::add(close_valve_by_name, "close_valve", "Closes a solenoid or ball valve. Provide either the P&ID name `SV_N2_01` or the full name `SV_N2_01_rcs_pos_1`.");
-  CommandRouter::add(set_valves_from_valve_state_cmd, "sv_ui", "Sets all valves, intended to be used as a UI cmd.");
+  /* clang-format off */
+  CommandRouter::add(open_valve_by_name, "open_valve", 
+    "Opens a solenoid or ball valve. Provide either the P&ID name `SV_N2_01` or the full name `SV_N2_01_rcs_pos_1`.");
+  CommandRouter::add(close_valve_by_name, "close_valve",
+    "Closes a solenoid or ball valve. Provide either the P&ID name `SV_N2_01` or the full name `SV_N2_01_rcs_pos_1`.");
+  CommandRouter::add(set_valves_from_valve_state_cmd, "sv_ui", 
+    "Sets all valves, intended to be used as a UI cmd.");
+  /* clang-format on */
 
   return true;
 }
@@ -111,7 +116,8 @@ void set_valve_by_name(const char *name, valve_state_t state) {
     }
   }
 
-  CommsSerial.printf("Valve name <%s> not found. Use either the exact full name or P&ID name with underscores.\n", name);
+  CommsSerial.printf("Valve name <%s> not found. Use either the exact full name or P&ID name with underscores.\n",
+                     name);
 }
 
 // Open valve by its name (either short name or full name). Prints error if name not found.
