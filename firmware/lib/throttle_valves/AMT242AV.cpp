@@ -5,7 +5,8 @@
 // max reading for a 12 bit encoder
 #define MAX_READING ((1 << 12) - 1)
 
-AMT242AV::AMT242AV(HardwareSerial &uart, unsigned int DE, unsigned int RE, uint8_t ID) : uart(uart), DE(DE), RE(RE), ID(ID) {}
+AMT242AV::AMT242AV(HardwareSerial &uart, unsigned int DE, unsigned int RE, uint8_t ID)
+    : uart(uart), DE(DE), RE(RE), ID(ID) {}
 
 void AMT242AV::begin() {
   digitalWrite(DE, LOW);
@@ -56,11 +57,11 @@ bool AMT242AV::_read_pos(uint16_t *out) {
   if (!wait_for_avail()) {
     goto FAIL;
   }
-  res |= Serial1.read();
+  res |= uart.read();
   if (!wait_for_avail()) {
     goto FAIL;
   }
-  res |= Serial1.read() << 8;
+  res |= uart.read() << 8;
 
   digitalWrite(RE, HIGH);
 
@@ -97,8 +98,9 @@ FAIL:
   return false;
 }
 
-// read position as a fraction of total range of motion (outputs float between 0.0 and 1.0) (0.0 -> 0 degrees, ..., 1.0 -> 360
-// degrees) this encoder is 12 bit resolution which is approx. 0.1 degree resolution
+// read position as a fraction of total range of motion (outputs float between 0.0 and 1.0)
+// (0.0 -> 0 degrees, ..., 1.0 -> 360 degrees)
+// this encoder is 12 bit resolution which is approx. 0.1 degree resolution
 bool AMT242AV::read_pos(float *out, int max_tries) {
   uint16_t raw_pos;
   for (int i = 0; i < max_tries; ++i) {
