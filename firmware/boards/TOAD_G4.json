@@ -1,0 +1,32 @@
+{
+  "name": "TOAD Programming Core",
+  "vendor": "Custom PCB",
+  "url": "https://purdue-space-program.atlassian.net/wiki/spaces/PAC/pages/2045575171/Configuring+a+custom+board+with+PlatformIO",
+  "frameworks": [
+    "arduino"
+  ],
+  "build": {
+    "core": "stm32",
+    "cpu": "cortex-m4",
+    "mcu": "stm32g474",
+    "variants_dir": "boards",
+    "variant": "TOAD_G4",
+    "extra_flags": [
+      "-DSTM32G4",
+      "-DSTM32G4xx",
+      "-DSTM32G474xx"
+    ]
+  },
+  "upload": {
+    "maximum_ram_size": 131072,
+    "maximum_size": 524288,
+    "protocol": "stlink",
+    "protocols": [
+      "stlink"
+    ]
+  },
+  "debug": {
+    "openocd_target": "stm32g4x",
+    "load_mode": "default"
+  }
+}
