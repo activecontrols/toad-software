@@ -27,6 +27,7 @@
   },
   "debug": {
     "openocd_target": "stm32g4x",
-    "load_mode": "default"
+    "load_mode": "default",
+    "svd_path": "STM32G474xx.svd"
   }
 }

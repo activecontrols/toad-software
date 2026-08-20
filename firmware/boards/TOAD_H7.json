@@ -13,12 +13,14 @@
     "variant": "TOAD_H7",
     "extra_flags": [
       "-DCORE_CM7",
+      "-DSTM32H7",
+      "-DSTM32H7xx",
       "-DSTM32H747xx"
     ]
   },
   "upload": {
-    "maximum_ram_size": 131072,
-    "maximum_size": 524288,
+    "maximum_ram_size": 2097152,
+    "maximum_size": 884736,
     "protocol": "stlink",
     "protocols": [
       "stlink"
@@ -26,6 +28,7 @@
   },
   "debug": {
     "openocd_target": "stm32h7x_dual_bank",
-    "load_mode": "default"
+    "load_mode": "default",
+    "svd_path": "STM32H747_CM7.svd"
   }
 }
