@@ -21,28 +21,10 @@ jobs:
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-make
 
-      - name: Debug - list workspace contents
-        shell: cmd
-        run: |
-          echo Current directory:
-          cd
-          echo.
-          echo Contents of workspace:
-          dir
-          echo.
-          echo PATH is:
-          echo %PATH%
-          echo.
-          echo Checking for UI.mk:
-          if exist UI.mk (echo UI.mk found) else (echo UI.mk NOT FOUND)
-          echo.
-          echo Checking mingw32-make on PATH:
-          where mingw32-make
-
       - name: Build UI with mingw32-make
         shell: cmd
         run: |
-          mingw32-make -f UI.mk
+          mingw32-make -f UI.mk SHELL=cmd.exe
 
       - name: Upload executable
         uses: actions/upload-artifact@v4
