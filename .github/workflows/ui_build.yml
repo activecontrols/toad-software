@@ -15,18 +15,18 @@ jobs:
       - name: Set up MSYS2 (MinGW)
         uses: msys2/setup-msys2@v2
         with:
-          msystem: UCRT64
+          msystem: MINGW64
           update: true
           install: >-
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-make
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-make
 
       - name: Build UI with mingw32-make
         shell: cmd
         env:
-          PATH: C:\msys64\ucrt64\bin;%PATH%
+          PATH: C:\msys64\mingw64\bin;%PATH%
         run: |
-          make -f UI.mk
+          mingw32-make -f UI.mk
 
       - name: Upload executable
         uses: actions/upload-artifact@v4
