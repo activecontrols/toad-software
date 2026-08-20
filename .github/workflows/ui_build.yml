@@ -33,25 +33,20 @@ jobs:
           echo PATH is:
           echo %PATH%
           echo.
-          echo PATH is:
-          echo %PATH%
-          echo.
           echo Checking for UI.mk:
           if exist UI.mk (echo UI.mk found) else (echo UI.mk NOT FOUND)
           echo.
           echo Checking mingw32-make on PATH:
           where mingw32-make
           echo ucrt64:
-          cd C:\msys64\ucrt64\bin
-          dir
+          cd C:\msys64\ucrt64\bin; dir
+          echo msys64 mingw64:
+          cd C:\msys64\mingw64\bin; dir
           echo mingw64:
-          cd C:\msys64\mingw64\bin
-          dir
+          cd C:\mingw64\bin\; dir
 
       - name: Build UI with mingw32-make
         shell: cmd
-        env:
-          PATH: C:\msys64\mingw64\bin;%PATH%
         run: |
           mingw32-make -f UI.mk
 
