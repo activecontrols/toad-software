@@ -38,12 +38,6 @@ jobs:
           echo.
           echo Checking mingw32-make on PATH:
           where mingw32-make
-          echo ucrt64:
-          cd C:\msys64\ucrt64\bin; dir
-          echo msys64 mingw64:
-          cd C:\msys64\mingw64\bin; dir
-          echo mingw64:
-          cd C:\mingw64\bin\; dir
 
       - name: Build UI with mingw32-make
         shell: cmd
