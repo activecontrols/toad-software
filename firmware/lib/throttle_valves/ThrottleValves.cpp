@@ -9,19 +9,20 @@ void ThrottleValve::begin() {
 
 void ThrottleValve::stop() {
   // TODO - do additional logic for enabling/disabling breaking, estop vs normal stop, etc.?
-  motor.set_speed(/* 0 */);
+  motor.set_speed(0);
 }
 
 // TODO - if this turns the motor on, make sure we don't leave it on by mistake!
 // could use heartbeat to solve
-// TODO - control loop logic
+// TODO - PID controller logic
 void ThrottleValve::set_position(float angle) {
+  float K = 1; // TODO - set this constant
+
   float current_angle;
   // TODO - handle return value
   (void)encoder.read_pos(&current_angle);
-  // current_angle = encoder.get_pos();
-  // target_speed = (angle - current_angle) * K;
-  motor.set_speed();
+  float target_speed = (angle - current_angle) * K;
+  motor.set_speed(target_speed);
 }
 
 namespace ThrottleValves {
