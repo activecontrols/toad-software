@@ -71,4 +71,4 @@ public:
 extern CommsSerial_t<Uart> HW_CommsSerial;
 extern CommsSerial_t<USBSerial> USB_CommsSerial;
 
-#define CommsSerial HW_CommsSerial
+#define CommsSerial USB_CommsSerial
