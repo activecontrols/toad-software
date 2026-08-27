@@ -1,4 +1,6 @@
 #include "stm32h7xx_hal.h"
+#include "Arduino.h"
+#include "fdcan_toad.h"
 
 /*
 jhillman notes:
@@ -56,13 +58,6 @@ UM2217 (UM) Rev 6 (Description of STM32H7 HAL and low-layer drivers)
 for actuator CAN: likely configuration is to store all incoming messages in rx FIFO 0, no filtering
 */
 
-
-static void Error_Handler(void)
-{
-  for (;;);
-}
-
-
 // adapted from https://github.com/STMicroelectronics/STM32CubeH7/blob/master/Projects/STM32H743I-EVAL/Examples/FDCAN/FDCAN_Classic_Frame_Networking/Src/stm32h7xx_hal_msp.c
 void HAL_FDCAN_MspInit(FDCAN_HandleTypeDef* hfdcan)
 {
@@ -103,15 +98,16 @@ void HAL_FDCAN_MspInit(FDCAN_HandleTypeDef* hfdcan)
 
 }
 
-namespace CAN1
-{
 
-// HAL handle for accessing FDCAN peripheral
-static FDCAN_HandleTypeDef hfdcan;
+CAN::CAN(FDCAN_GlobalTypeDef* instance)
+{
+  this->hfdcan = {0};
+  this->hfdcan.Instance = instance;
+}
+
 
 // jhillman adapted from https://github.com/STMicroelectronics/STM32CubeH7/blob/master/Projects/STM32H743I-EVAL/Examples/FDCAN/FDCAN_Classic_Frame_Networking/Src/main.c
-// TODO: determine which FDCAN to use (1 or 2) - for now 1 is assumed
-void init(void)
+void CAN::init(void)
 {
   // excerpt from the HAL_FDCAN_Init: (since this is for classic CAN, no need to fill out the data bit timing register related fields)
 
@@ -132,28 +128,27 @@ void init(void)
 
   FDCAN_FilterTypeDef sFilterConfig;
 
-  hfdcan.Instance = FDCAN1;
-  hfdcan.Init.FrameFormat = FDCAN_FRAME_CLASSIC;
-  hfdcan.Init.Mode = FDCAN_MODE_NORMAL;
-  hfdcan.Init.AutoRetransmission = ENABLE;
-  hfdcan.Init.TransmitPause = DISABLE;
-  hfdcan.Init.ProtocolException = ENABLE;
-  hfdcan.Init.NominalPrescaler = 3; // jhillman: I expect the peripheral clock to be 120MHz; I divide by 3, therefore kernel clock is 40MHz or 1 tq = 25ns
-  hfdcan.Init.NominalSyncJumpWidth = 8;
-  hfdcan.Init.NominalTimeSeg1 = 31; /* NominalTimeSeg1 = Propagation_segment + Phase_segment_1 */
-  hfdcan.Init.NominalTimeSeg2 = 8; // bit time = (1 tq (sync time; fixed)) + NominalTimeSeg1 + NominalTimeSeg2 = 40 tq = 1us or 1Mbps
-  hfdcan.Init.MessageRAMOffset = 0;
-  hfdcan.Init.StdFiltersNbr = 0; // not using any filters on this bus - that way CPU receives all messages (since we are just talking to actuators anyway, this is fine)
-  hfdcan.Init.ExtFiltersNbr = 0;
-  hfdcan.Init.RxFifo0ElmtsNbr = 16;
-  hfdcan.Init.RxFifo0ElmtSize = FDCAN_DATA_BYTES_8;
-  hfdcan.Init.RxFifo1ElmtsNbr = 0;
-  hfdcan.Init.RxBuffersNbr = 0;
-  hfdcan.Init.TxEventsNbr = 0;
-  hfdcan.Init.TxBuffersNbr = 0;
-  hfdcan.Init.TxFifoQueueElmtsNbr = 16;
-  hfdcan.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION; // other option is queue operation; with fifo messages are sent in the order they are placed in the fifo, with queue they are sent in order of priority. i think we want fifo
-  hfdcan.Init.TxElmtSize = FDCAN_DATA_BYTES_8;
+  this->hfdcan.Init.FrameFormat = FDCAN_FRAME_CLASSIC;
+  this->hfdcan.Init.Mode = FDCAN_MODE_NORMAL;
+  this->hfdcan.Init.AutoRetransmission = ENABLE;
+  this->hfdcan.Init.TransmitPause = DISABLE;
+  this->hfdcan.Init.ProtocolException = ENABLE;
+  this->hfdcan.Init.NominalPrescaler = 3; // jhillman: I expect the peripheral clock to be 120MHz; I divide by 3, therefore kernel clock is 40MHz or 1 tq = 25ns
+  this->hfdcan.Init.NominalSyncJumpWidth = 8;
+  this->hfdcan.Init.NominalTimeSeg1 = 31; /* NominalTimeSeg1 = Propagation_segment + Phase_segment_1 */
+  this->hfdcan.Init.NominalTimeSeg2 = 8; // bit time = (1 tq (sync time; fixed)) + NominalTimeSeg1 + NominalTimeSeg2 = 40 tq = 1us or 1Mbps
+  this->hfdcan.Init.MessageRAMOffset = 0;
+  this->hfdcan.Init.StdFiltersNbr = 0; // not using any filters on this bus - that way CPU receives all messages (since we are just talking to actuators anyway, this is fine)
+  this->hfdcan.Init.ExtFiltersNbr = 0;
+  this->hfdcan.Init.RxFifo0ElmtsNbr = 16;
+  this->hfdcan.Init.RxFifo0ElmtSize = FDCAN_DATA_BYTES_8;
+  this->hfdcan.Init.RxFifo1ElmtsNbr = 0;
+  this->hfdcan.Init.RxBuffersNbr = 0;
+  this->hfdcan.Init.TxEventsNbr = 0;
+  this->hfdcan.Init.TxBuffersNbr = 1;
+  this->hfdcan.Init.TxFifoQueueElmtsNbr = 16;
+  this->hfdcan.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION; // other option is queue operation; with fifo messages are sent in the order they are placed in the fifo, with queue they are sent in order of priority. i think we want fifo
+  this->hfdcan.Init.TxElmtSize = FDCAN_DATA_BYTES_8;
 
   // step 1: initialize the FDCAN peripheral
   if (HAL_FDCAN_Init(&hfdcan) != HAL_OK)
@@ -165,9 +160,6 @@ void init(void)
   // step 1 end
 
   // step 2: configure the FDCAN peripheral
-
-  // jhillman todo: configure the event fifo
-
   // filter creation should go around here, but we are not using any (no filtering)
 
   /* Configure global filter to accept all 11 bit ID frames (and reject remote frames); jhillman todo: confirm the hardware on the bus does not use remote frames */
@@ -184,7 +176,7 @@ void init(void)
   }
   // step 3 end
 
-  // if (HAL_FDCAN_ActivateNotification(&hfdcan, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0) != HAL_OK)
+  // if (HAL_FDCAN_ActivateNotification(&hfdcan, FDCAN_IT_TX_FIFO_EMPTY, 0) != HAL_OK)
   // {
   //   /* Notification Error */
   //   Error_Handler();
@@ -195,15 +187,87 @@ void init(void)
 
 
 // get number of elements in the receive fifo
-uint32_t rcv_count(void)
+uint32_t CAN::rcv_count(void)
 {
   return HAL_FDCAN_GetRxFifoFillLevel(&hfdcan, FDCAN_RX_FIFO0);
 }
 
-// get number free positions in the transmit fifo
-uint32_t tx_free_count(void)
+bool CAN::receive(FDCAN_RxHeaderTypeDef* header, uint8_t* data)
 {
-  return HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan);
+  return (HAL_FDCAN_GetRxMessage(&(this->hfdcan), FDCAN_RX_FIFO0, header, data) == HAL_OK);
 }
 
-}// namespace CAN1
+
+// // get number free positions in the transmit fifo
+// uint32_t tx_free_count(void)
+// {
+//   return HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan);
+// }
+
+
+// return 1 if the buffer is empty, 0 otherwise
+uint32_t CAN::tx_free_count(void)
+{
+  return 1 - HAL_FDCAN_IsTxBufferMessagePending(&hfdcan, 0);
+}
+
+
+bool CAN::send(uint16_t id, uint32_t data_length, const uint8_t* data)
+{
+  FDCAN_TxHeaderTypeDef tx_header = {0};
+  FDCAN_ErrorCountersTypeDef err_count_old = {0};
+  FDCAN_ErrorCountersTypeDef err_count_new = {0};
+
+  // get a snapshot of the error count
+  if (HAL_FDCAN_GetErrorCounters(&hfdcan, &err_count_old) != HAL_OK)
+  {
+    return false;
+  }
+
+  tx_header.Identifier = id;
+  tx_header.IdType = FDCAN_STANDARD_ID;
+  tx_header.DataLength = data_length;
+  tx_header.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+  tx_header.BitRateSwitch = FDCAN_BRS_OFF; // bit rate switching is off
+  tx_header.FDFormat = FDCAN_CLASSIC_CAN;
+  tx_header.TxEventFifoControl = FDCAN_STORE_TX_EVENTS; // events will go in the tx fifo, for feedback so we know whether transmission was successful or not
+  tx_header.MessageMarker = 0;
+
+  // place the message in the first buffer
+  HAL_StatusTypeDef status = HAL_FDCAN_AddMessageToTxBuffer(&hfdcan, &tx_header, data, 0);
+
+  if (status != HAL_OK)
+  {
+    return false;
+  }
+
+  // wait for message transmission to be complete
+  uint32_t start_time = micros();
+
+  bool timed_out = true;
+  while (micros() - start_time < 5000)
+  {
+    if (HAL_FDCAN_IsTxBufferMessagePending(&hfdcan, 0) != 1)
+    {
+      timed_out = false;
+      break;
+    }
+  }
+
+  if (timed_out)
+  {
+    return false;
+  }
+
+  if (HAL_FDCAN_GetErrorCounters(&hfdcan, &err_count_new) != HAL_OK)
+  {
+    return false;
+  }
+
+  if (err_count_old.TxErrorCnt != err_count_new.TxErrorCnt)
+  {
+    return false; // a tx error occurred
+  }
+
+  return true;
+}
