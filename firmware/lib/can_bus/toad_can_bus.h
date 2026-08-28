@@ -22,8 +22,8 @@
 // COTS devices (ID range 0x00X)
 constexpr uint16_t CAN_ID_TVC_PITCH = 0x001;
 constexpr uint16_t CAN_ID_TVC_YAW = 0x002;
-constexpr uint16_t CAN_ID_STEPPER_OX = 0x003;
-constexpr uint16_t CAN_ID_STEPPER_FU = 0x004;
+constexpr uint16_t CAN_ID_STEPPER_OX = 0x001;
+constexpr uint16_t CAN_ID_STEPPER_FU = 0x001;
 
 // Custom boards (ID range 0x01X)
 constexpr uint16_t CAN_ID_FLIGHT_CONTROLLER = 0x011;

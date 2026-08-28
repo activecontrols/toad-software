@@ -1,12 +1,13 @@
 #pragma once
 
-#include "FlexCAN_T4.h"
+#include "CommsSerial.h"
+#include "driver/twai.h"
 
 #include <array>
 #include <stdint.h>
 using std::size_t;
 
-extern FlexCAN_T4<CAN1, RX_SIZE_2, TX_SIZE_16> motorCAN;
+// extern FlexCAN_T4<CAN1, RX_SIZE_2, TX_SIZE_16> motorCAN;
 
 class MksServo57D {
 public:
@@ -51,13 +52,20 @@ private:
     }
     frame[N + 1] = crc;
 
-    CAN_message_t msg;
-    msg.id = 0x01;
-    msg.len = N + 2;
-    for (size_t i = 0; i < msg.len; i++) {
-      msg.buf[i] = frame[i];
+    twai_message_t message;
+    message.identifier = 0x1;             // CAN ID
+    message.extd = 0;                     // 0 = standard (11-bit), 1 = extended (29-bit)
+    message.rtr = 0;                      // not a remote frame
+    message.data_length_code = frame_len; // number of bytes in payload
+    for (size_t i = 0; i < message.data_length_code; i++) {
+      message.data[i] = frame[i];
     }
-    motorCAN.write(msg);
+
+    if (twai_transmit(&message, pdMS_TO_TICKS(1000)) == ESP_OK) {
+      CommsSerial.println("Message sent");
+    } else {
+      CommsSerial.println("Failed to send message");
+    }
   }
 
   uint16_t can_id;

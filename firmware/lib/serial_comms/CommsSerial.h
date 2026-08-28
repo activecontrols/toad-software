@@ -68,6 +68,6 @@ public:
   }
 };
 
-extern CommsSerial_t<usb_serial_class> USB_CommsSerial;
+extern CommsSerial_t<HardwareSerial> USB_CommsSerial;
 
 #define CommsSerial USB_CommsSerial

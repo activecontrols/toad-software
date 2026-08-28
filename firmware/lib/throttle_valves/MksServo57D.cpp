@@ -8,9 +8,36 @@
 
 // See also: https://github.com/whickmott/MKSServoCAN/blob/main/src/MKSServoCAN.cpp
 
-FlexCAN_T4<CAN1, RX_SIZE_2, TX_SIZE_16> motorCAN;
-
 void MksServo57D::begin() {
+  // 1. General config: pins + mode (NORMAL, NO_ACK, LISTEN_ONLY)
+  twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(GPIO_NUM_21, GPIO_NUM_22, TWAI_MODE_NORMAL);
+
+  // 2. Timing config: pick the bitrate your bus uses
+  twai_timing_config_t t_config = TWAI_TIMING_CONFIG_500KBITS();
+
+  // 3. Filter config: accept all messages (no filtering)
+  twai_filter_config_t f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
+
+  // Install driver
+  if (twai_driver_install(&g_config, &t_config, &f_config) != ESP_OK) {
+    CommsSerial.println("Failed to install TWAI driver");
+    return;
+  }
+
+  // Start driver
+  if (twai_start() != ESP_OK) {
+    CommsSerial.println("Failed to start TWAI driver");
+    return;
+  }
+
+  CommsSerial.println("TWAI driver started");
+
+  pinMode(GPIO_NUM_2, OUTPUT);
+  digitalWrite(GPIO_NUM_2, HIGH);
+  delay(100);
+  digitalWrite(GPIO_NUM_2, LOW);
+  delay(10);
+
   std::array<uint8_t, 0> data{};
   send_frame(0x40, data);
 }
