@@ -66,12 +66,12 @@ void set_angles_ox_fu(float ox_angle, float fu_angle) {
   // fu_valve.set_position(fu_angle);
 }
 
-// TODO - deal with status messages across different acutators
-void handle_can_msg(const CAN_message_t &msg) {
-  CommsSerial.printf("New can msg id=%d len=%d\n", msg.id, msg.len);
-  for (size_t i = 0; i < msg.len; i++) {
-    CommsSerial.printf("%d\n", msg.buf[i]);
-  }
-}
+// // TODO - deal with status messages across different acutators
+// void handle_can_msg(const CAN_message_t &msg) {
+//   CommsSerial.printf("New can msg id=%d len=%d\n", msg.id, msg.len);
+//   for (size_t i = 0; i < msg.len; i++) {
+//     CommsSerial.printf("%d\n", msg.buf[i]);
+//   }
+// }
 
 } // namespace ThrottleValves
