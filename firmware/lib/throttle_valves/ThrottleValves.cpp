@@ -35,7 +35,7 @@ ThrottleValve ox_valve(CAN_ID_STEPPER_OX /*, OX_ENC_RS485_BUS, PIN_OX_ENC_DE, PI
 
 void set_speed_cmd(const char *cmd) {
   uint16_t spd;
-  if (sscanf(cmd, "%d", &spd) != 1) {
+  if (sscanf(cmd, "%hd", &spd) != 1) {
     CommsSerial.println("Usage: set_speed rpm");
     return;
   }
@@ -64,6 +64,14 @@ void stop() {
 void set_angles_ox_fu(float ox_angle, float fu_angle) {
   ox_valve.set_position(ox_angle);
   // fu_valve.set_position(fu_angle);
+}
+
+// TODO - deal with status messages across different acutators
+void handle_can_msg(const CAN_message_t &msg) {
+  CommsSerial.printf("New can msg id=%d len=%d\n", msg.id, msg.len);
+  for (size_t i = 0; i < msg.len; i++) {
+    CommsSerial.printf("%d\n", msg.buf[i]);
+  }
 }
 
 } // namespace ThrottleValves

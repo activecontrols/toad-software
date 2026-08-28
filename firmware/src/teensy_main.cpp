@@ -11,11 +11,16 @@ void setup() {
   // All shared interfaces are begun here.
 
   // Use same baud rate on all Comm Serials for consistency.
-  USB_CommsSerial.begin(RADIO_BAUD);
+  // USB_CommsSerial.begin(RADIO_BAUD);
 
   delay(3000);
 
   CommsSerial.println("Engine Controller Started!");
+
+  motorCAN.begin();
+  motorCAN.setBaudRate(500000);
+  motorCAN.enableMBInterrupts(); // enable interrupts on entire can bus
+  motorCAN.onReceive(ThrottleValves::handle_can_msg);
 
   CommandRouter::begin();
 
