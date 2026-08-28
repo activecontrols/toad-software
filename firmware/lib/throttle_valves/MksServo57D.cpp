@@ -52,7 +52,7 @@ void MksServo57D::set_speed(int16_t speed, uint8_t acceleration) {
 
   // MSB is direction, lower 4 bits are the upper 4 bits of the 12 bit speed value.
   // Bits 4-6 intentionally left empty.
-  data[0] = (direction << 7) | ((speed >> 4) & 0xF);
+  data[0] = (direction << 7) | ((speed >> 8) & 0xF);
   data[1] = speed & 0xFF;
   data[2] = acceleration;
 

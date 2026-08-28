@@ -34,7 +34,7 @@ ThrottleValve ox_valve(CAN_ID_STEPPER_OX /*, OX_ENC_RS485_BUS, PIN_OX_ENC_DE, PI
 // ThrottleValve fu_valve(CAN_ID_STEPPER_FU /*, FU_ENC_RS485_BUS, PIN_FU_ENC_DE, PIN_FU_ENC_RE, 0*/);
 
 void set_speed_cmd(const char *cmd) {
-  uint16_t spd;
+  int16_t spd;
   if (sscanf(cmd, "%hd", &spd) != 1) {
     CommsSerial.println("Usage: set_speed rpm");
     return;
