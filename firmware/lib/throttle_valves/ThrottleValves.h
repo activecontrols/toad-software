@@ -23,5 +23,6 @@ namespace ThrottleValves {
 bool begin();
 void stop();
 void set_angles_ox_fu(float ox_angle, float fu_angle);
+void handle_can_msg(const CAN_message_t &msg);
 
 } // namespace ThrottleValves

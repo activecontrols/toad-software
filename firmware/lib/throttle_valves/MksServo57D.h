@@ -1,8 +1,12 @@
 #pragma once
 
+#include "FlexCAN_T4.h"
+
 #include <array>
 #include <stdint.h>
 using std::size_t;
+
+extern FlexCAN_T4<CAN1, RX_SIZE_2, TX_SIZE_16> motorCAN;
 
 class MksServo57D {
 public:
@@ -45,9 +49,15 @@ private:
     for (size_t i = 0; i < N + 1; i++) {
       crc += frame[i];
     }
-    frame[N - 1] = crc;
+    frame[N + 1] = crc;
 
-    // TODO - transmit the frame
+    CAN_message_t msg;
+    msg.id = 0x01;
+    msg.len = N + 2;
+    for (size_t i = 0; i < msg.len; i++) {
+      msg.buf[i] = frame[i];
+    }
+    motorCAN.write(msg);
   }
 
   uint16_t can_id;
