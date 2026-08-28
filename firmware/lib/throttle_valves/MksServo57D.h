@@ -14,7 +14,8 @@ public:
   MksServo57D(uint16_t can_id) : can_id(can_id) {};
   void begin();
   // TODO - set default acceleration
-  void set_speed(int16_t speed, uint8_t acceleration = 100);
+  // Note - acceleration does not handle switching direction well.
+  void set_speed(int16_t speed, uint8_t acceleration = 32);
 
 private:
   // The CAN protocol for the MKS Servo 57D uses Big Endian. Convert an numeric value into a correctly sized array of
