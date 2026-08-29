@@ -1,9 +1,10 @@
 #include "AMT242AV.h"
-
 // TODO - audit code below and update for EC, optionally break out RS485 funcs
 
 // max reading for a 12 bit encoder
 #define MAX_READING ((1 << 12) - 1)
+
+static portMUX_TYPE myMutex = portMUX_INITIALIZER_UNLOCKED;
 
 AMT242AV::AMT242AV(HardwareSerial &uart, unsigned int DE, unsigned int RE, uint8_t ID)
     : uart(uart), DE(DE), RE(RE), ID(ID) {}
@@ -43,15 +44,12 @@ bool AMT242AV::_read_pos(uint16_t *out) {
 
   // send read position command
   uart.write(ID);
-  uart.flush();
 
+  uart.flush();
+  
   //   // wait for uart to finish transmission
   //   while (!(ll_uart_intf->ISR & USART_ISR_TC))
   //     ;
-
-  // switch to receive mode
-  digitalWrite(DE, LOW);
-  digitalWrite(RE, LOW);
 
   uint16_t res = 0;
   if (!wait_for_avail()) {
@@ -93,8 +91,8 @@ bool AMT242AV::_read_pos(uint16_t *out) {
 // fail condition could be either transmission timed out or checksum failed
 FAIL:
   // set MAX485 to inactive state
+  digitalWrite(RE, HIGH); // set RE to high first then DE low so that if both are the same pin we will be receiving instead of driving
   digitalWrite(DE, LOW);
-  digitalWrite(RE, HIGH);
   return false;
 }
 
