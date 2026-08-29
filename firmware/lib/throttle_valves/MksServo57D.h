@@ -63,7 +63,7 @@ private:
     }
 
     if (twai_transmit(&message, pdMS_TO_TICKS(1000)) == ESP_OK) {
-      CommsSerial.println("Message sent");
+      // CommsSerial.println("Message sent");
     } else {
       CommsSerial.println("Failed to send message");
     }

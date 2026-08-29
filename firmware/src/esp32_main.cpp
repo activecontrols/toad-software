@@ -4,6 +4,9 @@
 #include "CommsSerial.h"
 #include "ThrottleValves.h"
 
+
+#include "driver/uart.h"
+
 // shared interfaces
 CommsSerial_t<HardwareSerial> USB_CommsSerial(0);
 
@@ -14,6 +17,10 @@ void setup() {
   USB_CommsSerial.begin(RADIO_BAUD);
 
   CommsSerial.println("Engine Controller Started!");
+
+  #ifndef DEVICE_ESP32
+  CommsSerial.println("DEVICE_ESP32 is not defined\n");
+  #endif
 
   // motorCAN.begin();
   // motorCAN.setBaudRate(500000);
@@ -37,4 +44,6 @@ void loop() {
   while (CommsSerial.available()) {
     CommandRouter::receive_byte(CommsSerial.read());
   }
+
+  ThrottleValves::update();
 }
