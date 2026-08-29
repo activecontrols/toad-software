@@ -4,7 +4,6 @@
 // max reading for a 12 bit encoder
 #define MAX_READING ((1 << 12) - 1)
 
-static portMUX_TYPE myMutex = portMUX_INITIALIZER_UNLOCKED;
 
 static portMUX_TYPE myMutex = portMUX_INITIALIZER_UNLOCKED;
 

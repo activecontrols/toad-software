@@ -11,7 +11,7 @@
 
 #define ENCODER_UPDATE_INTERVAL_MS 5
 
-
+static uint32_t csv_time_start_ms = 0U;
 
 // Wraps angle in degrees to [-180, 180] using fmod
 static float wrapAngleDeg(float angle) {
@@ -49,8 +49,13 @@ void ThrottleValve::set_position(float angle) {
   mode = VALVE_MOVEMENT_MODE_POSITION;
 }
 
-void ThrottleValve::update(void)
+void ThrottleValve::update(bool log_csv)
 {
+  static bool log_csv_sticky = false;
+
+  if (log_csv) log_csv_sticky = true;
+
+
   // no control system to update in these two cases
   if (mode == VALVE_MOVEMENT_MODE_STOPPED) return;
   if (mode == VALVE_MOVEMENT_MODE_CONSTANT_SPEED) return;
@@ -65,20 +70,24 @@ void ThrottleValve::update(void)
     return; // error occurred while trying to read encoder position
   }
   
-  float current_angle = -current_pos * 360.0f; // convert position to deg
+  float current_angle = 360.0f - current_pos * 360.0f; // convert position to deg
 
   float error = wrapAngleDeg(target_angle - current_angle);
   float target_speed = error * K; // proportional controller
 
   // clamp target speed to safe values
-  target_speed = clamp(target_speed, -200.0f, 200.0f);
+  target_speed = clamp(target_speed, -250.0f, 250.0f);
 
 
   // prevent weird jitter
   if (std::fabs(error) < 0.4f) target_speed = 0;
-  else
+  
+
+  if (log_csv_sticky)
   {
-    CommsSerial.printf("Error: %.1f\tTarget Speed: %.1f\tAngle: %.1f\n", error, target_speed, current_angle);
+    float now_time_s = (millis() - csv_time_start_ms) * 1e-3;
+    log_csv_sticky = false;
+    CommsSerial.printf("%.3f,%.2f,%.2f,%.2f,%.2f\n", now_time_s, error, target_speed, current_angle, target_angle);
   }
 
   motor.set_speed(target_speed, 250U);
@@ -136,6 +145,43 @@ void get_position_cmd(const char* cmd)
   }
 }
 
+void motor_follow_profile_cmd(const char* cmd)
+{
+  csv_time_start_ms = millis();
+  CommsSerial.print("Time (s),Error (deg),Target Speed (rpm),Current Angle (deg),Target Angle (deg)\n");
+
+  bool do_log = false; // wait for command from the python script before logging
+  for (;;)
+  {
+    char cmd = ' ';
+    while (CommsSerial.available())
+    {
+      cmd = CommsSerial.read();
+
+      // "goto" command and "quit" command
+      if (cmd == 'g' || cmd == 'q')
+      {
+        break;
+      }
+    }
+
+    if (cmd == 'q') break;
+
+    if (cmd == 'g')
+    { 
+      String arg = CommsSerial.readStringUntil('\n');
+
+      float target_pos = arg.toFloat();
+
+      ox_valve.set_position(target_pos);
+      do_log = true; // log the next control loop update so the python script has new data to work with
+    }
+
+    update(do_log);
+    do_log = false;
+  }
+}
+
 // TODO - don't just return true here!
 bool begin() {
   rs485_test_ser.begin(2000000);
@@ -155,6 +201,7 @@ bool begin() {
   CommandRouter::add(stop, "motor_stop");
   CommandRouter::add(get_position_cmd, "motor_get_position");
   CommandRouter::add(set_position_cmd, "motor_set_position");
+  CommandRouter::add(motor_follow_profile_cmd, "motor_follow_profile"); // meant for use with the valve profile python script (see toad-software/scripts/valve_profile.py)
 
   return true;
 }
@@ -179,10 +226,10 @@ void set_angles_ox_fu(float ox_angle, float fu_angle) {
 //   }
 // }
 
-void update()
+void update(bool log_csv)
 {
   // update all valves
-  ox_valve.update(); 
+  ox_valve.update(log_csv); 
 }
 
 } // namespace ThrottleValves
