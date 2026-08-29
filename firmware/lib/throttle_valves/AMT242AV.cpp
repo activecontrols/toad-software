@@ -4,7 +4,6 @@
 // max reading for a 12 bit encoder
 #define MAX_READING ((1 << 12) - 1)
 
-static portMUX_TYPE myMutex = portMUX_INITIALIZER_UNLOCKED;
 
 AMT242AV::AMT242AV(HardwareSerial &uart, unsigned int DE, unsigned int RE, uint8_t ID)
     : uart(uart), DE(DE), RE(RE), ID(ID) {}

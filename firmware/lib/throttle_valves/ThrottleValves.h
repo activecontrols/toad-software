@@ -9,10 +9,10 @@ class ThrottleValve {
 public:
   ThrottleValve(uint16_t motor_can_id , HardwareSerial &enc_uart, unsigned int enc_DE, unsigned int enc_RE,
                 unsigned int enc_ID )
-      : motor(motor_can_id), encoder(enc_uart, enc_DE, enc_RE, enc_ID), target_angle(0), last_update_ms(0), K(10.0f), mode(VALVE_MOVEMENT_MODE_STOPPED) {};
+      : motor(motor_can_id), encoder(enc_uart, enc_DE, enc_RE, enc_ID), target_angle(0), last_update_ms(0), K(50.0f), mode(VALVE_MOVEMENT_MODE_STOPPED) {};
 
   void begin();
-  void update(); // update the control loop
+  void update(bool log_csv); // update the control loop
   void stop();
   void set_position(float angle);
 
@@ -30,7 +30,7 @@ namespace ThrottleValves {
 
 bool begin();
 void stop();
-void update(); // update all control loops
+void update(bool log_csv=false); // update all control loops
 void set_angles_ox_fu(float ox_angle, float fu_angle);
 // void handle_can_msg(const CAN_message_t &msg);
 
