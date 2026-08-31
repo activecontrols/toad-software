@@ -1,3 +1,4 @@
+import os
 import serial
 import math
 
@@ -77,9 +78,14 @@ profile = profile_chirp
 
 
 def main():
+    # Ensure destination directory exists
+    log_dir = "./dry_tests"
+    os.makedirs(log_dir, exist_ok=True)
+
     ser = serial.Serial(port='/dev/ttyUSB0', baudrate=57600, timeout=1) 
 
-    fout = open("./out_chirp.csv", "w")
+    out_path = os.path.join(log_dir, "out_chirp.csv")
+    fout = open(out_path, "w")
 
     ser.write(b"motor_follow_profile\n")
 
