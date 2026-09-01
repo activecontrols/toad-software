@@ -1,51 +1,72 @@
 import os
 import serial
 import time
+import argparse
 from labjack import ljm
 from profiles import step_response, profile_sawtooth, profile_sine, profile_chirp
+from t7_calibration import CHANNELS, read_pressures
+from config import get_serial_config
 
-# --- LABJACK CONFIGURATION ---
-CHANNELS = {
-    0: ("Valve Upstream", 11448836, 149.9736607, -4.64377129),  # NAME, SN, SLOPE, OFFSET
-    2: ("Venturi Throat", 5589424, 99.28998837, 2.079860712),
-    4: ("Venturi Upstream", 11409838, 147.9777035, -3.692041074)
-}
+
+def parse_args():
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(description="Valve Profile with T7 Data Logging")
+    parser.add_argument(
+        "-p", "--profile",
+        choices=["chirp", "step", "sawtooth", "sine"],
+        help="Profile to run"
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose console output during telemetry loop")
+    return parser.parse_args()
+
 
 # Profile Mapping Dictionary
 PROFILES = {
-    "1": ("Chirp Profile", profile_chirp),
-    "2": ("Step Response", step_response),
-    "3": ("Sawtooth Profile", profile_sawtooth),
-    "4": ("Sine Wave Profile", profile_sine)
+    "chirp": ("Chirp Profile", profile_chirp),
+    "step": ("Step Response", step_response),
+    "sawtooth": ("Sawtooth Profile", profile_sawtooth),
+    "sine": ("Sine Wave Profile", profile_sine)
 }
 
-def select_profile():
-    """Displays a CLI dialog to select the active profile."""
-    print("\n--- Select Microcontroller Motion Profile ---")
-    for key, (name, _) in PROFILES.items():
-        print(f" [{key}] {name}")
+def select_profile(profile_key: str = None):
+    """Displays a CLI dialog to select the active profile or uses provided profile key."""
+    if profile_key is None:
+        print("\n--- Select Microcontroller Motion Profile ---")
+        keys = list(PROFILES.keys())
+        for idx, key in enumerate(keys, 1):
+            name, _ = PROFILES[key]
+            print(f" [{idx}] {name}")
+        
+        while True:
+            choice = input(f"Enter option number (1-{len(keys)}) or profile name: ").strip().lower()
+            if choice in PROFILES:
+                profile_key = choice
+                break
+            elif choice.isdigit() and 1 <= int(choice) <= len(keys):
+                profile_key = keys[int(choice) - 1]
+                break
+            print("Invalid selection. Please enter a valid number or profile name.")
     
-    while True:
-        choice = input("Enter option number (1-4): ").strip()
-        if choice in PROFILES:
-            profile_name, profile_func = PROFILES[choice]
-            print(f"Selected: {profile_name}\n")
-            return profile_name, profile_func
-        print("Invalid selection. Please enter a valid number.")
-
-def read_pressures(handle):
-    """Reads raw voltages from LabJack AIN channels and calculates pressures."""
-    ain_names = [f"AIN{c}" for c in CHANNELS.keys()]
-    raw_voltages = ljm.eReadNames(handle, len(CHANNELS), ain_names)
+    if profile_key not in PROFILES:
+        print(f"Error: Unknown profile '{profile_key}'")
+        return None, None
     
-    pressures = []
-    for raw_v, (_, _, slope, offset) in zip(raw_voltages, CHANNELS.values()):
-        pressures.append(raw_v * slope + offset)
-    return pressures
+    profile_name, profile_func = PROFILES[profile_key]
+    print(f"Selected: {profile_name}\n")
+    return profile_name, profile_func
 
 def main():
-    # Prompt for profile selection via interactive dialog
-    profile_name, active_profile = select_profile()
+    # Parse command-line arguments
+    args = parse_args()
+    verbose = args.verbose
+    
+    # Prompt for profile selection via interactive dialog or use provided argument
+    profile_name, active_profile = select_profile(args.profile)
+    if active_profile is None:
+        return
+    
+    if verbose:
+        print("Verbose mode enabled")
 
     # Create logs directory if it doesn't exist
     log_dir = "./flow_test_logs"
@@ -59,7 +80,8 @@ def main():
         ljm.eWriteName(lj_handle, f"AIN{channel}_NEGATIVE_CH", channel + 1)
 
     # Serial Setup
-    ser = serial.Serial(port='/dev/ttyUSB0', baudrate=57600, timeout=1)
+    port, baudrate = get_serial_config()
+    ser = serial.Serial(port=port, baudrate=baudrate, timeout=1)
 
     log_filename = input("Enter output CSV log name (without extension): ").strip()
     if not log_filename:
@@ -74,7 +96,7 @@ def main():
 
             # Read original header from microcontroller and append LabJack columns
             base_header = ser.readline().decode("utf-8").strip()
-            pressure_headers = [name for (name, _, _, _) in CHANNELS.values()]
+            pressure_headers = [CHANNELS[ch][0] for ch in sorted(CHANNELS.keys())]
             full_header = f"{base_header}," + ",".join(pressure_headers) + "\n"
             fout.write(full_header)
 
@@ -100,12 +122,18 @@ def main():
                 time_s = float(data_response.split(',')[0])
 
                 # Synchronously read and calculate pressures from LabJack
-                pressures = read_pressures(lj_handle)
-                pressure_str = ",".join(f"{p:.4f}" for p in pressures)
+                pressure_dict = read_pressures(lj_handle)
+                # Extract pressures in channel order for CSV output
+                pressure_values = [pressure_dict[ch] for ch in sorted(pressure_dict.keys())]
+                pressure_str = ",".join(f"{p:.4f}" for p in pressure_values)
 
                 # Merge and log data row
                 combined_row = f"{data_response},{pressure_str}\n"
                 fout.write(combined_row)
+                
+                # Print to console if verbose
+                if verbose:
+                    print(f"Time: {time_s:.4f}s | Target: {new_target:.2f}° | Pressures: {pressure_values[0]:.4f}, {pressure_values[1]:.4f}, {pressure_values[2]:.4f}")
 
             # Send quit signal to microcontroller
             ser.write(b'q\n')

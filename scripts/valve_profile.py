@@ -3,6 +3,19 @@ import serial
 import argparse
 import sys
 from profiles import step_response, profile_sawtooth, profile_sine, profile_chirp
+from config import get_serial_config
+
+
+def parse_args():
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(description="Run a motor test profile.")
+    parser.add_argument(
+        "-p", "--profile",
+        choices=["step", "sawtooth", "sine", "chirp"],
+        help="Profile to run"
+    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose console output during telemetry loop")
+    return parser.parse_args()
 
 
 # Dictionary mapping profile keys to their functions
@@ -13,20 +26,9 @@ PROFILES = {
     "chirp": profile_chirp,
 }
 
-def select_profile() -> tuple[str, callable]:
+def select_profile(profile_key: str = None) -> tuple[str, callable]:
     """Handles profile selection via command-line flags or interactive terminal prompt."""
-    parser = argparse.ArgumentParser(description="Run a motor test profile.")
-    parser.add_argument(
-        "-p", "--profile",
-        choices=list(PROFILES.keys()),
-        help="Profile to run"
-    )
-    args = parser.parse_args()
-
-    profile_key = args.profile
-
-    # Prompt interactively if not provided via CLI
-    if not profile_key:
+    if profile_key is None:
         print("\nAvailable profiles:")
         keys = list(PROFILES.keys())
         for idx, name in enumerate(keys, 1):
@@ -46,8 +48,13 @@ def select_profile() -> tuple[str, callable]:
 
 
 def main():
-    profile_name, profile_func = select_profile()
-    print(f"Running profile: '{profile_name}'...")
+    args = parse_args()
+    verbose = args.verbose
+    profile_name, profile_func = select_profile(args.profile)
+    if verbose:
+        print(f"Running profile: '{profile_name}' (verbose mode enabled)...")
+    else:
+        print(f"Running profile: '{profile_name}'...")
 
     ser = None
     fout = None
@@ -57,7 +64,9 @@ def main():
         log_dir = "./dry_tests"
         os.makedirs(log_dir, exist_ok=True)
 
-        ser = serial.Serial(port='/dev/ttyUSB0', baudrate=57600, timeout=1) 
+        # Load serial port configuration
+        port, baudrate = get_serial_config()
+        ser = serial.Serial(port=port, baudrate=baudrate, timeout=1) 
 
         # Dynamic output filename matching selected profile
         out_path = os.path.join(log_dir, f"out_{profile_name}.csv")
@@ -86,6 +95,10 @@ def main():
 
             # pipe the csv data to output file
             fout.write(data_response)
+            
+            # Print to console if verbose
+            if verbose:
+                print(f"Time: {time_s:.4f}s | Target: {new_target:.2f}°")
 
     finally:
         # send quit command        
