@@ -31,3 +31,29 @@ def read_pressures(handle, channels=None):
     for channel_id, raw_v, (_, _, slope, offset) in zip(channels.keys(), raw_voltages, channels.values()):
         pressures[channel_id] = raw_v * slope + offset
     return pressures
+
+
+def read_pressures_and_voltages(handle, channels=None):
+    """Reads raw voltages from LabJack AIN channels and calculates pressures.
+    
+    Args:
+        handle: LabJack device handle
+        channels: Optional dict of channels to read. Defaults to CHANNELS.
+    
+    Returns:
+        Tuple of (voltages_dict, pressures_dict) where each maps channel number to value
+    """
+    from labjack import ljm
+    
+    if channels is None:
+        channels = CHANNELS
+    
+    ain_names = [f"AIN{c}" for c in channels.keys()]
+    raw_voltages = ljm.eReadNames(handle, len(channels), ain_names)
+    
+    voltages = {}
+    pressures = {}
+    for channel_id, raw_v, (_, _, slope, offset) in zip(channels.keys(), raw_voltages, channels.values()):
+        voltages[channel_id] = raw_v
+        pressures[channel_id] = raw_v * slope + offset
+    return voltages, pressures

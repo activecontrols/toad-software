@@ -3,7 +3,7 @@ import os
 import time
 import argparse
 from labjack import ljm
-from t7_calibration import CHANNELS, read_pressures
+from t7_calibration import CHANNELS, read_pressures_and_voltages
 
 
 def main():
@@ -34,8 +34,11 @@ def main():
     try:
         with open(out_path, "w") as fout:
             # Write CSV header (sorted by channel number)
-            pressure_headers = [CHANNELS[ch][0] for ch in sorted(CHANNELS.keys())]
-            header = "Timestamp," + ",".join(pressure_headers) + "\n"
+            # Headers: Timestamp, RawVoltage_Ch0, RawVoltage_Ch2, RawVoltage_Ch4, Pressure_Ch0, Pressure_Ch2, Pressure_Ch4
+            channel_names = [CHANNELS[ch][0] for ch in sorted(CHANNELS.keys())]
+            voltage_headers = [f"{name}_V" for name in channel_names]
+            pressure_headers = [f"{name}_P" for name in channel_names]
+            header = "Timestamp," + ",".join(voltage_headers) + "," + ",".join(pressure_headers) + "\n"
             fout.write(header)
             print(f"\nLogging to {out_path}")
             if verbose:
@@ -48,20 +51,22 @@ def main():
             try:
                 while True:
                     elapsed = time.time() - start_time
-                    pressure_dict = read_pressures(lj_handle)
-                    # Extract pressures in channel order for CSV output
+                    voltage_dict, pressure_dict = read_pressures_and_voltages(lj_handle)
+                    # Extract values in channel order for CSV output
+                    voltage_values = [voltage_dict[ch] for ch in sorted(voltage_dict.keys())]
                     pressure_values = [pressure_dict[ch] for ch in sorted(pressure_dict.keys())]
+                    voltage_str = ",".join(f"{v:.6f}" for v in voltage_values)
                     pressure_str = ",".join(f"{p:.4f}" for p in pressure_values)
                     
                     # Log data row with timestamp
-                    data_row = f"{elapsed:.4f},{pressure_str}\n"
+                    data_row = f"{elapsed:.4f},{voltage_str},{pressure_str}\n"
                     fout.write(data_row)
                     
                     # Print to console if verbose
                     if verbose:
-                        print(f"[{elapsed:8.4f}s] {pressure_headers[0]}: {pressure_values[0]:8.4f} | "
-                              f"{pressure_headers[1]}: {pressure_values[1]:8.4f} | "
-                              f"{pressure_headers[2]}: {pressure_values[2]:8.4f}")
+                        print(f"[{elapsed:8.4f}s] {channel_names[0]}: V={voltage_values[0]:.6f} P={pressure_values[0]:8.4f} | "
+                              f"{channel_names[1]}: V={voltage_values[1]:.6f} P={pressure_values[1]:8.4f} | "
+                              f"{channel_names[2]}: V={voltage_values[2]:.6f} P={pressure_values[2]:8.4f}")
                     
                     time.sleep(0.01)  # ~100 Hz sampling rate
 
@@ -70,7 +75,7 @@ def main():
 
     finally:
         # Clean shutdown for hardware interfaces
-        lj_handle.close()
+        ljm.close(lj_handle)
         print(f"Log saved to {out_path}")
 
 
