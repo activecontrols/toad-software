@@ -1,6 +1,8 @@
 import os
 import serial
 import math
+import argparse
+import sys
 
 # step response - increments angle by 90 degrees every 5 seconds and wraps around
 def step_response(time_s):
@@ -54,7 +56,6 @@ def profile_chirp(time_s):
     global phase
     global last_time
 
-
     t1 = 20
     maxFreq = 3
     minFreq = 0.1
@@ -73,11 +74,53 @@ def profile_chirp(time_s):
     return (False, target_angle)
 
 
-# profile function returns a Tuple[bool,float] where the bool is false to signal that the profile is complete, and the float is the target angle
-profile = profile_chirp
+# Dictionary mapping profile keys to their functions
+PROFILES = {
+    "step": step_response,
+    "sawtooth": profile_sawtooth,
+    "sine": profile_sine,
+    "chirp": profile_chirp,
+}
+
+def select_profile() -> tuple[str, callable]:
+    """Handles profile selection via command-line flags or interactive terminal prompt."""
+    parser = argparse.ArgumentParser(description="Run a motor test profile.")
+    parser.add_argument(
+        "-p", "--profile",
+        choices=list(PROFILES.keys()),
+        help="Profile to run"
+    )
+    args = parser.parse_args()
+
+    profile_key = args.profile
+
+    # Prompt interactively if not provided via CLI
+    if not profile_key:
+        print("\nAvailable profiles:")
+        keys = list(PROFILES.keys())
+        for idx, name in enumerate(keys, 1):
+            print(f"  {idx}. {name}")
+        
+        while True:
+            choice = input(f"\nSelect profile [1-{len(keys)} or name]: ").strip().lower()
+            if choice in PROFILES:
+                profile_key = choice
+                break
+            elif choice.isdigit() and 1 <= int(choice) <= len(keys):
+                profile_key = keys[int(choice) - 1]
+                break
+            print("Invalid selection. Please try again.")
+
+    return profile_key, PROFILES[profile_key]
 
 
 def main():
+    profile_name, profile_func = select_profile()
+    print(f"Running profile: '{profile_name}'...")
+
+    ser = None
+    fout = None
+
     try:
         # Ensure destination directory exists
         log_dir = "./dry_tests"
@@ -85,7 +128,8 @@ def main():
 
         ser = serial.Serial(port='/dev/ttyUSB0', baudrate=57600, timeout=1) 
 
-        out_path = os.path.join(log_dir, "out_chirp.csv")
+        # Dynamic output filename matching selected profile
+        out_path = os.path.join(log_dir, f"out_{profile_name}.csv")
         fout = open(out_path, "w")
 
         ser.write(b"motor_follow_profile\n")
@@ -96,7 +140,7 @@ def main():
         time_s = 0.0
 
         while True:
-            do_quit, new_target = profile(time_s)
+            do_quit, new_target = profile_func(time_s)
 
             if do_quit:
                 break
@@ -114,12 +158,13 @@ def main():
 
     finally:
         # send quit command        
-        ser.write(b'q\n')
+        if ser and ser.is_open:
+            ser.write(b'q\n')
+            ser.close()
 
         # close handles
-        fout.close()
-        ser.close()
-    return
+        if fout and not fout.closed:
+            fout.close()
 
 
 if __name__ == "__main__":
