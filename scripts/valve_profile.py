@@ -1,77 +1,8 @@
 import os
 import serial
-import math
 import argparse
 import sys
-
-# step response - increments angle by 90 degrees every 5 seconds and wraps around
-def step_response(time_s):
-    max_time = 30.0
-
-    # quit when max time is reached
-    if time_s > max_time:
-        return (True, 0.0)
-
-    steps = int(time_s // 3)
-    
-    # Calculate total angle incremented (90 degrees per step)
-    angle = steps * 90
-    
-    # Wrap the angle around so it stays within [0, 270] and returns to 0 at 360
-    return (False, angle % 360)
-
-def profile_sawtooth(time_s):
-    max_time = 30.0
-    period = 5.0
-    v_min = 0
-    v_max = 180
-
-    if time_s > max_time:
-        return (True, 0.0)
-
-    phase = (time_s % period) / period  # Normalized time from 0.0 to 1.0
-    angle =  v_min + phase * (v_max - v_min)
-
-    return (False, angle)
-
-def profile_sine(time_s):
-    max_time = 25.0
-    period = 5.0
-    amplitude = 90.0
-
-    if time_s > max_time:
-        return (True, 0.0)
-
-    target_angle = 180.0 + amplitude * math.sin(2 * math.pi / period * time_s)
-
-    if target_angle < 0:
-        target_angle += 360.0 # for better readability, make target angle always positive
-
-    return (False, target_angle)
-
-last_time = 0
-phase = 0
-
-def profile_chirp(time_s):
-    global phase
-    global last_time
-
-    t1 = 20
-    maxFreq = 3
-    minFreq = 0.1
-    Freq = minFreq * (maxFreq / minFreq) ** (time_s / t1)
-    phase = phase + Freq * (time_s - last_time)
-    target_angle = 10 * math.cos(2 * math.pi * phase)
-    last_time = time_s
-
-    if time_s > t1:
-        return (True, 0.0)
-
-    target_angle += 180.0
-    if target_angle < 0:
-        target_angle += 360.0 # for better readability, make target angle always positive
-
-    return (False, target_angle)
+from profiles import step_response, profile_sawtooth, profile_sine, profile_chirp
 
 
 # Dictionary mapping profile keys to their functions
