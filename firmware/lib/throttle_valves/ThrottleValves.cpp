@@ -51,8 +51,6 @@ void ThrottleValve::set_position(float angle) {
 
 void ThrottleValve::update(bool log_csv)
 {
-  static bool log_csv_sticky = false;
-
   if (log_csv) log_csv_sticky = true;
 
 
