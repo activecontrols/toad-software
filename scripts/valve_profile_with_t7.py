@@ -4,7 +4,7 @@ import time
 import argparse
 from labjack import ljm
 from profiles import step_response, profile_sawtooth, profile_sine, profile_chirp
-from t7_calibration import CHANNELS, read_pressures
+from t7_calibration import CHANNELS, read_pressures_and_voltages
 from config import get_serial_config
 
 
@@ -96,8 +96,10 @@ def main():
 
             # Read original header from microcontroller and append LabJack columns
             base_header = ser.readline().decode("utf-8").strip()
-            pressure_headers = [CHANNELS[ch][0] for ch in sorted(CHANNELS.keys())]
-            full_header = f"{base_header}," + ",".join(pressure_headers) + "\n"
+            channel_names = [CHANNELS[ch][0] for ch in sorted(CHANNELS.keys())]
+            voltage_headers = [f"{name}_V" for name in channel_names]
+            pressure_headers = [f"{name}_P" for name in channel_names]
+            full_header = f"{base_header}," + ",".join(voltage_headers) + "," + ",".join(pressure_headers) + "\n"
             fout.write(full_header)
 
             time_s = 0.0
@@ -122,18 +124,20 @@ def main():
                 time_s = float(data_response.split(',')[0])
 
                 # Synchronously read and calculate pressures from LabJack
-                pressure_dict = read_pressures(lj_handle)
-                # Extract pressures in channel order for CSV output
+                voltage_dict, pressure_dict = read_pressures_and_voltages(lj_handle)
+                # Extract values in channel order for CSV output
+                voltage_values = [voltage_dict[ch] for ch in sorted(voltage_dict.keys())]
                 pressure_values = [pressure_dict[ch] for ch in sorted(pressure_dict.keys())]
+                voltage_str = ",".join(f"{v:.6f}" for v in voltage_values)
                 pressure_str = ",".join(f"{p:.4f}" for p in pressure_values)
 
                 # Merge and log data row
-                combined_row = f"{data_response},{pressure_str}\n"
+                combined_row = f"{data_response},{voltage_str},{pressure_str}\n"
                 fout.write(combined_row)
                 
                 # Print to console if verbose
                 if verbose:
-                    print(f"Time: {time_s:.4f}s | Target: {new_target:.2f}° | Pressures: {pressure_values[0]:.4f}, {pressure_values[1]:.4f}, {pressure_values[2]:.4f}")
+                    print(f"Time: {time_s:.4f}s | Target: {new_target:.2f}° | Voltages: {voltage_values[0]:.6f}, {voltage_values[1]:.6f}, {voltage_values[2]:.6f} | Pressures: {pressure_values[0]:.4f}, {pressure_values[1]:.4f}, {pressure_values[2]:.4f}")
 
             # Send quit signal to microcontroller
             ser.write(b'q\n')
