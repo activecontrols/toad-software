@@ -24,6 +24,7 @@ public:
   uint32_t last_update_ms;
   float K;
   valve_movement_mode_t mode;
+  bool log_csv_sticky = false;
 };
 
 namespace ThrottleValves {
