@@ -3,7 +3,7 @@ import serial
 import time
 import argparse
 from labjack import ljm
-from profiles import step_response, profile_sawtooth, profile_sine, profile_chirp
+from profiles import step_response, profile_sawtooth, profile_sine, profile_chirp, small_step_response
 from t7_calibration import CHANNELS, read_pressures_and_voltages
 from config import get_serial_config
 
@@ -25,7 +25,8 @@ PROFILES = {
     "chirp": ("Chirp Profile", profile_chirp),
     "step": ("Step Response", step_response),
     "sawtooth": ("Sawtooth Profile", profile_sawtooth),
-    "sine": ("Sine Wave Profile", profile_sine)
+    "sine": ("Sine Wave Profile", profile_sine),
+    "small_step": ("Small Step Response", small_step_response)
 }
 
 def select_profile(profile_key: str = None):

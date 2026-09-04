@@ -2,7 +2,7 @@ import os
 import serial
 import argparse
 import sys
-from profiles import step_response, profile_sawtooth, profile_sine, profile_chirp
+from profiles import step_response, profile_sawtooth, profile_sine, profile_chirp, small_step_response
 from config import get_serial_config
 
 
@@ -24,6 +24,7 @@ PROFILES = {
     "sawtooth": profile_sawtooth,
     "sine": profile_sine,
     "chirp": profile_chirp,
+    "small_step": small_step_response
 }
 
 def select_profile(profile_key: str = None) -> tuple[str, callable]:

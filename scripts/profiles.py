@@ -16,6 +16,16 @@ def step_response(time_s):
     return (False, angle % 360)
 
 
+def small_step_response(time_s):
+    """small step response - increments angle by 10 degrees every 1 second."""
+    max_time = 30.0
+    if time_s > max_time:
+        return (True, 0.0)
+    steps = int(time_s // 1)
+    angle = steps * 10
+    return (False, angle % 360)
+
+
 def profile_sawtooth(time_s):
     """Sawtooth wave profile."""
     max_time = 30.0
