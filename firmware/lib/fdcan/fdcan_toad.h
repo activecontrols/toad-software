@@ -26,6 +26,6 @@ public:
     // 
     bool receive(FDCAN_RxHeaderTypeDef* header, uint8_t* data);
 
-private:
+// private:
     FDCAN_HandleTypeDef hfdcan;
 };
