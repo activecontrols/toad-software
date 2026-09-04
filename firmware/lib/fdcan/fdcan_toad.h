@@ -21,9 +21,9 @@ public:
     bool send(uint16_t id, uint32_t data_length, const uint8_t* data);
 
 
-    // if a message is waiting in the recieve FIFO, this returns true; otherwise returns false
+    // if a message was waiting in the recieve FIFO, this returns true; otherwise returns false
     // returns false if an error occurs
-    // if a message is waiting, and no error occurs, header and data are populated with the corresponding information regarding the received message, and the message is from the receive header
+    // 
     bool receive(FDCAN_RxHeaderTypeDef* header, uint8_t* data);
 
 private:
