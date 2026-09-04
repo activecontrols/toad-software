@@ -218,30 +218,7 @@ bool CAN::send(uint16_t id, uint32_t data_length, const uint8_t* data)
   FDCAN_ErrorCountersTypeDef err_count_old = {0};
   FDCAN_ErrorCountersTypeDef err_count_new = {0};
 
-  // get a snapshot of the error count
-  if (HAL_FDCAN_GetErrorCounters(&hfdcan, &err_count_old) != HAL_OK)
-  {
-    return false;
-  }
-
-  tx_header.Identifier = id;
-  tx_header.IdType = FDCAN_STANDARD_ID;
-  tx_header.DataLength = data_length;
-  tx_header.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
-  tx_header.BitRateSwitch = FDCAN_BRS_OFF; // bit rate switching is off
-  tx_header.FDFormat = FDCAN_CLASSIC_CAN;
-  tx_header.TxEventFifoControl = FDCAN_STORE_TX_EVENTS; // events will go in the tx fifo, for feedback so we know whether transmission was successful or not
-  tx_header.MessageMarker = 0;
-
-  // place the message in the first buffer
-  HAL_StatusTypeDef status = HAL_FDCAN_AddMessageToTxBuffer(&hfdcan, &tx_header, data, 0);
-
-  if (status != HAL_OK)
-  {
-    return false;
-  }
-
-  // wait for message transmission to be complete
+  /* 1. Wait for ongoing transmission to complete: */
   uint32_t start_time = micros();
 
   bool timed_out = true;
@@ -259,15 +236,55 @@ bool CAN::send(uint16_t id, uint32_t data_length, const uint8_t* data)
     return false;
   }
 
+  // get a snapshot of the error count
+  if (HAL_FDCAN_GetErrorCounters(&hfdcan, &err_count_old) != HAL_OK)
+  {
+    return false;
+  }
+
+  /* 2. Begin new transmission */
+  tx_header.Identifier = id;
+  tx_header.IdType = FDCAN_STANDARD_ID;
+  tx_header.DataLength = data_length;
+  tx_header.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+  tx_header.BitRateSwitch = FDCAN_BRS_OFF; // bit rate switching is off
+  tx_header.FDFormat = FDCAN_CLASSIC_CAN;
+  tx_header.TxEventFifoControl = FDCAN_NO_TX_EVENTS; // events will go in the tx fifo, for feedback so we know whether transmission was successful or not
+  tx_header.MessageMarker = 0;
+
+  // place the message in the first buffer
+  HAL_StatusTypeDef status = HAL_FDCAN_AddMessageToTxBuffer(&hfdcan, &tx_header, data, 0);
+
+  if (status != HAL_OK)
+  {
+    return false;
+  }
+
   if (HAL_FDCAN_GetErrorCounters(&hfdcan, &err_count_new) != HAL_OK)
   {
     return false;
   }
 
-  if (err_count_old.TxErrorCnt != err_count_new.TxErrorCnt)
-  {
-    return false; // a tx error occurred
-  }
+  // if (err_count_old.TxErrorCnt != err_count_new.TxErrorCnt)
+  // {
+  //   return false; // a tx error occurred
+  // }
 
   return true;
+}
+
+
+bool CAN::receive(FDCAN_RxHeaderTypeDef* header, uint8_t* data)
+{
+  // check that there is room in the rx fifo
+  uint32_t count = this->rcv_count();
+
+  if (count == 0)
+  {
+    return false;
+  }
+  
+  HAL_StatusTypeDef status = HAL_FDCAN_GetRxMessage(&(this->hfdcan), FDCAN_RX_FIFO0, header, data);
+
+  return (status == HAL_OK);
 }
