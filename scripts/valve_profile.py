@@ -2,56 +2,20 @@ import os
 import serial
 import argparse
 import sys
-from profiles import step_response, profile_sawtooth, profile_sine, profile_chirp, small_step_response
+from profiles import select_profile
 from config import get_serial_config
 
 
 def parse_args():
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description="Run a motor test profile.")
-    parser.add_argument(
-        "-p", "--profile",
-        choices=["step", "sawtooth", "sine", "chirp"],
-        help="Profile to run"
-    )
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose console output during telemetry loop")
     return parser.parse_args()
-
-
-# Dictionary mapping profile keys to their functions
-PROFILES = {
-    "step": step_response,
-    "sawtooth": profile_sawtooth,
-    "sine": profile_sine,
-    "chirp": profile_chirp,
-    "small_step": small_step_response
-}
-
-def select_profile(profile_key: str = None) -> tuple[str, callable]:
-    """Handles profile selection via command-line flags or interactive terminal prompt."""
-    if profile_key is None:
-        print("\nAvailable profiles:")
-        keys = list(PROFILES.keys())
-        for idx, name in enumerate(keys, 1):
-            print(f"  {idx}. {name}")
-        
-        while True:
-            choice = input(f"\nSelect profile [1-{len(keys)} or name]: ").strip().lower()
-            if choice in PROFILES:
-                profile_key = choice
-                break
-            elif choice.isdigit() and 1 <= int(choice) <= len(keys):
-                profile_key = keys[int(choice) - 1]
-                break
-            print("Invalid selection. Please try again.")
-
-    return profile_key, PROFILES[profile_key]
-
 
 def main():
     args = parse_args()
     verbose = args.verbose
-    profile_name, profile_func = select_profile(args.profile)
+    profile_name, profile_func = select_profile()
     if verbose:
         print(f"Running profile: '{profile_name}' (verbose mode enabled)...")
     else:
