@@ -218,7 +218,7 @@ bool CAN::send(uint16_t id, uint32_t data_length, const uint8_t* data)
   FDCAN_ErrorCountersTypeDef err_count_old = {0};
   FDCAN_ErrorCountersTypeDef err_count_new = {0};
 
-  /* 1. Wait for ongoing transmission to complete: */
+  /* 1. wait for ongoing transmission to complete: */
   uint32_t start_time = micros();
 
   bool timed_out = true;
@@ -242,7 +242,7 @@ bool CAN::send(uint16_t id, uint32_t data_length, const uint8_t* data)
     return false;
   }
 
-  /* 2. Begin new transmission */
+  /* 2. begin new transmission */
   tx_header.Identifier = id;
   tx_header.IdType = FDCAN_STANDARD_ID;
   tx_header.DataLength = data_length;
