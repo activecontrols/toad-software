@@ -39,6 +39,7 @@ bool begin() {
   // enable low.
   digitalWrite(PIN_SV_BV_LATCH_ENABLE, LOW);
   pinMode(PIN_SV_BV_LATCH_ENABLE, OUTPUT);
+  pinMode(PIN_VALVE_OE_INPUT, INPUT); // TODO - check state of this pin to see if flight has been terminated
 
   for (int i = 0; i < NUM_SV_BV_VALVES; i++) {
     // LOW is the default/safe state for each valve
