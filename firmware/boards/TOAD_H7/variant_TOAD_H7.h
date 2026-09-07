@@ -216,8 +216,6 @@
 #define NUM_DUALPAD_PINS 2
 #define NUM_ANALOG_INPUTS 32
 
-// TODO - all these defaults need to be dealt with, some should probably not exist on TOAD
-
 // On-board LED pin number
 #ifndef LED_BUILTIN
 #define LED_BUILTIN PA7
@@ -242,21 +240,22 @@
 #define PIN_SPI_SS3 PNUM_NOT_DEFINED
 #endif
 #ifndef PIN_SPI_MOSI
-#define PIN_SPI_MOSI PI3
+#define PIN_SPI_MOSI PNUM_NOT_DEFINED
 #endif
 #ifndef PIN_SPI_MISO
-#define PIN_SPI_MISO PI2
+#define PIN_SPI_MISO PNUM_NOT_DEFINED
 #endif
 #ifndef PIN_SPI_SCK
-#define PIN_SPI_SCK PB10
+#define PIN_SPI_SCK PNUM_NOT_DEFINED
 #endif
 
 // I2C definitions
+// TODO - check FC mapping matches
 #ifndef PIN_WIRE_SDA
-#define PIN_WIRE_SDA PH8
+#define PIN_WIRE_SDA PF0
 #endif
 #ifndef PIN_WIRE_SCL
-#define PIN_WIRE_SCL PH7
+#define PIN_WIRE_SCL PF1
 #endif
 
 // Timer Definitions
@@ -270,16 +269,16 @@
 
 // UART Definitions
 #ifndef SERIAL_UART_INSTANCE
-#define SERIAL_UART_INSTANCE 6 // default serial instance if `Serial` is used
+#define SERIAL_UART_INSTANCE 5 // default serial instance if `Serial` is used
 #endif
 
 // Default pin used for generic 'Serial' instance
 // Mandatory for Firmata
 #ifndef PIN_SERIAL_RX
-#define PIN_SERIAL_RX PG9
+#define PIN_SERIAL_RX PNUM_NOT_DEFINED
 #endif
 #ifndef PIN_SERIAL_TX
-#define PIN_SERIAL_TX PG14
+#define PIN_SERIAL_TX PNUM_NOT_DEFINED
 #endif
 
 // Extra HAL modules

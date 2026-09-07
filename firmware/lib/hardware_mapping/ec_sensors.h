@@ -22,7 +22,9 @@ static_assert(NUM_PT_BOARDS == 6);
 #define TC_2 TC_O2_01_tank
 #define TC_3 TC_FU_01_inj
 #define TC_4 TC_FU_02_regen_inlet
-static_assert(NUM_TC_CHIPS == 4);
+#define TC_5 TC_unused_1
+#define TC_6 TC_unused_2
+static_assert(NUM_TC_CHIPS == 6);
 
 struct pressure_readings_t {
   uint8_t crc_errors;
@@ -48,6 +50,8 @@ struct temperature_readings_t {
   float TC_2;
   float TC_3;
   float TC_4;
+  float TC_5;
+  float TC_6;
 };
 
 #define PT_CALIBRATION(n) CONCAT(CONCAT(PT_, n), _calibration)
