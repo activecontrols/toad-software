@@ -6,11 +6,13 @@
 
 namespace TemperatureSensors {
 
-Adafruit_MAX31856 tc_chip_1(TC_BOARD_1_SPI_BUS, PIN_TC_BOARD_1_CS, MAX31856_TCTYPE_K);
-Adafruit_MAX31856 tc_chip_2(TC_BOARD_1_SPI_BUS, PIN_TC_BOARD_2_CS, MAX31856_TCTYPE_K);
-Adafruit_MAX31856 tc_chip_3(TC_BOARD_1_SPI_BUS, PIN_TC_BOARD_3_CS, MAX31856_TCTYPE_K);
-Adafruit_MAX31856 tc_chip_4(TC_BOARD_1_SPI_BUS, PIN_TC_BOARD_4_CS, MAX31856_TCTYPE_K);
-static_assert(NUM_TC_CHIPS == 4);
+Adafruit_MAX31856 tc_chip_1(TC_CHIP_1_SPI_BUS, PIN_TC_CHIP_1_CS, MAX31856_TCTYPE_K);
+Adafruit_MAX31856 tc_chip_2(TC_CHIP_2_SPI_BUS, PIN_TC_CHIP_2_CS, MAX31856_TCTYPE_K);
+Adafruit_MAX31856 tc_chip_3(TC_CHIP_3_SPI_BUS, PIN_TC_CHIP_3_CS, MAX31856_TCTYPE_K);
+Adafruit_MAX31856 tc_chip_4(TC_CHIP_4_SPI_BUS, PIN_TC_CHIP_4_CS, MAX31856_TCTYPE_K);
+Adafruit_MAX31856 tc_chip_5(TC_CHIP_5_SPI_BUS, PIN_TC_CHIP_5_CS, MAX31856_TCTYPE_K);
+Adafruit_MAX31856 tc_chip_6(TC_CHIP_6_SPI_BUS, PIN_TC_CHIP_6_CS, MAX31856_TCTYPE_K);
+static_assert(NUM_TC_CHIPS == 6);
 
 // Configures each TC chip.
 // Always returns true.
@@ -20,6 +22,8 @@ bool begin() {
   all_chips_connected &= tc_chip_2.begin();
   all_chips_connected &= tc_chip_3.begin();
   all_chips_connected &= tc_chip_4.begin();
+  all_chips_connected &= tc_chip_5.begin();
+  all_chips_connected &= tc_chip_6.begin();
 
   CommandRouter::add(print_tc_readings, "print_tc", "Print TC readings in Fahrenheit.");
 
@@ -36,6 +40,8 @@ temperature_readings_t read_tcs() {
   tc_readings.TC_2 = tc_chip_2.readThermocoupleTemperature() + C_TO_KELVIN;
   tc_readings.TC_3 = tc_chip_3.readThermocoupleTemperature() + C_TO_KELVIN;
   tc_readings.TC_4 = tc_chip_4.readThermocoupleTemperature() + C_TO_KELVIN;
+  tc_readings.TC_5 = tc_chip_5.readThermocoupleTemperature() + C_TO_KELVIN;
+  tc_readings.TC_6 = tc_chip_6.readThermocoupleTemperature() + C_TO_KELVIN;
 
   return tc_readings;
 }
@@ -52,6 +58,8 @@ void print_tc_readings() {
   CommsSerial.printf("%20s: %6.2f C\n", STRINGIFY(TC_2), c_to_f(tc_chip_2.readThermocoupleTemperature()));
   CommsSerial.printf("%20s: %6.2f C\n", STRINGIFY(TC_3), c_to_f(tc_chip_3.readThermocoupleTemperature()));
   CommsSerial.printf("%20s: %6.2f C\n", STRINGIFY(TC_4), c_to_f(tc_chip_4.readThermocoupleTemperature()));
+  CommsSerial.printf("%20s: %6.2f C\n", STRINGIFY(TC_5), c_to_f(tc_chip_5.readThermocoupleTemperature()));
+  CommsSerial.printf("%20s: %6.2f C\n", STRINGIFY(TC_6), c_to_f(tc_chip_6.readThermocoupleTemperature()));
 }
 
 } // namespace TemperatureSensors

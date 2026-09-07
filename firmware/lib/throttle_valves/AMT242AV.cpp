@@ -5,14 +5,11 @@
 // max reading for a 12 bit encoder
 #define MAX_READING ((1 << 12) - 1)
 
-AMT242AV::AMT242AV(HardwareSerial &uart, unsigned int DE, unsigned int RE, uint8_t ID)
-    : uart(uart), DE(DE), RE(RE), ID(ID) {}
+AMT242AV::AMT242AV(HardwareSerial &uart, unsigned int SEL, uint8_t ID) : uart(uart), SEL(SEL), ID(ID) {}
 
 void AMT242AV::begin() {
-  digitalWrite(DE, LOW);
-  digitalWrite(RE, HIGH);
-  pinMode(DE, OUTPUT);
-  pinMode(RE, OUTPUT);
+  digitalWrite(SEL, HIGH);
+  pinMode(SEL, OUTPUT);
 }
 
 bool AMT242AV::wait_for_avail(unsigned long long delay_micros = 150) {
@@ -37,8 +34,7 @@ bool AMT242AV::_read_pos(uint16_t *out) {
     uart.read();
 
   // switch MAX485 to transmit mode
-  digitalWrite(DE, HIGH);
-  digitalWrite(RE, HIGH);
+  digitalWrite(SEL, LOW);
   delayMicroseconds(70);
 
   // send read position command
@@ -48,10 +44,6 @@ bool AMT242AV::_read_pos(uint16_t *out) {
   //   // wait for uart to finish transmission
   //   while (!(ll_uart_intf->ISR & USART_ISR_TC))
   //     ;
-
-  // switch to receive mode
-  digitalWrite(DE, LOW);
-  digitalWrite(RE, LOW);
 
   uint16_t res = 0;
   if (!wait_for_avail()) {
@@ -63,7 +55,7 @@ bool AMT242AV::_read_pos(uint16_t *out) {
   }
   res |= uart.read() << 8;
 
-  digitalWrite(RE, HIGH);
+  digitalWrite(SEL, HIGH);
 
   // lowest 14 bits contain data
   transmission = res & 0b0011111111111111;
@@ -93,8 +85,7 @@ bool AMT242AV::_read_pos(uint16_t *out) {
 // fail condition could be either transmission timed out or checksum failed
 FAIL:
   // set MAX485 to inactive state
-  digitalWrite(DE, LOW);
-  digitalWrite(RE, HIGH);
+  digitalWrite(SEL, HIGH);
   return false;
 }
 
@@ -117,7 +108,7 @@ bool AMT242AV::read_pos(float *out, int max_tries) {
 
 void AMT242AV::zero() {
   // switch MAX485 to transmit mode
-  digitalWrite(DE, HIGH);
+  digitalWrite(SEL, LOW);
 
   delayMicroseconds(70);
 
@@ -127,13 +118,12 @@ void AMT242AV::zero() {
   //   // wait for uart to finish transmission
   //   while (!(ll_uart_intf->ISR & USART_ISR_TC))
   //     ;
-
-  digitalWrite(DE, LOW);
+  digitalWrite(SEL, HIGH);
 }
 
 void AMT242AV::reset() {
   // switch MAX485 to transmit mode
-  digitalWrite(DE, HIGH);
+  digitalWrite(SEL, LOW);
 
   delayMicroseconds(70);
 
@@ -144,5 +134,5 @@ void AMT242AV::reset() {
   //   while (!(ll_uart_intf->ISR & USART_ISR_TC))
   //     ;
 
-  digitalWrite(DE, LOW);
+  digitalWrite(SEL, HIGH);
 }

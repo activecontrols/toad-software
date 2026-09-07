@@ -28,8 +28,8 @@ void ThrottleValve::set_position(float angle) {
 namespace ThrottleValves {
 
 // TODO - set encoder ID?
-ThrottleValve ox_valve(CAN_ID_STEPPER_OX, OX_ENC_RS485_BUS, PIN_OX_ENC_DE, PIN_OX_ENC_RE, 0);
-ThrottleValve fu_valve(CAN_ID_STEPPER_FU, FU_ENC_RS485_BUS, PIN_FU_ENC_DE, PIN_FU_ENC_RE, 0);
+ThrottleValve ox_valve(CAN_ID_STEPPER_OX, ENC_OX_RS485_BUS, PIN_ENC_OX_SEL, 0);
+ThrottleValve fu_valve(CAN_ID_STEPPER_FU, ENC_FU_RS485_BUS, PIN_ENC_FU_SEL, 0);
 
 // TODO - don't just return true here!
 bool begin() {
