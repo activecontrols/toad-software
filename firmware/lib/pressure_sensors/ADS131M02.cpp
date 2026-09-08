@@ -14,7 +14,7 @@ SPISettings ADS131M02_SPI_SETTINGS(4000000, MSBFIRST, SPI_MODE1);
 // The SPI bus is a shared resource and should be initialized outside of this function.
 void ADS131M02::begin() {
   pinMode(cs_pin, OUTPUT);
-  pinMode(cs_pin, HIGH);
+  digitalWrite(cs_pin, HIGH);
 }
 
 // Read from both channels on the ADC.
@@ -26,7 +26,7 @@ adc_reading_t ADS131M02::read_adc() {
   uint8_t crc_buf[9];
 
   // TODO - might want delays after these
-  pinMode(cs_pin, LOW);
+  digitalWrite(cs_pin, LOW);
   spi_bus.beginTransaction(ADS131M02_SPI_SETTINGS);
 
   adc_reading.status_reg = transact_word(0x000000, &crc_buf[0]);
@@ -35,7 +35,7 @@ adc_reading_t ADS131M02::read_adc() {
   uint32_t rcv_crc = transact_word(0x000000, DISCARD_CRC) & 0xFFFF;
 
   spi_bus.endTransaction();
-  pinMode(cs_pin, HIGH);
+  digitalWrite(cs_pin, HIGH);
 
   uint16_t calc_crc = 0xFFFF;
   for (int i = 0; i < 9; i++) {
