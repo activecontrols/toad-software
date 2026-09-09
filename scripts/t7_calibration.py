@@ -3,9 +3,10 @@
 # T7 Channel Configuration: Channel -> (Name, Serial Number, Slope, Offset)
 # Slope and Offset are used for raw voltage to pressure conversion: pressure = raw_voltage * slope + offset
 CHANNELS = {
-    0: ("Valve Upstream", 11448836, 149.9736607, -4.64377129),
-    2: ("Venturi Throat", 5589424, 99.28998837, 2.079860712),
-    4: ("Venturi Upstream", 11409838, 147.9777035, -3.692041074)
+    0: ("Venturi Upstream", 11448836, 149.9736607, -4.64377129),
+    2: ("Venturi Throat", 11100913, 148.37, -1.3985),
+#    2: ("Venturi Throat", 5589424, 99.28998837, 2.079860712),
+#    4: ("Venturi Upstream", 11409838, 147.9777035, -3.692041074)
 }
 
 

@@ -74,7 +74,7 @@ void ThrottleValve::update(bool log_csv)
   float target_speed = error * K; // proportional controller
 
   // clamp target speed to safe values
-  target_speed = clamp(target_speed, -250.0f, 250.0f);
+  target_speed = clamp(target_speed, -100.0f, 100.0f);
 
 
   // prevent weird jitter
@@ -89,6 +89,7 @@ void ThrottleValve::update(bool log_csv)
   }
 
   motor.set_speed(target_speed, 250U);
+  // motor.set_speed(target_speed, 50U);
 
   last_update_ms = millis();
   return;
@@ -180,6 +181,15 @@ void motor_follow_profile_cmd(const char* cmd)
   }
 }
 
+void motor_zero_cmd(const char* cmd)
+{
+  (void)cmd;
+
+  ox_valve.encoder.zero();
+
+  return;
+}
+
 // TODO - don't just return true here!
 bool begin() {
   rs485_test_ser.begin(2000000);
@@ -200,6 +210,7 @@ bool begin() {
   CommandRouter::add(get_position_cmd, "motor_get_position");
   CommandRouter::add(set_position_cmd, "motor_set_position");
   CommandRouter::add(motor_follow_profile_cmd, "motor_follow_profile"); // meant for use with the valve profile python script (see toad-software/scripts/valve_profile.py)
+  CommandRouter::add(motor_zero_cmd, "motor_zero");
 
   return true;
 }

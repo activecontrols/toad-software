@@ -68,13 +68,36 @@ def profile_chirp(time_s):
     return (False, target_angle)
 
 
+def profile_open_close_sine(time_s):
+    """Sine wave profile to go from closed to open and back"""
+    max_time = 25.0
+    period = 5.0
+    amplitude = 45.0
+    if time_s > max_time:
+        return (True, 0.0)
+    target_angle = 180 + -45.0 - amplitude * math.sin(2 * math.pi / period * time_s)
+    if target_angle < 0:
+        target_angle += 360.0
+    return (False, target_angle)
+
+
+def profile_continuous_spin(time_s):
+    if (time_s > 120):
+        return (True, 0.0)
+
+    return (False, -time_s * 12.0)
+
+
+
 # Profile Mapping Dictionary
 PROFILES = {
     "chirp": ("Chirp Profile", profile_chirp),
     "step": ("Step Response", step_response),
     "sawtooth": ("Sawtooth Profile", profile_sawtooth),
     "sine": ("Sine Wave Profile", profile_sine),
-    "small_step": ("Small Step Response", small_step_response)
+    "small_step": ("Small Step Response", small_step_response),
+    "open_close_sine": ("Open-Close sine wave", profile_open_close_sine),
+    "continuous_spin": ("Continuous spin", profile_continuous_spin)
 }
 
 def select_profile(profile_key: str = None):
