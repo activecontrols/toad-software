@@ -7,7 +7,8 @@ LDFLAGS  := -luser32 -lgdi32 -ld3d11 -ldxgi -ld3dcompiler -ldwmapi -lole32 -luui
 
 # Sources
 SRC := \
-	$(wildcard UI/*.cpp) \
+	$(wildcard UI/src/*.cpp) \
+	UI/gen/pid_diagram.cpp \
 	$(filter-out %demo.cpp,$(wildcard UI/imgui/*.cpp UI/implot/*.cpp UI/implot3d/*.cpp)) \
 	UI/imgui/backends/imgui_impl_win32.cpp \
 	UI/imgui/backends/imgui_impl_dx11.cpp
@@ -30,6 +31,9 @@ $(TARGET): $(OBJ)
 $(OBJ): $(BUILD_DIR)/%.o: %.cpp
 	@if not exist "$(dir $@)" mkdir "$(dir $@)"
 	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+UI/gen/pid_diagram.cpp: UI/gen/gen_pid_diagram.py UI/src/toad_flight.pid
+	python $(word 1,$^) $(word 2,$^) $@
 
 clean:
 	@if exist $(BUILD_DIR) rmdir /s /q $(BUILD_DIR)
