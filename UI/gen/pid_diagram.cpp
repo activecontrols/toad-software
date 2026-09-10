@@ -3,24 +3,24 @@
 PID_Diagram pid_diagram;
 
 void init_diagram() {
-  pid_diagram.valves[0] = {Valve_Type::Ball, "BV-N2-01", ImVec2(200.0, -75.0), 'H',  ImVec2(200.0, -45.0)};
-  pid_diagram.valves[1] = {Valve_Type::Ball, "BV-N2-02", ImVec2(550.0, -75.0), 'H',  ImVec2(550.0, -45.0)};
-  pid_diagram.valves[2] = {Valve_Type::Solenoid, "SV-N2-01", ImVec2(250.0, -250.0), 'H',  ImVec2(250.0, -280.0)};
-  pid_diagram.valves[3] = {Valve_Type::Solenoid, "SV-N2-02", ImVec2(350.0, -250.0), 'H',  ImVec2(350.0, -280.0)};
-  pid_diagram.valves[4] = {Valve_Type::Solenoid, "SV-N2-03", ImVec2(250.0, -200.0), 'H',  ImVec2(250.0, -170.0)};
-  pid_diagram.valves[5] = {Valve_Type::Solenoid, "SV-N2-04", ImVec2(350.0, -200.0), 'H',  ImVec2(350.0, -170.0)};
-  pid_diagram.valves[6] = {Valve_Type::Solenoid, "SV-N2-05", ImVec2(0.0, 300.0), 'V',  ImVec2(60.0, 300.0)};
-  pid_diagram.valves[7] = {Valve_Type::Solenoid, "SV-N2-06", ImVec2(525.0, 300.0), 'V',  ImVec2(465.0, 300.0)};
-  pid_diagram.valves[8] = {Valve_Type::Solenoid, "SV-N2-07", ImVec2(300.0, 250.0), 'V',  ImVec2(360.0, 250.0)};
-  pid_diagram.valves[9] = {Valve_Type::Ball, "BV-O2-01", ImVec2(-250.0, -50.0), 'H',  ImVec2(-250.0, -20.0)};
-  pid_diagram.valves[10] = {Valve_Type::Ball, "BV-O2-02", ImVec2(-250.0, 200.0), 'H',  ImVec2(-250.0, 230.0)};
-  pid_diagram.valves[11] = {Valve_Type::Ball, "BV-O2-03", ImVec2(-150.0, 250.0), 'V',  ImVec2(-90.0, 250.0)};
-  pid_diagram.valves[12] = {Valve_Type::Throttle, "BV-O2-04", ImVec2(-75.0, 450.0), 'H',  ImVec2(-75.0, 480.0)};
-  pid_diagram.valves[13] = {Valve_Type::Solenoid, "SV-O2-01", ImVec2(200.0, 375.0), 'H',  ImVec2(200.0, 405.0)};
-  pid_diagram.valves[14] = {Valve_Type::Ball, "BV-FU-01", ImVec2(850.0, -50.0), 'H',  ImVec2(850.0, -20.0)};
-  pid_diagram.valves[15] = {Valve_Type::Ball, "BV-FU-03", ImVec2(750.0, 250.0), 'V',  ImVec2(690.0, 250.0)};
-  pid_diagram.valves[16] = {Valve_Type::Throttle, "BV-FU-04", ImVec2(600.0, 700.0), 'H',  ImVec2(600.0, 730.0)};
-  pid_diagram.valves[17] = {Valve_Type::Solenoid, "SV-FU-01", ImVec2(400.0, 375.0), 'H',  ImVec2(400.0, 405.0)};
+  pid_diagram.valves[0] = {Valve_Type::Ball, "BV-N2-01", ImVec2(200.0, -75.0), 'H', ImVec2(200.0, -45.0)};
+  pid_diagram.valves[1] = {Valve_Type::Ball, "BV-N2-02", ImVec2(550.0, -75.0), 'H', ImVec2(550.0, -45.0)};
+  pid_diagram.valves[2] = {Valve_Type::Solenoid, "SV-N2-01", ImVec2(250.0, -250.0), 'H', ImVec2(250.0, -280.0)};
+  pid_diagram.valves[3] = {Valve_Type::Solenoid, "SV-N2-02", ImVec2(350.0, -250.0), 'H', ImVec2(350.0, -280.0)};
+  pid_diagram.valves[4] = {Valve_Type::Solenoid, "SV-N2-03", ImVec2(250.0, -200.0), 'H', ImVec2(250.0, -170.0)};
+  pid_diagram.valves[5] = {Valve_Type::Solenoid, "SV-N2-04", ImVec2(350.0, -200.0), 'H', ImVec2(350.0, -170.0)};
+  pid_diagram.valves[6] = {Valve_Type::Solenoid, "SV-N2-05", ImVec2(0.0, 300.0), 'V', ImVec2(60.0, 300.0)};
+  pid_diagram.valves[7] = {Valve_Type::Solenoid, "SV-N2-06", ImVec2(525.0, 300.0), 'V', ImVec2(465.0, 300.0)};
+  pid_diagram.valves[8] = {Valve_Type::Solenoid, "SV-N2-07", ImVec2(300.0, 250.0), 'V', ImVec2(360.0, 250.0)};
+  pid_diagram.valves[9] = {Valve_Type::Ball, "BV-O2-01", ImVec2(-250.0, -50.0), 'H', ImVec2(-250.0, -20.0)};
+  pid_diagram.valves[10] = {Valve_Type::Ball, "BV-O2-02", ImVec2(-250.0, 200.0), 'H', ImVec2(-250.0, 230.0)};
+  pid_diagram.valves[11] = {Valve_Type::Ball, "BV-O2-03", ImVec2(-150.0, 250.0), 'V', ImVec2(-90.0, 250.0)};
+  pid_diagram.valves[12] = {Valve_Type::Throttle, "BV-O2-04", ImVec2(-75.0, 450.0), 'H', ImVec2(-75.0, 480.0)};
+  pid_diagram.valves[13] = {Valve_Type::Solenoid, "SV-O2-01", ImVec2(200.0, 375.0), 'H', ImVec2(200.0, 405.0)};
+  pid_diagram.valves[14] = {Valve_Type::Ball, "BV-FU-01", ImVec2(850.0, -50.0), 'H', ImVec2(850.0, -20.0)};
+  pid_diagram.valves[15] = {Valve_Type::Ball, "BV-FU-03", ImVec2(750.0, 250.0), 'V', ImVec2(690.0, 250.0)};
+  pid_diagram.valves[16] = {Valve_Type::Throttle, "BV-FU-04", ImVec2(600.0, 700.0), 'H', ImVec2(600.0, 730.0)};
+  pid_diagram.valves[17] = {Valve_Type::Solenoid, "SV-FU-01", ImVec2(400.0, 375.0), 'H', ImVec2(400.0, 405.0)};
   static_assert(18 == NUMBER_OF_VALVES);
 
   pid_diagram.pid_items[0] = {PID_Type::Tank, "TK-O2-01", ImVec2(-150.0, 75.0), 'O'};
