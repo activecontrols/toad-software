@@ -1,0 +1,128 @@
+Valves:
+Type, Name, Loc X, Loc Y, Orientation, Label
+Ball, BV-N2-01, 200, -75, H, down
+Ball, BV-N2-02, 550, -75, H, down
+Solenoid, SV-N2-01, 250, -250, H, up
+Solenoid, SV-N2-02, 350, -250, H, up
+Solenoid, SV-N2-03, 250, -200, H, down
+Solenoid, SV-N2-04, 350, -200, H, down
+Solenoid, SV-N2-05, 0, 300, V, right
+Solenoid, SV-N2-06, 525, 300, V, left
+Solenoid, SV-N2-07, 300, 250, V, right
+Ball, BV-O2-01, -250, -50, H, down
+Ball, BV-O2-02, -250, 200, H, down
+Ball, BV-O2-03, -150, 250, V, right
+Throttle, BV-O2-04, -75, 450, H, down
+Solenoid, SV-O2-01, 200, 375, H, down
+Ball, BV-FU-01, 850, -50, H, down
+Ball, BV-FU-03, 750, 250, V, left
+Throttle, BV-FU-04, 600, 700, H, down
+Solenoid, SV-FU-01, 400, 375, H, down
+
+Other Items:
+Type, Name, Loc X, Loc Y, Orientation / Color
+Tank, TK-O2-01, -150, 75, O
+Tank, TK-FU-01, 750, 75, F
+Tank, TK-N2, 300, 75, N
+Large Nozzle, Engine, 300, 600, .
+Igniter, Igniter, 330, 475, .
+Small Nozzle, RCS-1, 150, -250, L
+Small Nozzle, RCS-2, 450, -250, R
+Small Nozzle, RCS-3, 150, -200, L
+Small Nozzle, RCS-4, 450, -200, R
+Reg, RG-N2-03, 400, -75, .
+CheckValve, CK-O2-01, -150, -90, V
+CheckValve, CK-O2-02, 0, 412, V
+CheckValve, CK-O2-03, 262, 325, V
+CheckValve, CK-FU-01, 750, -90, V
+CheckValve, CK-FU-02, 525, 650, V
+CheckValve, CK-FU-03, 338, 325, V
+ManualValve, BV-FU-02, 850, 200, H
+
+Instruments:
+Type, Name, Loc, Attach, Attach Method
+// tanks
+PT, PT-FU-01, TK-FU-01 rightsensor, TK-FU-01 right, t
+PT, PT-N2-01, TK-N2 rightsensor, TK-N2 right, t
+PT, PT-N2-02, 500 -10, 500 -75, u
+PT, PT-O2-01, TK-O2-01 rightsensor, TK-O2-01 right, t
+TC, TC-N2-01, TK-N2 leftsensor, TK-N2 left, t
+TC, TC-O2-01, TK-O2-01 leftsensor, TK-O2-01 left, t
+
+// Injector
+PT, PT-FU-02, Engine Fu Inj, Engine left, t
+PT, PT-O2-02, Engine Ox Inj, Engine left, b
+TC, TC-FU-01, Engine Fu Inj TC, Engine left, t
+TC, TC-O2-02, Engine Ox Inj TC, Engine left, b
+
+// Igniter
+PT, PT-FU-04, Igniter sensor, Igniter right, l
+
+Pipes:
+Start, End, Color | Fill Valve | Purge Valve
+// purges - render first so we can skip where needed
+625 -125, 625 200, N2 | BV-N2-02
+SV-N2-05 top, 625 200, N2 | BV-N2-02
+SV-N2-06 top, 525 200, N2 | BV-N2-02
+SV-N2-07 top, 300 200, N2 | BV-N2-02
+SV-N2-05 bottom, CK-O2-02 top, N2 | SV-N2-05 BV-N2-02
+CK-O2-02 bottom, 125 450, O2 | BV-O2-03 BV-O2-04 | SV-N2-05 BV-N2-02
+SV-N2-06 bottom, CK-FU-02 top, N2 | SV-N2-06 BV-N2-02
+CK-FU-02 bottom, 525 700, FU | BV-FU-03 BV-FU-04 | SV-N2-06 BV-N2-02
+SV-N2-07 bottom, 262 300, N2 | SV-N2-07 BV-N2-02
+SV-N2-07 bottom, 338 300, N2 | SV-N2-07 BV-N2-02
+CK-O2-03 top, 262 300, N2 | SV-N2-07 BV-N2-02
+CK-O2-03 bottom, 262 375, O2 | BV-O2-03 SV-O2-01 | SV-N2-07 BV-N2-02
+CK-FU-03 top, 338 300, N2 | SV-N2-07 BV-N2-02
+CK-FU-03 bottom, 338 375, FU | BV-FU-03 SV-FU-01 | SV-N2-07 BV-N2-02
+
+// Tanks -> Engine
+TK-O2-01 bottom, BV-O2-03 top, O2
+TK-FU-01 bottom, BV-FU-03 top, FU
+BV-O2-03 bottom, BV-O2-04 left, O2 | BV-O2-03
+BV-FU-03 bottom, BV-FU-04 right, FU | BV-FU-03
+BV-O2-04 right, Engine top, O2 | BV-O2-03 BV-O2-04 | SV-N2-05 BV-N2-02
+BV-FU-04 left, 340 700, FU | BV-FU-03 BV-FU-04 | SV-N2-06 BV-N2-02
+
+// Igniter
+-150 375, SV-O2-01 left, O2 | BV-O2-03
+750 375, SV-FU-01 right, FU | BV-FU-03
+SV-O2-01 right, Igniter topleft, O2 | BV-O2-03 SV-O2-01 | SV-N2-07 BV-N2-02
+SV-FU-01 left, Igniter topright, FU | BV-FU-03 SV-FU-01 | SV-N2-07 BV-N2-02
+
+// N2 Press
+BV-N2-01 right, TK-N2 top, N2
+RG-N2-03 left, TK-N2 top, N2
+TK-O2-01 top, CK-O2-01 bottom, O2
+CK-O2-01 top, -150 -125, N2 | BV-N2-02
+TK-FU-01 top, CK-FU-01 bottom, FU
+CK-FU-01 top, 750 -125, N2 | BV-N2-02
+-150 -125, 750 -125, N2 | BV-N2-02
+BV-N2-02 left, RG-N2-03 right, N2
+BV-N2-02 right, 625 0, N2 | BV-N2-02
+
+// RCS
+SV-N2-01 left, RCS-1, N2 | SV-N2-01
+SV-N2-02 right, RCS-2, N2 | SV-N2-02
+SV-N2-03 left, RCS-3, N2 | SV-N2-03
+SV-N2-04 right, RCS-4, N2 | SV-N2-04
+SV-N2-01 right, SV-N2-02 left, N2 | BV-N2-02
+SV-N2-03 right, SV-N2-04 left, N2 | BV-N2-02
+between SV-N2-01 and SV-N2-02, 300 -125, N2 | BV-N2-02
+
+// drain/vent
+BV-O2-02 right, -150 200, O2
+BV-O2-01 right, TK-O2-01 top, O2
+BV-FU-02 left, 750 200, FU
+BV-FU-01 left, TK-FU-01 top, FU
+
+Settings:
+VALVE_SIZE 30
+TANK_WIDTH 125
+TANK_HEIGHT 150
+LARGE_NOZZEL_WIDTH 100
+LARGE_NOZZEL_HEIGHT 200
+SMALL_NOZZEL_WIDTH 25
+SMALL_NOZZEL_LENGTH 50
+REG_SIZE 20
+CHECK_VALVE_SIZE 15
