@@ -1,7 +1,8 @@
 #pragma once
+#include "ec_valves.h"
 #include "imgui.h"
+#include <optional>
 
-#define NUMBER_OF_VALVES 18
 #define NUMBER_OF_PID_ITEMS 17
 #define NUMBER_OF_INSTRUMENTS 11
 #define NUMBER_OF_PIPES 44
@@ -43,7 +44,7 @@ enum Instrument_Type { PT, TC };
 }
 
 namespace Valve_Type {
-enum Valve_Type { Solenoid, Ball, Throttle };
+enum Valve_Type { Solenoid, Ball };
 }
 
 struct PID_Item {
@@ -55,6 +56,14 @@ struct PID_Item {
 
 struct PID_Valve {
   Valve_Type::Valve_Type valve_type;
+  const char *name;
+  SolenoidValves::valve_state_t state;
+  ImVec2 location;
+  char orientation; // H or V
+  ImVec2 label_location;
+};
+
+struct PID_ThrottleValve {
   const char *name;
   ImVec2 location;
   char orientation; // H or V
@@ -69,21 +78,22 @@ struct PID_Instrument {
   char attach_direction;
 };
 
-#define NULL_VALVE -1
-
 struct PID_Pipe {
   ImVec2 start;
   ImVec2 end;
   ImColor color;
 
-  int fill_valves[3];  // color set to fade if one of these closed (-1 to disable)
-  int purge_valves[3]; // color set to N2 if purge valves are open and fill valves closed
+  // color set to fade if one of these closed
+  std::optional<SolenoidValves::valve_id> fill_valves[3];
+  // color set to N2 if purge valves are open and fill valves closed
+  std::optional<SolenoidValves::valve_id> purge_valves[3];
 
   ImVec2 control_point;
 };
 
 struct PID_Diagram {
-  PID_Valve valves[NUMBER_OF_VALVES];
+  PID_Valve valves[SolenoidValves::NUM_SV_BV_VALVES];
+  PID_ThrottleValve throttle_valves[2];
   PID_Item pid_items[NUMBER_OF_PID_ITEMS];
   PID_Instrument instruments[NUMBER_OF_INSTRUMENTS];
   PID_Pipe pipes[NUMBER_OF_PIPES];

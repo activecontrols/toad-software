@@ -1,5 +1,4 @@
 #pragma once
-#include "ec_pins.h"
 
 #define VALVE_SHORT_NAME_LEN 8 // "SV_N2_01"
 
@@ -22,13 +21,11 @@
 #define BV_15 BV_FU_01_release
 #define BV_16 BV_FU_03_run
 
-static_assert(NUM_SV_BV_VALVES == 16);
-
 namespace SolenoidValves {
 // Note - this must be kept in sync with the list in SolenoidValves.cpp
 // It allows referring to a valve number by its canonical name
 /* clang-format off */
-enum valve_ids { SV_1, SV_2, SV_3, SV_4, SV_5, SV_6, SV_7, SV_8, SV_9, BV_10, BV_11, BV_12, BV_13, BV_14, BV_15, BV_16 };
+enum valve_id { SV_1, SV_2, SV_3, SV_4, SV_5, SV_6, SV_7, SV_8, SV_9, BV_10, BV_11, BV_12, BV_13, BV_14, BV_15, BV_16, NUM_SV_BV_VALVES };
 /* clang-format on */
 
 // A valve state isn't the same as a DO logic level, so use this type to differentiate.

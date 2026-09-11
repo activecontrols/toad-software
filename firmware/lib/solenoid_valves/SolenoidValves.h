@@ -1,4 +1,5 @@
 #pragma once
+#include "ec_pins.h"
 #include "ec_valves.h"
 
 namespace SolenoidValves {
