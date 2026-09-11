@@ -26,10 +26,8 @@
 
 #define CMD_NAND_BLOCK_ERASE 0xD8u
 
-// GET/SET FEATURES register addresses.
-// status_a (C0h) and status_b (F0h) are confirmed - see Jacob's spec.
 #define FEATURE_ADDR_BLOCK_LOCK 0xA0u
-#define FEATURE_ADDR_CONFIG 0xB0u // TODO - confirm QE (quad enable) bit position against final datasheet
+#define FEATURE_ADDR_CONFIG 0xB0u
 #define FEATURE_ADDR_STATUS_A 0xC0u
 #define FEATURE_ADDR_STATUS_B 0xF0u
 

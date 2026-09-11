@@ -12,19 +12,19 @@ typedef enum {
 } flash_error_t;
 
 typedef struct __attribute__((packed)) {
-  uint8_t RESERVED1 : 2;
-  uint8_t ECCS : 2;
-  uint8_t P_FAIL : 1;
-  uint8_t E_FAIL : 1;
-  uint8_t WEL : 1;
   uint8_t OIP : 1;
+  uint8_t WEL : 1;
+  uint8_t E_FAIL : 1;
+  uint8_t P_FAIL : 1;
+  uint8_t ECCS : 2;
+  uint8_t RESERVED1 : 2;
 } flash_status_a_t;
 
 typedef struct __attribute__((packed)) {
-  uint8_t RESERVED1 : 2;
-  uint8_t ECCS : 2;
+  uint8_t RESERVED1 : 3;
   uint8_t BPS : 1;
-  uint8_t RESERVED2 : 3;
+  uint8_t ECCS : 2;
+  uint8_t RESERVED2 : 2;
 } flash_status_b_t;
 
 namespace Flash {
