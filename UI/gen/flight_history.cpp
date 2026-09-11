@@ -104,8 +104,6 @@ void commit_packet(gnc_telemetry_t packet) {
   FlightHistory.flight_armed[write_pos + FLIGHT_HISTORY_LENGTH] = packet.flight_armed;
   FlightHistory.thrust_perc[write_pos] = packet.thrust_perc;
   FlightHistory.thrust_perc[write_pos + FLIGHT_HISTORY_LENGTH] = packet.thrust_perc;
-  FlightHistory.diffy_perc[write_pos] = packet.diffy_perc;
-  FlightHistory.diffy_perc[write_pos + FLIGHT_HISTORY_LENGTH] = packet.diffy_perc;
   FlightHistory.rtk_status[write_pos] = packet.rtk_status;
   FlightHistory.rtk_status[write_pos + FLIGHT_HISTORY_LENGTH] = packet.rtk_status;
   FlightHistory.gps_hor_prec[write_pos] = packet.gps_hor_prec;
@@ -155,6 +153,16 @@ void commit_packet(ec_telemetry_t packet) {
   FlightHistory.tcs.TC_5[write_pos + FLIGHT_HISTORY_LENGTH] = packet.tcs.TC_5;
   FlightHistory.tcs.TC_6[write_pos] = packet.tcs.TC_6;
   FlightHistory.tcs.TC_6[write_pos + FLIGHT_HISTORY_LENGTH] = packet.tcs.TC_6;
+  FlightHistory.ox_valve_angle[write_pos] = packet.ox_valve_angle;
+  FlightHistory.ox_valve_angle[write_pos + FLIGHT_HISTORY_LENGTH] = packet.ox_valve_angle;
+  FlightHistory.fu_valve_angle[write_pos] = packet.fu_valve_angle;
+  FlightHistory.fu_valve_angle[write_pos + FLIGHT_HISTORY_LENGTH] = packet.fu_valve_angle;
+  FlightHistory.ox_fill_level[write_pos] = packet.ox_fill_level;
+  FlightHistory.ox_fill_level[write_pos + FLIGHT_HISTORY_LENGTH] = packet.ox_fill_level;
+  FlightHistory.fu_fill_level[write_pos] = packet.fu_fill_level;
+  FlightHistory.fu_fill_level[write_pos + FLIGHT_HISTORY_LENGTH] = packet.fu_fill_level;
+  FlightHistory.n2_fill_level[write_pos] = packet.n2_fill_level;
+  FlightHistory.n2_fill_level[write_pos + FLIGHT_HISTORY_LENGTH] = packet.n2_fill_level;
 };
 
 void update_fh_pos() {

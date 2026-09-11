@@ -22,8 +22,8 @@ void init_diagram() {
   pid_diagram.valves[BV_O2_03_run] = {Valve_Type::Ball, "BV-O2-03", BV_O2_03_run_default, ImVec2(-150.0, 250.0), 'V', ImVec2(-90.0, 250.0)};
   pid_diagram.valves[BV_FU_01_release] = {Valve_Type::Ball, "BV-FU-01", BV_FU_01_release_default, ImVec2(850.0, -50.0), 'H', ImVec2(850.0, -20.0)};
   pid_diagram.valves[BV_FU_03_run] = {Valve_Type::Ball, "BV-FU-03", BV_FU_03_run_default, ImVec2(750.0, 250.0), 'V', ImVec2(690.0, 250.0)};
-  pid_diagram.throttle_valves[0] = {"BV-O2-04", ImVec2(-75.0, 450.0), 'H', ImVec2(-75.0, 480.0)};
-  pid_diagram.throttle_valves[1] = {"BV-FU-04", ImVec2(600.0, 700.0), 'H', ImVec2(600.0, 730.0)};
+  pid_diagram.throttle_valves[0] = {"BV-O2-04", &FlightHistory.fu_valve_angle, ImVec2(-75.0, 450.0), 'H', ImVec2(-75.0, 480.0)};
+  pid_diagram.throttle_valves[1] = {"BV-FU-04", &FlightHistory.fu_valve_angle, ImVec2(600.0, 700.0), 'H', ImVec2(600.0, 730.0)};
 
   pid_diagram.pid_items[0] = {PID_Type::Tank, "TK-O2-01", ImVec2(-150.0, 75.0), 'O'};
   pid_diagram.pid_items[1] = {PID_Type::Tank, "TK-FU-01", ImVec2(750.0, 75.0), 'F'};

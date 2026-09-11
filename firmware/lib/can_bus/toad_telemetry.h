@@ -52,7 +52,6 @@ struct gnc_telemetry_t {
   bool GND_flag;
   bool flight_armed;
   float thrust_perc;
-  float diffy_perc;
   int rtk_status;
   float gps_hor_prec;
   float gps_ver_prec;
@@ -62,4 +61,9 @@ struct gnc_telemetry_t {
 struct ec_telemetry_t {
   pressure_readings_t pts;
   temperature_readings_t tcs;
+  float ox_valve_angle;
+  float fu_valve_angle;
+  float ox_fill_level;
+  float fu_fill_level;
+  float n2_fill_level;
 };

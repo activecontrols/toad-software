@@ -60,7 +60,6 @@ struct flight_history_t {
   bool GND_flag[FLIGHT_HISTORY_LENGTH * 2];
   bool flight_armed[FLIGHT_HISTORY_LENGTH * 2];
   float thrust_perc[FLIGHT_HISTORY_LENGTH * 2];
-  float diffy_perc[FLIGHT_HISTORY_LENGTH * 2];
   int rtk_status[FLIGHT_HISTORY_LENGTH * 2];
   float gps_hor_prec[FLIGHT_HISTORY_LENGTH * 2];
   float gps_ver_prec[FLIGHT_HISTORY_LENGTH * 2];
@@ -88,6 +87,11 @@ struct flight_history_t {
     float TC_5[FLIGHT_HISTORY_LENGTH * 2];
     float TC_6[FLIGHT_HISTORY_LENGTH * 2];
   } tcs;
+  float ox_valve_angle[FLIGHT_HISTORY_LENGTH * 2];
+  float fu_valve_angle[FLIGHT_HISTORY_LENGTH * 2];
+  float ox_fill_level[FLIGHT_HISTORY_LENGTH * 2];
+  float fu_fill_level[FLIGHT_HISTORY_LENGTH * 2];
+  float n2_fill_level[FLIGHT_HISTORY_LENGTH * 2];
 };
 
 extern flight_history_t FlightHistory;
