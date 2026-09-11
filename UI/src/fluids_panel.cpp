@@ -9,8 +9,6 @@
 
 float fill_level = 0.5;
 
-float sensor_readings[100];
-
 #define VALVE_CLICK_TIME_THRESHOLD 5 // seconds
 std::optional<valve_id> last_clicked_valve = std::nullopt;
 time_t last_clicked_valve_time;
@@ -167,7 +165,7 @@ void fluids_panel() {
     }
 
     DrawReadout(psensor.location + diagram_offset, psensor.attach_location + diagram_offset, psensor.name, unit,
-                sensor_readings[i], psensor.attach_direction);
+                fh_now(*psensor.reading), psensor.attach_direction);
   }
 
   dl->PopClipRect();
