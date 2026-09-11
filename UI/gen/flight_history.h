@@ -96,5 +96,5 @@ extern int read_start_pos;
 extern int read_end_pos;
 extern int write_pos;
 
-#define fh_now(x) x[read_end_pos]
-#define fh_all(x) &x[read_start_pos]
+#define fh_now(x) (x)[read_end_pos]
+#define fh_all(x) &(x)[read_start_pos]

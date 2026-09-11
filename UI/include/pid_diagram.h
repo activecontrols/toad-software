@@ -1,5 +1,6 @@
 #pragma once
 #include "ec_valves.h"
+#include "flight_history.h"
 #include "imgui.h"
 #include <optional>
 
@@ -73,6 +74,7 @@ struct PID_ThrottleValve {
 struct PID_Instrument {
   Instrument_Type::Instrument_Type instrument_type;
   const char *name;
+  float (*reading)[FLIGHT_HISTORY_LENGTH * 2];
   ImVec2 location;
   ImVec2 attach_location;
   char attach_direction;
