@@ -14,6 +14,12 @@ time_t last_clicked_valve_time;
 void fluids_panel() {
   ImGui::Begin(FLUIDS_PANEL);
 
+  // Update valves from the telemetry stream (when enabled, clicking on valves won't work)
+  for (int i = 0; i < NUM_SV_BV_VALVES; i++) {
+    // see SolenoidValves.cpp
+    pid_diagram.valves[i].state = fh_now(FlightHistory.valve_states) & (1 << i) ? VALVE_OPEN : VALVE_CLOSE;
+  }
+
   ImGui::PushFont(NULL, 24);
   ImGui::SeparatorText("TOAD Valve Control");
   ImGui::PopFont();
@@ -117,8 +123,9 @@ void fluids_panel() {
     PID_ThrottleValve valve = pid_diagram.throttle_valves[i];
     ImVec2 center = valve.location + diagram_offset;
     bool hovered = MouseInValveHitbox(center, valve.orientation);
-    DrawThrottleValve(center, valve.orientation, valve.name, valve.label_location + diagram_offset, true, hovered,
-                      fh_now(*valve.angle));
+    float valve_angle = fh_now(*valve.angle);
+    DrawThrottleValve(center, valve.orientation, valve.name, valve.label_location + diagram_offset, valve_angle > 5,
+                      hovered, valve_angle);
   }
 
   for (int i = 0; i < NUMBER_OF_PID_ITEMS; i++) {

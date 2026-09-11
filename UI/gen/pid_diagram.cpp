@@ -7,8 +7,8 @@ PID_Diagram pid_diagram;
 
 void init_diagram() {
   pid_diagram.valves[SV_N2_01_rcs_pos_1] = {Valve_Type::Solenoid, "SV-N2-01", SV_N2_01_rcs_pos_1_default, ImVec2(250.0, -250.0), 'H', ImVec2(250.0, -280.0)};
-  pid_diagram.valves[SV_N2_02_rcs_pos_2] = {Valve_Type::Solenoid, "SV-N2-02", SV_N2_02_rcs_pos_2_default, ImVec2(350.0, -250.0), 'H', ImVec2(350.0, -280.0)};
-  pid_diagram.valves[SV_N2_03_rcs_neg_1] = {Valve_Type::Solenoid, "SV-N2-03", SV_N2_03_rcs_neg_1_default, ImVec2(250.0, -200.0), 'H', ImVec2(250.0, -170.0)};
+  pid_diagram.valves[SV_N2_02_rcs_pos_2] = {Valve_Type::Solenoid, "SV-N2-02", SV_N2_02_rcs_pos_2_default, ImVec2(250.0, -200.0), 'H', ImVec2(250.0, -170.0)};
+  pid_diagram.valves[SV_N2_03_rcs_neg_1] = {Valve_Type::Solenoid, "SV-N2-03", SV_N2_03_rcs_neg_1_default, ImVec2(350.0, -250.0), 'H', ImVec2(350.0, -280.0)};
   pid_diagram.valves[SV_N2_04_rcs_neg_2] = {Valve_Type::Solenoid, "SV-N2-04", SV_N2_04_rcs_neg_2_default, ImVec2(350.0, -200.0), 'H', ImVec2(350.0, -170.0)};
   pid_diagram.valves[SV_N2_05_ox_purge] = {Valve_Type::Solenoid, "SV-N2-05", SV_N2_05_ox_purge_default, ImVec2(0.0, 300.0), 'V', ImVec2(60.0, 300.0)};
   pid_diagram.valves[SV_N2_06_fu_purge] = {Valve_Type::Solenoid, "SV-N2-06", SV_N2_06_fu_purge_default, ImVec2(525.0, 300.0), 'V', ImVec2(465.0, 300.0)};
@@ -91,8 +91,8 @@ void init_diagram() {
   pid_diagram.pipes[31] = {ImVec2(520.0, -75.0), ImVec2(420.0, -75.0), PID_COLOR_N2, {}, {}};
   pid_diagram.pipes[32] = {ImVec2(580.0, -75.0), ImVec2(625.0, 0.0), PID_COLOR_N2, {BV_N2_02_fill}, {}, ImVec2(625.0, -75.0)};
   pid_diagram.pipes[33] = {ImVec2(220.0, -250.0), ImVec2(175.0, -250.0), PID_COLOR_N2, {SV_N2_01_rcs_pos_1, BV_N2_02_fill}, {}};
-  pid_diagram.pipes[34] = {ImVec2(380.0, -250.0), ImVec2(425.0, -250.0), PID_COLOR_N2, {SV_N2_02_rcs_pos_2, BV_N2_02_fill}, {}};
-  pid_diagram.pipes[35] = {ImVec2(220.0, -200.0), ImVec2(175.0, -200.0), PID_COLOR_N2, {SV_N2_03_rcs_neg_1, BV_N2_02_fill}, {}};
+  pid_diagram.pipes[34] = {ImVec2(220.0, -200.0), ImVec2(175.0, -200.0), PID_COLOR_N2, {SV_N2_02_rcs_pos_2, BV_N2_02_fill}, {}};
+  pid_diagram.pipes[35] = {ImVec2(380.0, -250.0), ImVec2(425.0, -250.0), PID_COLOR_N2, {SV_N2_03_rcs_neg_1, BV_N2_02_fill}, {}};
   pid_diagram.pipes[36] = {ImVec2(380.0, -200.0), ImVec2(425.0, -200.0), PID_COLOR_N2, {SV_N2_04_rcs_neg_2, BV_N2_02_fill}, {}};
   pid_diagram.pipes[37] = {ImVec2(280.0, -250.0), ImVec2(320.0, -250.0), PID_COLOR_N2, {BV_N2_02_fill}, {}};
   pid_diagram.pipes[38] = {ImVec2(280.0, -200.0), ImVec2(320.0, -200.0), PID_COLOR_N2, {BV_N2_02_fill}, {}};

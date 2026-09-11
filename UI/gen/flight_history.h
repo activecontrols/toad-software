@@ -87,6 +87,7 @@ struct flight_history_t {
     float TC_5[FLIGHT_HISTORY_LENGTH * 2];
     float TC_6[FLIGHT_HISTORY_LENGTH * 2];
   } tcs;
+  uint32_t valve_states[FLIGHT_HISTORY_LENGTH * 2];
   float ox_valve_angle[FLIGHT_HISTORY_LENGTH * 2];
   float fu_valve_angle[FLIGHT_HISTORY_LENGTH * 2];
   float ox_fill_level[FLIGHT_HISTORY_LENGTH * 2];
