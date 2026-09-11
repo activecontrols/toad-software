@@ -153,6 +153,8 @@ void commit_packet(ec_telemetry_t packet) {
   FlightHistory.tcs.TC_5[write_pos + FLIGHT_HISTORY_LENGTH] = packet.tcs.TC_5;
   FlightHistory.tcs.TC_6[write_pos] = packet.tcs.TC_6;
   FlightHistory.tcs.TC_6[write_pos + FLIGHT_HISTORY_LENGTH] = packet.tcs.TC_6;
+  FlightHistory.valve_states[write_pos] = packet.valve_states;
+  FlightHistory.valve_states[write_pos + FLIGHT_HISTORY_LENGTH] = packet.valve_states;
   FlightHistory.ox_valve_angle[write_pos] = packet.ox_valve_angle;
   FlightHistory.ox_valve_angle[write_pos + FLIGHT_HISTORY_LENGTH] = packet.ox_valve_angle;
   FlightHistory.fu_valve_angle[write_pos] = packet.fu_valve_angle;

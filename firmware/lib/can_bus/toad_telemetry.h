@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ec_sensors.h"
+#include "ec_valves.h"
 
 struct gnc_telemetry_t {
   float accel_x;
@@ -61,6 +62,7 @@ struct gnc_telemetry_t {
 struct ec_telemetry_t {
   pressure_readings_t pts;
   temperature_readings_t tcs;
+  uint32_t valve_states;
   float ox_valve_angle;
   float fu_valve_angle;
   float ox_fill_level;
