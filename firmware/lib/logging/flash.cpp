@@ -9,56 +9,10 @@
 #define FREQ_MAX 50'000'000
 #define HAL_TIMEOUT 10000
 
-// Pin mapping confirmed against the EC schematic (MCU.SchDoc, STM32H747BIT6) on 2026-09-09:
-//   PB2  -> QUADSPI_CLK      (AF9)
-//   PD11 -> QUADSPI_BK1_IO0  (AF9)
-//   PD12 -> QUADSPI_BK1_IO1  (AF9)
-//   PF7  -> QUADSPI_BK1_IO2  (AF9)
-//   PD13 -> QUADSPI_BK1_IO3  (AF9)
-//   PG6  -> QUADSPI_BK1_NCS  (AF10)
-// This mirrors ASTRA's flash.cpp in hardcoding pins directly in the MSP init rather than
-// going through ec_pins.h, since HAL_QSPI_MspInit is a one-time, low-level peripheral
-// binding rather than a general-purpose GPIO the rest of the codebase reconfigures.
-void HAL_QSPI_MspInit(QSPI_HandleTypeDef *hqspi) {
-  __HAL_RCC_QSPI_CLK_ENABLE();
-  __HAL_RCC_QSPI_FORCE_RESET();
-  __HAL_RCC_QSPI_RELEASE_RESET();
-
-  __HAL_RCC_GPIOB_CLK_ENABLE();
-  __HAL_RCC_GPIOD_CLK_ENABLE();
-  __HAL_RCC_GPIOF_CLK_ENABLE();
-  __HAL_RCC_GPIOG_CLK_ENABLE();
-
-  GPIO_InitTypeDef gpio_init{};
-  gpio_init.Mode = GPIO_MODE_AF_PP;
-  gpio_init.Pull = GPIO_NOPULL;
-  gpio_init.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-
-  gpio_init.Pin = GPIO_PIN_2;
-  gpio_init.Alternate = GPIO_AF9_QUADSPI;
-  HAL_GPIO_Init(GPIOB, &gpio_init);
-
-  gpio_init.Pin = GPIO_PIN_11 | GPIO_PIN_12 | GPIO_PIN_13;
-  gpio_init.Alternate = GPIO_AF9_QUADSPI;
-  HAL_GPIO_Init(GPIOD, &gpio_init);
-
-  gpio_init.Pin = GPIO_PIN_7;
-  gpio_init.Alternate = GPIO_AF9_QUADSPI;
-  HAL_GPIO_Init(GPIOF, &gpio_init);
-
-  gpio_init.Pin = GPIO_PIN_6;
-  gpio_init.Alternate = GPIO_AF10_QUADSPI;
-  HAL_GPIO_Init(GPIOG, &gpio_init);
-}
-
 namespace Flash {
 
 QSPI_HandleTypeDef hqspi;
 
-// True once PROGRAM LOAD has reset the cache to 0xFF for the page currently being
-// assembled. Needed because write_to_cache() may be called several times (id byte,
-// then struct bytes) before program() flushes the page - only the first of those
-// calls should reset the rest of the cache, or later calls would stomp earlier ones.
 bool cache_loaded = false;
 
 bool exec_command(uint8_t instruction, uint32_t data_len = 0, uint32_t addr = UINT32_MAX, uint8_t addr_size_bits = 24, unsigned int dummy = 0, bool quad_data = false) {
@@ -95,8 +49,6 @@ bool transmit(uint8_t instruction, void *data, uint32_t len, uint32_t addr = UIN
   return HAL_QSPI_Transmit(&hqspi, static_cast<uint8_t *>(data), HAL_TIMEOUT) == HAL_OK;
 }
 
-// GET FEATURES / SET FEATURES address the target register with a 1-byte address, not a
-// memory-array address.
 bool get_feature(uint8_t feature_addr, uint8_t *out) {
   return receive(CMD_NAND_GET_FEATURES, out, 1, feature_addr, 8);
 }
@@ -123,7 +75,6 @@ flash_error_t read_status(flash_status_a_t *status_a, flash_status_b_t *status_b
   return FLASH_ERROR_SUCCESS;
 }
 
-// Polls GET FEATURES (status_a) until OIP (operation in progress) clears, or timeout_us elapses.
 flash_error_t wait_until_ready(uint32_t timeout_us) {
   flash_status_a_t status{};
   uint32_t start = micros();
