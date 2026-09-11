@@ -93,7 +93,7 @@ static bool write_table(const bpt_header_t &header, const uint8_t *bitmap) {
   if (!erase_bpt_sector())
     return false;
 
-  uint8_t buf[BPT_WRITE_SIZE];
+  alignas(32) uint8_t buf[BPT_WRITE_SIZE];
   memset(buf, 0xFF, sizeof(buf));
 
   memcpy(buf, &header, sizeof(header));

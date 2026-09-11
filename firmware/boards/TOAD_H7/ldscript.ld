@@ -57,6 +57,9 @@ MEMORY
   ITCMRAM (xrw)  : ORIGIN = 0x00000000, LENGTH = 64K
 }
 
+/* Address used by bad_page_table.cpp for persistent BPT storage. */
+_bpt_table_start = ORIGIN(BPT_FLASH);
+
 /* Sections */
 SECTIONS
 {
