@@ -45,8 +45,13 @@ void flight_data_periodic() {
   struct sockaddr_in sender;
   int sender_len = sizeof(sender);
 
-  ec_telemetry_t tp;
-  int bytes = recvfrom(sock, (char *)&tp, sizeof(tp), 0, (struct sockaddr *)&sender, &sender_len);
+  struct {
+    gnc_telemetry_t gnc;
+    ec_telemetry_t ec;
+  } combined_telem;
+
+  int bytes =
+      recvfrom(sock, (char *)&combined_telem, sizeof(combined_telem), 0, (struct sockaddr *)&sender, &sender_len);
 
   // MATLAB CODE
   // pt_vec = [X_cur(1), X_cur(3), X_cur(4), X_cur(11), X_cur(12), X_cur(13)] / 6895;
@@ -54,10 +59,11 @@ void flight_data_periodic() {
   // pkt = [ typecast(single(pt_vec), "uint8"), uint8(valve_vec), uint8([ 0, 0, 0 ]) ];
   // write(u, pkt, "127.0.0.1", 9000);
 
-  if (bytes == sizeof(tp)) {
-    commit_packet(tp);
+  if (bytes == sizeof(combined_telem)) {
+    commit_packet(combined_telem.ec);
+    commit_packet(combined_telem.gnc);
     update_fh_pos();
   } else if (bytes >= 0) {
-    printf("rcv size error - update the matlab code: %d %d\n", bytes, sizeof(tp));
+    printf("rcv size error - update the matlab code: %d %d\n", bytes, sizeof(combined_telem));
   }
 }

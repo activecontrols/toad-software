@@ -250,7 +250,6 @@ void controller_output_panel() {
   ImGui::Text("  Target Thrust: %5.2f N", fh_now(FlightHistory.thrust_N));
   ImGui::Text("    Target Roll: %5.2f rad/s^2", fh_now(FlightHistory.roll_rad_sec_squared));
   ImGui::Text("         Thrust: %5.2f %%", fh_now(FlightHistory.thrust_perc));
-  ImGui::Text("   Differential: %5.2f %%", fh_now(FlightHistory.diffy_perc));
 
   ImGui::Dummy(ImVec2(0, 100));
 
