@@ -5,10 +5,11 @@
 class CAN
 {
 public:
-    CAN(FDCAN_GlobalTypeDef* instance);
+    CAN(uint32_t tx_pin, uint32_t rx_pin);
 
     // initialize the FDCAN peripheral for use with the Toad EC
-    void init(void);
+    // returns actual bitrate in bps
+    uint32_t begin(uint32_t bit_rate);
 
     // get number of elements in the receive fifo
     uint32_t rcv_count(void);
@@ -28,4 +29,6 @@ public:
 
 // private:
     FDCAN_HandleTypeDef hfdcan;
+    uint32_t tx_pin;
+    uint32_t rx_pin;
 };
