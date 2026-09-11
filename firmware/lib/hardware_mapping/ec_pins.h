@@ -5,6 +5,7 @@
 #include "RS485.h"
 #include "SPI.h"
 #include "ec_sensors.h"
+#include "ec_valves.h"
 
 // UARTS
 // Primary serial output (UART5)
@@ -79,7 +80,6 @@
 // Valve DOs
 #define PIN_SV_BV_LATCH_ENABLE PF15
 
-#define NUM_SV_BV_VALVES 16
 #define PIN_SV_DO_1 PA4
 #define PIN_SV_DO_2 PA5
 #define PIN_SV_DO_3 PA6
@@ -96,6 +96,7 @@
 #define PIN_BV_DO_14 PH10
 #define PIN_BV_DO_15 PH11
 #define PIN_BV_DO_16 PH12
+static_assert(NUM_SV_BV_VALVES == 16);
 
 #define PIN_VALVE_OE_INPUT PG1
 

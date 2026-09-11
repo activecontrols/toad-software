@@ -50,7 +50,14 @@ def main():
 
     item_location_db: dict[str, tuple[float, float, str]] = {}
     settings = {}
-    valve_idx = {}
+
+    valve_name_map = {}
+    with open('firmware/lib/hardware_mapping/ec_valves.h') as f:
+        for line in f.readlines():
+            if (line.startswith('#define SV') or line.startswith('#define BV')) and '_default' not in line:
+                name = line.split()[2]
+                valve_name_map[name[:8]] = name
+
 
     for line in settings_lines:
         if line.strip():
@@ -62,6 +69,9 @@ def main():
     with open(cpp_fname, 'w+') as f:
         f.write("""
 #include "pid_diagram.h"
+#include "ec_valves.h"
+
+using namespace SolenoidValves;
 
 PID_Diagram pid_diagram;
 
@@ -69,7 +79,6 @@ void init_diagram() {
                 """.strip())
         f.write('\n')
 
-        valve_counter = 0
         for line in valve_lines:
             if not line.strip():
                 continue
@@ -88,10 +97,11 @@ void init_diagram() {
             else:
                 raise Exception(f"Label direction not found {label_dir}")
 
-            f.write(f"""  pid_diagram.valves[{valve_counter}] = {{Valve_Type::{valve_type}, "{name}", ImVec2({x}, {y}), '{hv}', ImVec2({lx}, {ly})}};\n""")
-            valve_idx[name] = valve_counter
-            valve_counter += 1
-            
+            if valve_type != "Throttle":
+                f.write(f"""  pid_diagram.valves[{valve_name_map[name.replace('-', '_')]}] = {{Valve_Type::{valve_type}, "{name}", {valve_name_map[name.replace('-', '_')] + '_default'}, ImVec2({x}, {y}), '{hv}', ImVec2({lx}, {ly})}};\n""")
+            else:
+                f.write(f"""  pid_diagram.throttle_valves[{1 if 'FU' in name else 0}] = {{"{name}", ImVec2({x}, {y}), '{hv}', ImVec2({lx}, {ly})}};\n""")
+
             if hv == 'V':
                 item_location_db[name + " top"] = (x, y - settings['VALVE_SIZE'], 'vert')
                 item_location_db[name + " bottom"] = (x, y + settings['VALVE_SIZE'], 'vert')
@@ -100,7 +110,7 @@ void init_diagram() {
                 item_location_db[name + " right"] = (x + settings['VALVE_SIZE'], y, 'hor')
             item_location_db[name] = (x, y, 'center')
 
-        f.write(f'  static_assert({valve_counter} == NUMBER_OF_VALVES);\n\n')
+        f.write('\n')
 
         item_counter = 0
         for line in item_lines:
@@ -185,21 +195,18 @@ void init_diagram() {
             ex, ey, end_type = get_location(end, item_location_db)
 
             if len(pipe_control) > 1:
-                fill_list = [valve_idx[x] for x in pipe_control[1].strip().split(" ")]
+                fill_list = [valve_name_map[x.replace('-', '_')] for x in pipe_control[1].strip().split(" ")]
             else:
                 fill_list = []
-            fill_list += [-1] * (3 - len(fill_list))
             fill_list = ', '.join(str(x) for x in fill_list)
 
             if len(pipe_control) > 2:
-                purge_list = [valve_idx[x] for x in pipe_control[2].strip().split(" ")]
+                purge_list = [valve_name_map[x.replace('-', '_')] for x in pipe_control[2].strip().split(" ")]
             else:
                 purge_list = []
-            purge_list += [-1] * (3 - len(purge_list))
             purge_list = ', '.join(str(x) for x in purge_list)
 
             if sx != ex and sy != ey:
-                print(start, end)
                 # advanced routing
                 if start_type == 'vert' and end_type in ['hor', 'raw', 'between']:
                     mx, my = sx, ey
@@ -222,7 +229,6 @@ void init_diagram() {
         f.write(f'  static_assert({pipe_counter} == NUMBER_OF_PIPES);\n')
         f.write("}")
 
-        print(f'#define NUMBER_OF_VALVES {valve_counter}')
         print(f'#define NUMBER_OF_PID_ITEMS {item_counter}')
         print(f'#define NUMBER_OF_INSTRUMENTS {instrument_counter}')
         print(f'#define NUMBER_OF_PIPES {pipe_counter}')
