@@ -23,7 +23,7 @@
 #define TC_1 TC_N2_01_tank
 #define TC_2 TC_O2_01_tank
 #define TC_3 TC_FU_01_inj
-#define TC_4 TC_FU_02_regen_inlet
+#define TC_4 TC_O2_02_inj
 #define TC_5 TC_unused_1
 #define TC_6 TC_unused_2
 

@@ -58,6 +58,13 @@ def main():
                 name = line.split()[2]
                 valve_name_map[name[:8]] = name
 
+    sensor_name_map = {}
+    with open('firmware/lib/hardware_mapping/ec_sensors.h') as f:
+        for line in f.readlines():
+            if (line.startswith('#define PT') or line.startswith('#define TC')):
+                name = line.split()[2]
+                sensor_name_map[name[:8]] = name
+
 
     for line in settings_lines:
         if line.strip():
@@ -69,7 +76,9 @@ def main():
     with open(cpp_fname, 'w+') as f:
         f.write("""
 #include "pid_diagram.h"
+#include "ec_sensors.h"
 #include "ec_valves.h"
+#include "flight_history.h"
 
 PID_Diagram pid_diagram;
 
@@ -174,9 +183,10 @@ void init_diagram() {
 
             item_type, name, loc, attach, attach_dir = (x.strip() for x in line.split(','))
             item_type = item_type.replace(' ', '_')
+            reading = f"&FlightHistory.{item_type.lower()}s.{sensor_name_map[name.replace('-', '_')]}"
             x, y, _ = get_location(loc, item_location_db)
             ax, ay, _ = get_location(attach, item_location_db)
-            f.write(f"""  pid_diagram.instruments[{instrument_counter}] = {{Instrument_Type::{item_type}, "{name}", ImVec2({x}, {y}), ImVec2({ax}, {ay}), '{attach_dir}'}};\n""")
+            f.write(f"""  pid_diagram.instruments[{instrument_counter}] = {{Instrument_Type::{item_type}, "{name}", {reading}, ImVec2({x}, {y}), ImVec2({ax}, {ay}), '{attach_dir}'}};\n""")
             instrument_counter += 1
 
         f.write(f'  static_assert({instrument_counter} == NUMBER_OF_INSTRUMENTS);\n\n')
