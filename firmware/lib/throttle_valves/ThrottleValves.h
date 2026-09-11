@@ -5,7 +5,7 @@
 
 class ThrottleValve {
 public:
-  ThrottleValve(uint16_t motor_can_id, HardwareSerial &enc_uart, unsigned int enc_SEL, unsigned int enc_ID)
+  ThrottleValve(uint16_t motor_can_id, Uart &enc_uart, unsigned int enc_SEL, unsigned int enc_ID)
       : motor(motor_can_id), encoder(enc_uart, enc_SEL, enc_ID) {};
 
   void begin();

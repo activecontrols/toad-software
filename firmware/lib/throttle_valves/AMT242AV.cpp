@@ -5,7 +5,7 @@
 // max reading for a 12 bit encoder
 #define MAX_READING ((1 << 12) - 1)
 
-AMT242AV::AMT242AV(HardwareSerial &uart, unsigned int SEL, uint8_t ID) : uart(uart), SEL(SEL), ID(ID) {}
+AMT242AV::AMT242AV(Uart &uart, unsigned int SEL, uint8_t ID) : uart(uart), SEL(SEL), ID(ID) {}
 
 void AMT242AV::begin() {
   digitalWrite(SEL, LOW);

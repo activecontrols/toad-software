@@ -15,8 +15,8 @@
 
 // RS485 Busses (UART6 and UART2)
 // these are declared in ec_main
-extern HardwareSerial RS485_6; // RS485 on UART 6
-extern HardwareSerial RS485_2; // RS485 on UART 2
+extern Uart RS485_6; // RS485 on UART 6
+extern Uart RS485_2; // RS485 on UART 2
 
 #define PIN_RS485_6_RX PG9
 #define PIN_RS485_6_TX PG14

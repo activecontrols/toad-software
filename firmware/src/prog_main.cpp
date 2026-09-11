@@ -8,8 +8,8 @@
 // Citations commented as [pg#]
 
 CommsSerial_t<USBSerial> USB_CommsSerial;
-CommsSerial_t<HardwareSerial> HW_CommsSerial(PIN_HW_COMM_SERIAL_RX, PIN_HW_COMM_SERIAL_TX);
-CommsSerial_t<HardwareSerial> HW_FallbackSerial(PIN_HW_FALLBACK_SERIAL_RX, PIN_HW_FALLBACK_SERIAL_TX);
+CommsSerial_t<Uart> HW_CommsSerial(PIN_HW_COMM_SERIAL_RX, PIN_HW_COMM_SERIAL_TX);
+CommsSerial_t<Uart> HW_FallbackSerial(PIN_HW_FALLBACK_SERIAL_RX, PIN_HW_FALLBACK_SERIAL_TX);
 
 SPIClass Prog_SPI(PIN_PROG_SPI_MOSI, PIN_PROG_SPI_MISO, PIN_PROG_SPI_SCK);
 

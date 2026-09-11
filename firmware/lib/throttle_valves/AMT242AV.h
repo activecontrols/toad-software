@@ -6,7 +6,7 @@
 // encoder)
 class AMT242AV {
 public:
-  AMT242AV(HardwareSerial &uart, unsigned int SEL, uint8_t ID);
+  AMT242AV(Uart &uart, unsigned int SEL, uint8_t ID);
   void begin();
 
   bool read_pos(float *out, int max_retries = 10);
@@ -14,7 +14,7 @@ public:
   void reset();
 
 private:
-  HardwareSerial &uart;
+  Uart &uart;
   unsigned int SEL;
   uint8_t ID;
 
