@@ -28,7 +28,8 @@ void DrawValve(ImVec2 center, char orientation, const char *label, ImVec2 label_
   }
 
   ImColor fill_color = open ? PID_COLOR_VALVE_OPEN : PID_COLOR_VALVE_CLOSED;
-  ImColor edge_color = hovered ? PID_COLOR_VALVE_HIGHLIGHT_EDGE : (open ? PID_COLOR_VALVE_OPEN_EDGE : PID_COLOR_VALVE_CLOSED_EDGE);
+  ImColor edge_color =
+      hovered ? PID_COLOR_VALVE_HIGHLIGHT_EDGE : (open ? PID_COLOR_VALVE_OPEN_EDGE : PID_COLOR_VALVE_CLOSED_EDGE);
   int edge_thk = hovered ? 4 : 2;
 
   dl->AddTriangleFilled(center, tl, bl, fill_color);
@@ -44,7 +45,8 @@ void DrawValve(ImVec2 center, char orientation, const char *label, ImVec2 label_
 void DrawBallValve(ImVec2 center, char orientation, const char *label, ImVec2 label_center, bool open, bool hovered) {
   ImDrawList *dl = ImGui::GetWindowDrawList();
   ImColor fill_color = open ? PID_COLOR_VALVE_OPEN : PID_COLOR_VALVE_CLOSED;
-  ImColor edge_color = hovered ? PID_COLOR_VALVE_HIGHLIGHT_EDGE : (open ? PID_COLOR_VALVE_OPEN_EDGE : PID_COLOR_VALVE_CLOSED_EDGE);
+  ImColor edge_color =
+      hovered ? PID_COLOR_VALVE_HIGHLIGHT_EDGE : (open ? PID_COLOR_VALVE_OPEN_EDGE : PID_COLOR_VALVE_CLOSED_EDGE);
   int edge_thk = hovered ? 4 : 2;
 
   DrawValve(center, orientation, label, label_center, open, hovered);
@@ -52,12 +54,13 @@ void DrawBallValve(ImVec2 center, char orientation, const char *label, ImVec2 la
   dl->AddCircle(center, VALVE_SIZE * 0.4, edge_color, 0, edge_thk);
 }
 
-void DrawThrottleValve(ImVec2 center, char orientation, const char *label, ImVec2 label_center, bool open, bool hovered) {
+void DrawThrottleValve(ImVec2 center, char orientation, const char *label, ImVec2 label_center, bool open, bool hovered,
+                       float angle) {
   ImDrawList *dl = ImGui::GetWindowDrawList();
   DrawBallValve(center, orientation, label, label_center, open, hovered);
 
   char text_buf[20];
-  snprintf(text_buf, sizeof(text_buf), "%.1lf°", 35.2);
+  snprintf(text_buf, sizeof(text_buf), "%.1lf°", angle);
 
   ImVec2 text_size = ImGui::CalcTextSize(text_buf);
   ImVec2 max_text_size = ImGui::CalcTextSize("88.8°");
@@ -92,7 +95,8 @@ void DrawReg(ImVec2 center, const char *label) {
   dl->AddLine(center + ImVec2(-reg_circle_rad, -reg_offset), center + ImVec2(reg_circle_rad, -reg_offset), fill_color);
   dl->AddLine(center, center + ImVec2(0, -reg_offset), fill_color);
   dl->AddLine(center, center + ImVec2(VALVE_SIZE / 2, -reg_offset - reg_circle_rad / 2), fill_color);
-  dl->AddLine(center + ImVec2(reg_circle_rad / 1.25, -reg_offset - reg_circle_rad / 2), center + ImVec2(VALVE_SIZE / 2, -reg_offset - reg_circle_rad / 2), fill_color);
+  dl->AddLine(center + ImVec2(reg_circle_rad / 1.25, -reg_offset - reg_circle_rad / 2),
+              center + ImVec2(VALVE_SIZE / 2, -reg_offset - reg_circle_rad / 2), fill_color);
 
   ImVec2 textSize = ImGui::CalcTextSize(label);
   dl->AddText(center + ImVec2(0, 30) - textSize / 2, PID_COLOR_OUTLINE, label);
@@ -127,16 +131,24 @@ void DrawCheckValve(ImVec2 center, char orientation) {
   float arrow_offset_hor = 10;
   float arrow_offset_vert = 5;
   if (orientation == 'H') {
-    dl->AddLine(bl + ImVec2(arrow_offset_hor, arrow_offset_vert), br + ImVec2(-arrow_offset_hor, arrow_offset_vert), line_color, edge_thk);
-    dl->AddTriangle(br + ImVec2(-arrow_offset_hor, arrow_offset_vert - 4), br + ImVec2(-arrow_offset_hor, arrow_offset_vert + 4), br + ImVec2(-arrow_offset_hor + 5, arrow_offset_vert), line_color);
-    dl->AddTriangleFilled(br + ImVec2(-arrow_offset_hor, arrow_offset_vert - 4), br + ImVec2(-arrow_offset_hor, arrow_offset_vert + 4), br + ImVec2(-arrow_offset_hor + 5, arrow_offset_vert),
-                          line_color);
+    dl->AddLine(bl + ImVec2(arrow_offset_hor, arrow_offset_vert), br + ImVec2(-arrow_offset_hor, arrow_offset_vert),
+                line_color, edge_thk);
+    dl->AddTriangle(br + ImVec2(-arrow_offset_hor, arrow_offset_vert - 4),
+                    br + ImVec2(-arrow_offset_hor, arrow_offset_vert + 4),
+                    br + ImVec2(-arrow_offset_hor + 5, arrow_offset_vert), line_color);
+    dl->AddTriangleFilled(br + ImVec2(-arrow_offset_hor, arrow_offset_vert - 4),
+                          br + ImVec2(-arrow_offset_hor, arrow_offset_vert + 4),
+                          br + ImVec2(-arrow_offset_hor + 5, arrow_offset_vert), line_color);
 
   } else {
-    dl->AddLine(tl + ImVec2(-arrow_offset_vert, -arrow_offset_hor), tr + ImVec2(-arrow_offset_vert, arrow_offset_hor), line_color, edge_thk);
-    dl->AddTriangle(tl + ImVec2(-arrow_offset_vert - 4, -arrow_offset_hor), tl + ImVec2(-arrow_offset_vert + 4, -arrow_offset_hor), tl + ImVec2(-arrow_offset_vert, -arrow_offset_hor + 5), line_color);
-    dl->AddTriangleFilled(tl + ImVec2(-arrow_offset_vert - 4, -arrow_offset_hor), tl + ImVec2(-arrow_offset_vert + 4, -arrow_offset_hor), tl + ImVec2(-arrow_offset_vert, -arrow_offset_hor + 5),
-                          line_color);
+    dl->AddLine(tl + ImVec2(-arrow_offset_vert, -arrow_offset_hor), tr + ImVec2(-arrow_offset_vert, arrow_offset_hor),
+                line_color, edge_thk);
+    dl->AddTriangle(tl + ImVec2(-arrow_offset_vert - 4, -arrow_offset_hor),
+                    tl + ImVec2(-arrow_offset_vert + 4, -arrow_offset_hor),
+                    tl + ImVec2(-arrow_offset_vert, -arrow_offset_hor + 5), line_color);
+    dl->AddTriangleFilled(tl + ImVec2(-arrow_offset_vert - 4, -arrow_offset_hor),
+                          tl + ImVec2(-arrow_offset_vert + 4, -arrow_offset_hor),
+                          tl + ImVec2(-arrow_offset_vert, -arrow_offset_hor + 5), line_color);
   }
 }
 
@@ -348,7 +360,8 @@ void DrawIgniter(ImVec2 center) {
   dl->AddTriangle(tri_1, tri_2, tri_3, PID_COLOR_OUTLINE, 1);
 }
 
-void DrawReadout(ImVec2 center, ImVec2 attach_point, const char *name, const char *unit, float reading, char attach_direction) {
+void DrawReadout(ImVec2 center, ImVec2 attach_point, const char *name, const char *unit, float reading,
+                 char attach_direction) {
   ImDrawList *dl = ImGui::GetWindowDrawList();
 
   char text_buf[20];
@@ -376,7 +389,8 @@ void DrawReadout(ImVec2 center, ImVec2 attach_point, const char *name, const cha
   if (attach_direction == 'b') {
     flip = -1;
   }
-  dl->AddText(center - pid_label_size / 2 + ImVec2(0, 30) * flip - ImVec2(max_text_size.x, 0) * 0.35, PID_COLOR_OUTLINE, name);
+  dl->AddText(center - pid_label_size / 2 + ImVec2(0, 30) * flip - ImVec2(max_text_size.x, 0) * 0.35, PID_COLOR_OUTLINE,
+              name);
 
   if (attach_direction == 't') {
     dl->AddLine(rect_tm, rect_tm + ImVec2(0, -15), PID_COLOR_OUTLINE, 1);

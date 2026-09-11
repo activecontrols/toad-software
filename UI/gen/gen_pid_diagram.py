@@ -107,7 +107,8 @@ void init_diagram() {
             if valve_type != "Throttle":
                 f.write(f"""  pid_diagram.valves[{valve_name_map[name.replace('-', '_')]}] = {{Valve_Type::{valve_type}, "{name}", {valve_name_map[name.replace('-', '_')] + '_default'}, ImVec2({x}, {y}), '{hv}', ImVec2({lx}, {ly})}};\n""")
             else:
-                f.write(f"""  pid_diagram.throttle_valves[{1 if 'FU' in name else 0}] = {{"{name}", ImVec2({x}, {y}), '{hv}', ImVec2({lx}, {ly})}};\n""")
+                angle = f"&FlightHistory.{'ox' if 'OX' in name else 'fu'}_valve_angle"
+                f.write(f"""  pid_diagram.throttle_valves[{1 if 'FU' in name else 0}] = {{"{name}", {angle}, ImVec2({x}, {y}), '{hv}', ImVec2({lx}, {ly})}};\n""")
 
             if hv == 'V':
                 item_location_db[name + " top"] = (x, y - settings['VALVE_SIZE'], 'vert')
