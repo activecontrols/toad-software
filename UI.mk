@@ -1,5 +1,5 @@
 CXX      := g++
-CXXFLAGS := -IUI/imgui -IUI/imgui/backends -IUI/implot -IUI/implot3d -IUI/include -IUI/gen -Ifirmware/lib/hardware_mapping -MMD -MP
+CXXFLAGS := -IUI/imgui -IUI/imgui/backends -IUI/implot -IUI/implot3d -IUI/include -IUI/gen -Ifirmware/lib/hardware_mapping -Ifirmware/lib/can_bus -MMD -MP
 
 # the majority of this is just windows libraries
 # the -static is because we were pulling in the wrong C++ .dlls (from the RUST ESP32 project), resulting in crazy crashes

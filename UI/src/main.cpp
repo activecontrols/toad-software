@@ -15,6 +15,7 @@
 #include <d3d11.h>
 #include <tchar.h>
 
+#include "flight_data.h"
 #include "flight_history.h"
 #include "pid_diagram.h"
 #include "ui.h"
@@ -37,8 +38,8 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 // Main code
 int main(int argc, char **argv) {
   init_diagram();
-  // init_fluids_data();
-  // init_flight_data();
+  init_fh();
+  init_flight_data();
 
   // platform_begin();
 
@@ -165,8 +166,7 @@ int main(int argc, char **argv) {
       CreateRenderTarget();
     }
 
-    // fluids_data_periodic();
-    // flight_data_periodic();
+    flight_data_periodic();
 
     // Start the Dear ImGui frame
     ImGui_ImplDX11_NewFrame();
@@ -200,13 +200,12 @@ int main(int argc, char **argv) {
   ImPlot3D::DestroyContext();
   ImPlot::DestroyContext();
   ImGui::DestroyContext();
-  // deinit_fluids_data();
 
   CleanupDeviceD3D();
   ::DestroyWindow(hwnd);
   ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
 
-  // deinit_flight_data();
+  deinit_flight_data();
 
   return 0;
 }
