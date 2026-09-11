@@ -6,31 +6,31 @@
 namespace RCS {
 
 void close() {
-  SolenoidValves::set_valve_by_num(SolenoidValves::SV_N2_01_rcs_pos_1, SolenoidValves::VALVE_CLOSE, false);
-  SolenoidValves::set_valve_by_num(SolenoidValves::SV_N2_02_rcs_pos_2, SolenoidValves::VALVE_CLOSE, false);
-  SolenoidValves::set_valve_by_num(SolenoidValves::SV_N2_03_rcs_neg_1, SolenoidValves::VALVE_CLOSE, false);
-  SolenoidValves::set_valve_by_num(SolenoidValves::SV_N2_04_rcs_neg_2, SolenoidValves::VALVE_CLOSE, false);
+  SolenoidValves::set_valve_by_num(SV_N2_01_rcs_pos_1, VALVE_CLOSE, false);
+  SolenoidValves::set_valve_by_num(SV_N2_02_rcs_pos_2, VALVE_CLOSE, false);
+  SolenoidValves::set_valve_by_num(SV_N2_03_rcs_neg_1, VALVE_CLOSE, false);
+  SolenoidValves::set_valve_by_num(SV_N2_04_rcs_neg_2, VALVE_CLOSE, false);
   SolenoidValves::pulse_latch_enable();
 }
 
 void update_rcs_valves(float rcs_force) {
   if (rcs_force >= RCS_DEADBAND) {
-    SolenoidValves::set_valve_by_num(SolenoidValves::SV_N2_01_rcs_pos_1, SolenoidValves::VALVE_OPEN, false);
-    SolenoidValves::set_valve_by_num(SolenoidValves::SV_N2_02_rcs_pos_2, SolenoidValves::VALVE_OPEN, false);
-    SolenoidValves::set_valve_by_num(SolenoidValves::SV_N2_03_rcs_neg_1, SolenoidValves::VALVE_CLOSE, false);
-    SolenoidValves::set_valve_by_num(SolenoidValves::SV_N2_04_rcs_neg_2, SolenoidValves::VALVE_CLOSE, false);
+    SolenoidValves::set_valve_by_num(SV_N2_01_rcs_pos_1, VALVE_OPEN, false);
+    SolenoidValves::set_valve_by_num(SV_N2_02_rcs_pos_2, VALVE_OPEN, false);
+    SolenoidValves::set_valve_by_num(SV_N2_03_rcs_neg_1, VALVE_CLOSE, false);
+    SolenoidValves::set_valve_by_num(SV_N2_04_rcs_neg_2, VALVE_CLOSE, false);
     SolenoidValves::pulse_latch_enable();
   } else if (rcs_force <= -RCS_DEADBAND) {
-    SolenoidValves::set_valve_by_num(SolenoidValves::SV_N2_01_rcs_pos_1, SolenoidValves::VALVE_CLOSE, false);
-    SolenoidValves::set_valve_by_num(SolenoidValves::SV_N2_02_rcs_pos_2, SolenoidValves::VALVE_CLOSE, false);
-    SolenoidValves::set_valve_by_num(SolenoidValves::SV_N2_03_rcs_neg_1, SolenoidValves::VALVE_OPEN, false);
-    SolenoidValves::set_valve_by_num(SolenoidValves::SV_N2_04_rcs_neg_2, SolenoidValves::VALVE_OPEN, false);
+    SolenoidValves::set_valve_by_num(SV_N2_01_rcs_pos_1, VALVE_CLOSE, false);
+    SolenoidValves::set_valve_by_num(SV_N2_02_rcs_pos_2, VALVE_CLOSE, false);
+    SolenoidValves::set_valve_by_num(SV_N2_03_rcs_neg_1, VALVE_OPEN, false);
+    SolenoidValves::set_valve_by_num(SV_N2_04_rcs_neg_2, VALVE_OPEN, false);
     SolenoidValves::pulse_latch_enable();
   } else {
-    SolenoidValves::set_valve_by_num(SolenoidValves::SV_N2_01_rcs_pos_1, SolenoidValves::VALVE_CLOSE, false);
-    SolenoidValves::set_valve_by_num(SolenoidValves::SV_N2_02_rcs_pos_2, SolenoidValves::VALVE_CLOSE, false);
-    SolenoidValves::set_valve_by_num(SolenoidValves::SV_N2_03_rcs_neg_1, SolenoidValves::VALVE_CLOSE, false);
-    SolenoidValves::set_valve_by_num(SolenoidValves::SV_N2_04_rcs_neg_2, SolenoidValves::VALVE_CLOSE, false);
+    SolenoidValves::set_valve_by_num(SV_N2_01_rcs_pos_1, VALVE_CLOSE, false);
+    SolenoidValves::set_valve_by_num(SV_N2_02_rcs_pos_2, VALVE_CLOSE, false);
+    SolenoidValves::set_valve_by_num(SV_N2_03_rcs_neg_1, VALVE_CLOSE, false);
+    SolenoidValves::set_valve_by_num(SV_N2_04_rcs_neg_2, VALVE_CLOSE, false);
     SolenoidValves::pulse_latch_enable();
   }
 }

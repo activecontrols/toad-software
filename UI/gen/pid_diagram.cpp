@@ -1,8 +1,6 @@
 #include "pid_diagram.h"
 #include "ec_valves.h"
 
-using namespace SolenoidValves;
-
 PID_Diagram pid_diagram;
 
 void init_diagram() {

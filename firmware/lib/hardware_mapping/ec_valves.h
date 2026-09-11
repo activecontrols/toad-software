@@ -21,7 +21,6 @@
 #define BV_15 BV_FU_01_release
 #define BV_16 BV_FU_03_run
 
-namespace SolenoidValves {
 // Note - this must be kept in sync with the list in SolenoidValves.cpp
 // It allows referring to a valve number by its canonical name
 /* clang-format off */
@@ -31,7 +30,6 @@ enum valve_id { SV_1, SV_2, SV_3, SV_4, SV_5, SV_6, SV_7, SV_8, SV_9, BV_10, BV_
 // A valve state isn't the same as a DO logic level, so use this type to differentiate.
 // See valve_state_to_logic_level for more info.
 enum valve_state_t { VALVE_CLOSE, VALVE_OPEN };
-} // namespace SolenoidValves
 
 // TODO - global valve state with extra bits to check if we have pulsed latch yet, UI state, etc.
 
