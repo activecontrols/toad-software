@@ -42,10 +42,21 @@ def gen_history_struct(type_name: str, obj_name: str, svars: dict[str, str], str
     out += f"{indent}}}{obj_name};\n"
     return out
 
+def gen_expansion(prefix: str, var_type: str, structs: dict[str, dict[str, str]]):
+    out = ""
+    if var_type in structs:
+        for var_name, new_type in structs[var_type].items():
+            out += gen_expansion(f"{prefix}.{var_name}", new_type, structs)
+    else:
+        out += f"  FlightHistory{prefix}[write_pos] = packet{prefix};\n"
+        out += f"  FlightHistory{prefix}[write_pos + FLIGHT_HISTORY_LENGTH] = packet{prefix};\n"
+    return out
+
+
 flight_data_h_start = """
 #pragma once
 
-#include "ec_sensors.h"
+#include "toad_telemetry.h"
 
 // this is a ring buffer to create history graphs
 // if packets arrive from earlier to later as ABCDE we store
@@ -66,8 +77,10 @@ extern int read_start_pos;
 extern int read_end_pos;
 extern int write_pos;
 
-#define fh_now(x) x[read_end_pos]
-#define fh_all(x) &x[read_start_pos]
+#define fh_now(x) ((x)[read_end_pos])
+#define fh_all(x) (&((x)[read_start_pos]))
+
+void init_fh();
 """
 
 flight_data_cpp_start = """
@@ -78,6 +91,21 @@ flight_history_t FlightHistory;
 int read_start_pos; // points to the oldest stored data
 int read_end_pos; // points to the most recently written data, always equal to read_start + FLIGHT_HISTORY_LENGTH - 1
 int write_pos; // points to the next location to write (same as read_start)
+
+void init_fh() {
+  write_pos = 0;
+  read_start_pos = write_pos;
+  read_end_pos = read_start_pos + FLIGHT_HISTORY_LENGTH - 1;
+}
+"""
+
+flight_data_cpp_end = """
+void update_fh_pos() {
+  write_pos += 1;
+  write_pos %= FLIGHT_HISTORY_LENGTH;
+  read_start_pos = write_pos;
+  read_end_pos = read_start_pos + FLIGHT_HISTORY_LENGTH - 1;
+}
 """
 
 def main():
@@ -96,15 +124,23 @@ def main():
     structs[output_struct] = {}
     for sname, svars in structs.items():
             if sname in telemetry_structs:
-                 structs[output_struct].update(svars)
+                structs[output_struct].update(svars)
         
     with open(output_h_fname, 'w+') as f:
-         f.write(flight_data_h_start)
-         f.write(gen_history_struct(output_struct, "", structs[output_struct], structs, ""))
-         f.write(flight_data_h_end)
+        f.write(flight_data_h_start)
+        f.write(gen_history_struct(output_struct, "", structs[output_struct], structs, ""))
+        f.write(flight_data_h_end)
+        for telem_struct in telemetry_structs:
+            f.write(f"void commit_packet({telem_struct} packet);\n")
+        f.write("void update_fh_pos();\n")
 
     with open(output_cpp_fname, 'w+') as f:
         f.write(flight_data_cpp_start)
+        for telem_struct in telemetry_structs:
+            f.write(f"\nvoid commit_packet({telem_struct} packet) {{\n")
+            f.write(gen_expansion("", telem_struct, structs))
+            f.write(f"}};\n")
+        f.write(flight_data_cpp_end)
 
 if __name__ == '__main__':
     main()
