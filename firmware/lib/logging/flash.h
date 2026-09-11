@@ -23,7 +23,7 @@ typedef struct __attribute__((packed)) {
 typedef struct __attribute__((packed)) {
   uint8_t RESERVED1 : 3;
   uint8_t BPS : 1;
-  uint8_t ECCS : 2;
+  uint8_t ECCSE : 2;
   uint8_t RESERVED2 : 2;
 } flash_status_b_t;
 
