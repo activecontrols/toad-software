@@ -1,6 +1,10 @@
 #include "stm32h7xx_hal.h"
 #include "Arduino.h"
 #include "fdcan_toad.h"
+#include "variant_TOAD_H7.h"
+#include "ec_pins.h"
+
+#include "CommsSerial.h"
 
 /*
 jhillman notes:
@@ -58,58 +62,72 @@ UM2217 (UM) Rev 6 (Description of STM32H7 HAL and low-layer drivers)
 for actuator CAN: likely configuration is to store all incoming messages in rx FIFO 0, no filtering
 */
 
+
+
+/* enable GPIO clock and configure pin (must pass a bit mask for which pin(s) to configure on the specific port) */
+static void CAN_init_gpio_dynamic(uint32_t pin, const PinMap pin_map[])
+{
+
+  PinName pin_name = digitalPinToPinName(pin);
+
+  // jhillman: I confirmed this enables GPIO clock in the RCC, also sets GPIO speed to very high
+  pin_function(pin_name, pinmap_function(pin_name, pin_map));
+}
+
+
 // adapted from https://github.com/STMicroelectronics/STM32CubeH7/blob/master/Projects/STM32H743I-EVAL/Examples/FDCAN/FDCAN_Classic_Frame_Networking/Src/stm32h7xx_hal_msp.c
+// this is called by STM32 HAL during HAL_FDCAN_Init()
+
+// note: these variables must be set accordingly before calling HAL_FDCAN_Init()
+static uint32_t msp_tx_pin = -1;
+static uint32_t msp_rx_pin = -1;
 void HAL_FDCAN_MspInit(FDCAN_HandleTypeDef* hfdcan)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
   RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
-  if(hfdcan->Instance==FDCAN1)
+
+  PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_FDCAN;
+  PeriphClkInitStruct.FdcanClockSelection = RCC_FDCANCLKSOURCE_PLL; // jhillman: I expect PLL1 Q1 to give 120MHz
+  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
   {
-    PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_FDCAN;
-    PeriphClkInitStruct.FdcanClockSelection = RCC_FDCANCLKSOURCE_PLL; // jhillman: I expect PLL1 Q1 to give 120MHz
-    if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
-    {
-      Error_Handler();
-    }
-
-    /* Peripheral clock enable */
-    __HAL_RCC_FDCAN_CLK_ENABLE();
-
-
-    // jhillman TODO: need to fill this out with the correct pins for FDCAN1
-
-    // first enable clock to the GPIOs - I'm guessing arduino already has this enabled, but just in case
-    // __HAL_RCC_GPIOX_CLK_ENABLE();
-    // etc...
-
-
-    // GPIO_InitStruct.Pin = GPIO_PIN_X | ...;
-
-    // GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    // GPIO_InitStruct.Pull = GPIO_NOPULL;
-    // GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-    // GPIO_InitStruct.Alternate = GPIO_AF9_FDCAN1; // jhillman TODO: after changing to correct pins, make sure this is the correct alternate function for those pins
-    // HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
-
-    /* FDCAN1 interrupt Init */
-    // HAL_NVIC_SetPriority(FDCAN1_IT0_IRQn, 0, 0);
-    // HAL_NVIC_EnableIRQ(FDCAN1_IT0_IRQn);
+    Error_Handler();
   }
 
+
+  /* Peripheral clock enable */
+  __HAL_RCC_FDCAN_CLK_ENABLE();
+  
+  CAN_init_gpio_dynamic(msp_rx_pin, PinMap_CAN_RD);
+  CAN_init_gpio_dynamic(msp_tx_pin, PinMap_CAN_TD);
+
+  /* FDCAN1 interrupt Init */
+  // HAL_NVIC_SetPriority(FDCAN1_IT0_IRQn, 0, 0);
+  // HAL_NVIC_EnableIRQ(FDCAN1_IT0_IRQn);
 }
 
 
-CAN::CAN(FDCAN_GlobalTypeDef* instance)
+CAN::CAN(uint32_t _tx_pin, uint32_t _rx_pin)
 {
+  FDCAN_GlobalTypeDef* inst_1 = static_cast<FDCAN_GlobalTypeDef*>(pinmap_find_peripheral(digitalPinToPinName(_tx_pin), PinMap_CAN_TD));
+  FDCAN_GlobalTypeDef* inst_2 = static_cast<FDCAN_GlobalTypeDef*>(pinmap_find_peripheral(digitalPinToPinName(_rx_pin), PinMap_CAN_RD));
+
+  if ((inst_1 != inst_2 )|| inst_1 == nullptr)
+  {
+    Error_Handler();
+  }
+  
   this->hfdcan = {0};
-  this->hfdcan.Instance = instance;
+  this->hfdcan.Instance = inst_1;
+
+  this->tx_pin = _tx_pin;
+  this->rx_pin = _rx_pin;
 }
 
 
 // jhillman adapted from https://github.com/STMicroelectronics/STM32CubeH7/blob/master/Projects/STM32H743I-EVAL/Examples/FDCAN/FDCAN_Classic_Frame_Networking/Src/main.c
-void CAN::init(void)
+uint32_t CAN::begin(uint32_t bit_rate)
 {
-  // excerpt from the HAL_FDCAN_Init: (since this is for classic CAN, no need to fill out the data bit timing register related fields)
+  // excerpt from the HAL_FDCAN_Init: (since this is for classic CAN, no need to fill out the data bit timing register related fields since those are only used when bit rate switching is enabled)
 
   // /* Set the nominal bit timing register */
   // hfdcan->Instance->NBTP = ((((uint32_t)hfdcan->Init.NominalSyncJumpWidth - 1U) << FDCAN_NBTP_NSJW_Pos) |
@@ -126,6 +144,43 @@ void CAN::init(void)
   //                             (((uint32_t)hfdcan->Init.DataPrescaler - 1U) << FDCAN_DBTP_DBRP_Pos));
 
 
+  if (bit_rate > 1'000'000)
+  {
+    // not allowed for normal CAN operation
+    Error_Handler();
+  }
+  // TODO: audit this
+
+  uint32_t tq_ns = 25; // one time quanta is 25ns - this is determined by the kernel clock
+
+  // we need bit rate (1 / (bit_time)) with bit_time = (1 tq + NominalTimeSeg)
+  uint32_t target_bit_time_ns = 1'000'000'000 / bit_rate;
+
+  uint32_t bit_time_tq = target_bit_time_ns / tq_ns;
+
+  // place target sample point at approx. 70%
+  uint32_t tq_before_sample = 70 * bit_time_tq / 100;
+
+  // NOTE:
+  // bit time = (1 tq (sync time; fixed)) + NominalTimeSeg1 + NominalTimeSeg2
+
+  uint32_t seg_1_tq;
+  uint32_t seg_2_tq;
+
+  if (tq_before_sample > 0)
+  {
+    /* NominalTimeSeg1 = Propagation_segment + Phase_segment_1 */
+    // sample point is after (1 tq + NominalTimeSeg1) so we have to subtract 1tq here
+    seg_1_tq = tq_before_sample - 1;
+  }
+  else
+  {
+    // shouldn't happen
+    Error_Handler();
+  }
+
+  seg_2_tq = bit_time_tq - tq_before_sample;
+
   FDCAN_FilterTypeDef sFilterConfig;
 
   this->hfdcan.Init.FrameFormat = FDCAN_FRAME_CLASSIC;
@@ -135,8 +190,8 @@ void CAN::init(void)
   this->hfdcan.Init.ProtocolException = ENABLE;
   this->hfdcan.Init.NominalPrescaler = 3; // jhillman: I expect the peripheral clock to be 120MHz; I divide by 3, therefore kernel clock is 40MHz or 1 tq = 25ns
   this->hfdcan.Init.NominalSyncJumpWidth = 8;
-  this->hfdcan.Init.NominalTimeSeg1 = 31; /* NominalTimeSeg1 = Propagation_segment + Phase_segment_1 */
-  this->hfdcan.Init.NominalTimeSeg2 = 8; // bit time = (1 tq (sync time; fixed)) + NominalTimeSeg1 + NominalTimeSeg2 = 40 tq = 1us or 1Mbps
+  this->hfdcan.Init.NominalTimeSeg1 = seg_1_tq;
+  this->hfdcan.Init.NominalTimeSeg2 = seg_2_tq;
   this->hfdcan.Init.MessageRAMOffset = 0;
   this->hfdcan.Init.StdFiltersNbr = 0; // not using any filters on this bus - that way CPU receives all messages (since we are just talking to actuators anyway, this is fine)
   this->hfdcan.Init.ExtFiltersNbr = 0;
@@ -150,7 +205,14 @@ void CAN::init(void)
   this->hfdcan.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION; // other option is queue operation; with fifo messages are sent in the order they are placed in the fifo, with queue they are sent in order of priority. i think we want fifo
   this->hfdcan.Init.TxElmtSize = FDCAN_DATA_BYTES_8;
 
+  // step (1) refers to steps as they are defined by the HAL reference
+
   // step 1: initialize the FDCAN peripheral
+
+  // pass along the which pins to configure to the MspInit(), which is called during HAL_FDCAN_Init
+
+  msp_rx_pin = this->rx_pin;
+  msp_tx_pin = this->tx_pin;
   if (HAL_FDCAN_Init(&hfdcan) != HAL_OK)
   {
     /* Initialization Error */
@@ -182,7 +244,8 @@ void CAN::init(void)
   //   Error_Handler();
   // }
 
-  return;  
+  // calculate actual bitrate
+  return 1e9 / (tq_ns * (1 + seg_1_tq + seg_2_tq));
 }
 
 

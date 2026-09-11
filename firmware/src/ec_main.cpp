@@ -9,6 +9,7 @@
 #include "TemperatureSensors.h"
 #include "ThrottleValves.h"
 #include "ValveController.h"
+#include "fdcan_toad.h"
 
 // shared interfaces
 CommsSerial_t<USBSerial> USB_CommsSerial;
@@ -21,6 +22,9 @@ Uart RS485_2(PIN_RS485_2_RX, PIN_RS485_2_TX, PIN_RS485_2_DE);
 SPIClass PT_TC_SPI_1(PIN_PT_TC_SPI_1_MOSI, PIN_PT_TC_SPI_1_MISO, PIN_PT_TC_SPI_1_SCK);
 SPIClass PT_TC_SPI_3(PIN_PT_TC_SPI_3_MOSI, PIN_PT_TC_SPI_3_MISO, PIN_PT_TC_SPI_3_SCK);
 
+CAN CAN_FC(PIN_CAN_FC_TX, PIN_CAN_FC_RX);
+CAN CAN_TVC(PIN_CAN_TVC_TX, PIN_CAN_TVC_RX);
+
 bool kill_flag;
 bool arm_flag;
 void flight_loop();
@@ -32,6 +36,9 @@ void setup() {
   USB_CommsSerial.begin(RADIO_BAUD);
   HW_CommsSerial.begin(RADIO_BAUD);
   HW_FallbackSerial.begin(RADIO_BAUD);
+
+  CAN_FC.begin(1'000'000);
+  CAN_TVC.begin(1'000'000);
 
   RS485_6.begin(9600); // TODO - what baud?
   RS485_2.begin(9600);
