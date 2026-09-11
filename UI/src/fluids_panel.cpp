@@ -12,7 +12,7 @@ float fill_level = 0.5;
 float sensor_readings[100];
 
 #define VALVE_CLICK_TIME_THRESHOLD 5 // seconds
-std::optional<SolenoidValves::valve_id> last_clicked_valve = std::nullopt;
+std::optional<valve_id> last_clicked_valve = std::nullopt;
 time_t last_clicked_valve_time;
 
 void fluids_panel() {
@@ -55,15 +55,15 @@ void fluids_panel() {
 
     for (int i = 0; i < 3; i++) {
       if (ppipe.fill_valves[i] != std::nullopt &&
-          pid_diagram.valves[ppipe.fill_valves[i].value()].state == SolenoidValves::VALVE_CLOSE) {
+          pid_diagram.valves[ppipe.fill_valves[i].value()].state == VALVE_CLOSE) {
         can_fill = false;
       }
       if (ppipe.purge_valves[i] != std::nullopt &&
-          pid_diagram.valves[ppipe.purge_valves[i].value()].state == SolenoidValves::VALVE_OPEN) {
+          pid_diagram.valves[ppipe.purge_valves[i].value()].state == VALVE_OPEN) {
         can_purge = true;
       }
       if (ppipe.purge_valves[i] != std::nullopt &&
-          pid_diagram.valves[ppipe.purge_valves[i].value()].state == SolenoidValves::VALVE_CLOSE) {
+          pid_diagram.valves[ppipe.purge_valves[i].value()].state == VALVE_CLOSE) {
         should_purge = false;
       }
     }
@@ -88,7 +88,7 @@ void fluids_panel() {
     last_clicked_valve = std::nullopt;
   }
 
-  for (int i = 0; i < SolenoidValves::NUM_SV_BV_VALVES; i++) {
+  for (int i = 0; i < NUM_SV_BV_VALVES; i++) {
     PID_Valve &valve = pid_diagram.valves[i];
     ImVec2 center = valve.location + diagram_offset;
 
@@ -97,11 +97,10 @@ void fluids_panel() {
       ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
       if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && !ImGui::IsMouseDragPastThreshold(ImGuiMouseButton_Left)) {
         if (last_clicked_valve == i) { // TODO - check if state hasn't changed since we clicked
-          valve.state =
-              valve.state == SolenoidValves::VALVE_CLOSE ? SolenoidValves::VALVE_OPEN : SolenoidValves::VALVE_CLOSE;
+          valve.state = valve.state == VALVE_CLOSE ? VALVE_OPEN : VALVE_CLOSE;
           last_clicked_valve = std::nullopt;
         } else {
-          last_clicked_valve = (SolenoidValves::valve_id)i;
+          last_clicked_valve = (valve_id)i;
           last_clicked_valve_time = time(NULL);
         }
       }
@@ -176,7 +175,7 @@ void fluids_panel() {
 
   if (last_clicked_valve != std::nullopt) {
     char *new_state;
-    if (pid_diagram.valves[last_clicked_valve.value()].state == SolenoidValves::VALVE_OPEN) {
+    if (pid_diagram.valves[last_clicked_valve.value()].state == VALVE_OPEN) {
       new_state = "CLOSE";
     } else {
       new_state = "OPEN";
