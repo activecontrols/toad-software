@@ -1,6 +1,6 @@
 #pragma once
 
-#include "flight_data.h"
+#include "flight_history.h"
 #include "implot.h"
 #include "implot3d.h"
 
@@ -14,5 +14,6 @@ typedef struct {
   double y_min;
 } scrolling_line_chart_arg_t;
 
-void scrolling_line_chart(scrolling_line_chart_arg_t arg, float y1[FLIGHT_HISTORY_LENGTH], float y2[FLIGHT_HISTORY_LENGTH], float y3[FLIGHT_HISTORY_LENGTH]);
+void scrolling_line_chart(scrolling_line_chart_arg_t arg, float y1[FLIGHT_HISTORY_LENGTH],
+                          float y2[FLIGHT_HISTORY_LENGTH], float y3[FLIGHT_HISTORY_LENGTH]);
 void rotatable_cube_plot(ImVec4 q);
