@@ -1,8 +1,8 @@
 Valves:
 Type, Name, Loc X, Loc Y, Orientation, Label
 Solenoid, SV-N2-01, 250, -250, H, up
-Solenoid, SV-N2-02, 350, -250, H, up
-Solenoid, SV-N2-03, 250, -200, H, down
+Solenoid, SV-N2-02, 250, -200, H, down
+Solenoid, SV-N2-03, 350, -250, H, up
 Solenoid, SV-N2-04, 350, -200, H, down
 Solenoid, SV-N2-05, 0, 300, V, right
 Solenoid, SV-N2-06, 525, 300, V, left
@@ -103,12 +103,12 @@ BV-N2-02 right, 625 0, N2 | BV-N2-02
 
 // RCS
 SV-N2-01 left, RCS-1, N2 | SV-N2-01 BV-N2-02
-SV-N2-02 right, RCS-2, N2 | SV-N2-02 BV-N2-02
-SV-N2-03 left, RCS-3, N2 | SV-N2-03 BV-N2-02
+SV-N2-02 left, RCS-3, N2 | SV-N2-02 BV-N2-02
+SV-N2-03 right, RCS-2, N2 | SV-N2-03 BV-N2-02
 SV-N2-04 right, RCS-4, N2 | SV-N2-04 BV-N2-02
-SV-N2-01 right, SV-N2-02 left, N2 | BV-N2-02
-SV-N2-03 right, SV-N2-04 left, N2 | BV-N2-02
-between SV-N2-01 and SV-N2-02, 300 -125, N2 | BV-N2-02
+SV-N2-01 right, SV-N2-03 left, N2 | BV-N2-02
+SV-N2-02 right, SV-N2-04 left, N2 | BV-N2-02
+between SV-N2-01 and SV-N2-03, 300 -125, N2 | BV-N2-02
 
 // drain/vent
 BV-O2-02 right, -150 200, O2
