@@ -1,7 +1,7 @@
 
 #pragma once
 
-#include "ec_sensors.h"
+#include "toad_telemetry.h"
 
 // this is a ring buffer to create history graphs
 // if packets arrive from earlier to later as ABCDE we store
@@ -96,5 +96,10 @@ extern int read_start_pos;
 extern int read_end_pos;
 extern int write_pos;
 
-#define fh_now(x) (x)[read_end_pos]
-#define fh_all(x) &(x)[read_start_pos]
+#define fh_now(x) ((x)[read_end_pos])
+#define fh_all(x) (&((x)[read_start_pos]))
+
+void init_fh();
+void commit_packet(gnc_telemetry_t packet);
+void commit_packet(ec_telemetry_t packet);
+void update_fh_pos();

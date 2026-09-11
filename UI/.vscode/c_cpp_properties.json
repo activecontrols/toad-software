@@ -4,7 +4,8 @@
       "name": "Win32",
       "includePath": [
         "${workspaceFolder}/**",
-        "${workspaceFolder}/../firmware/lib/hardware_mapping"
+        "${workspaceFolder}/../firmware/lib/hardware_mapping",
+        "${workspaceFolder}/../firmware/lib/can_bus"
       ],
       "defines": [],
       "compilerPath": "g++",
