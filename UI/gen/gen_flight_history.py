@@ -4,7 +4,7 @@ import sys
 
 def parse_file(fname: str, structs: dict[str, dict[str, str]]):
     with open(fname) as f:
-        telemetry_lines = f.read().split('\n')
+        telemetry_lines = f.readlines()
     
     active_struct: dict[str, str] = {}
     active_struct_name = ""
