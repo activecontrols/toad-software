@@ -66,6 +66,7 @@ struct PID_Valve {
 
 struct PID_ThrottleValve {
   const char *name;
+  float (*angle)[FLIGHT_HISTORY_LENGTH * 2];
   ImVec2 location;
   char orientation; // H or V
   ImVec2 label_location;

@@ -7,8 +7,6 @@
 #include "ui_components.h"
 #include "ui_graphics.h"
 
-float fill_level = 0.5;
-
 #define VALVE_CLICK_TIME_THRESHOLD 5 // seconds
 std::optional<valve_id> last_clicked_valve = std::nullopt;
 time_t last_clicked_valve_time;
@@ -119,7 +117,8 @@ void fluids_panel() {
     PID_ThrottleValve valve = pid_diagram.throttle_valves[i];
     ImVec2 center = valve.location + diagram_offset;
     bool hovered = MouseInValveHitbox(center, valve.orientation);
-    DrawThrottleValve(center, valve.orientation, valve.name, valve.label_location + diagram_offset, false, hovered);
+    DrawThrottleValve(center, valve.orientation, valve.name, valve.label_location + diagram_offset, true, hovered,
+                      fh_now(*valve.angle));
   }
 
   for (int i = 0; i < NUMBER_OF_PID_ITEMS; i++) {
@@ -128,14 +127,23 @@ void fluids_panel() {
     ImVec2 center = pitem.location + diagram_offset;
     if (pitem.pid_type == PID_Type::Tank) {
       ImColor col;
+      float fill_level;
       if (pitem.orientation == 'O') {
         col = PID_COLOR_O2;
+        fill_level = fh_now(FlightHistory.ox_fill_level);
       }
       if (pitem.orientation == 'F') {
         col = PID_COLOR_FU;
+        fill_level = fh_now(FlightHistory.fu_fill_level);
       }
       if (pitem.orientation == 'N') {
         col = PID_COLOR_N2;
+        fill_level = fh_now(FlightHistory.n2_fill_level);
+      }
+
+      // temporary for now to make tanks look nice when UI boots up
+      if (fill_level == 0) {
+        fill_level = 0.5;
       }
 
       DrawTank(center, pitem.name, col, fill_level);
