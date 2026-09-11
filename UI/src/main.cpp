@@ -15,7 +15,7 @@
 #include <d3d11.h>
 #include <tchar.h>
 
-#include "flight_data.h"
+#include "flight_history.h"
 #include "fluids_data.h"
 #include "pid_diagram.h"
 #include "ui.h"
@@ -48,9 +48,22 @@ int main(int argc, char **argv) {
   float main_scale = ImGui_ImplWin32_GetDpiScaleForMonitor(::MonitorFromPoint(POINT{0, 0}, MONITOR_DEFAULTTOPRIMARY));
 
   // Create application window
-  WNDCLASSEXW wc = {sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"TOAD Ground Software", nullptr};
+  WNDCLASSEXW wc = {sizeof(wc),
+                    CS_CLASSDC,
+                    WndProc,
+                    0L,
+                    0L,
+                    GetModuleHandle(nullptr),
+                    nullptr,
+                    nullptr,
+                    nullptr,
+                    nullptr,
+                    L"TOAD Ground Software",
+                    nullptr};
   ::RegisterClassExW(&wc);
-  HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"TOAD Ground Software", WS_OVERLAPPEDWINDOW, 100, 100, (int)(1350 * main_scale), (int)(900 * main_scale), nullptr, nullptr, wc.hInstance, nullptr);
+  HWND hwnd =
+      ::CreateWindowW(wc.lpszClassName, L"TOAD Ground Software", WS_OVERLAPPEDWINDOW, 100, 100,
+                      (int)(1350 * main_scale), (int)(900 * main_scale), nullptr, nullptr, wc.hInstance, nullptr);
 
   // Initialize Direct3D
   if (!CreateDeviceD3D(hwnd)) {
@@ -85,9 +98,12 @@ int main(int argc, char **argv) {
 
   // Setup scaling
   ImGuiStyle &style = ImGui::GetStyle();
-  style.ScaleAllSizes(main_scale);   // Bake a fixed style scale. (until we have a solution for dynamic style scaling, changing this requires resetting Style + calling this again)
-  style.FontScaleDpi = main_scale;   // Set initial font scale. (using io.ConfigDpiScaleFonts=true makes this unnecessary. We leave both here for documentation purpose)
-  io.ConfigDpiScaleFonts = true;     // [Experimental] Automatically overwrite style.FontScaleDpi in Begin() when Monitor DPI changes. This will scale fonts but _NOT_ scale sizes/padding for now.
+  style.ScaleAllSizes(main_scale); // Bake a fixed style scale. (until we have a solution for dynamic style scaling,
+                                   // changing this requires resetting Style + calling this again)
+  style.FontScaleDpi = main_scale; // Set initial font scale. (using io.ConfigDpiScaleFonts=true makes this unnecessary.
+                                   // We leave both here for documentation purpose)
+  io.ConfigDpiScaleFonts = true;   // [Experimental] Automatically overwrite style.FontScaleDpi in Begin() when Monitor
+                                   // DPI changes. This will scale fonts but _NOT_ scale sizes/padding for now.
   io.ConfigDpiScaleViewports = true; // [Experimental] Scale Dear ImGui and Platform Windows when Monitor DPI changes.
 
   // When viewports are enabled we tweak WindowRounding/WindowBg so platform windows can look identical to regular ones.
@@ -161,7 +177,8 @@ int main(int argc, char **argv) {
 
     // Rendering
     ImGui::Render();
-    const float clear_color_with_alpha[4] = {clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w};
+    const float clear_color_with_alpha[4] = {clear_color.x * clear_color.w, clear_color.y * clear_color.w,
+                                             clear_color.z * clear_color.w, clear_color.w};
     g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, nullptr);
     g_pd3dDeviceContext->ClearRenderTargetView(g_mainRenderTargetView, clear_color_with_alpha);
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
@@ -198,7 +215,8 @@ int main(int argc, char **argv) {
 // Helper functions
 bool CreateDeviceD3D(HWND hWnd) {
   // Setup swap chain
-  // This is a basic setup. Optimally could use e.g. DXGI_SWAP_EFFECT_FLIP_DISCARD and handle fullscreen mode differently. See #8979 for suggestions.
+  // This is a basic setup. Optimally could use e.g. DXGI_SWAP_EFFECT_FLIP_DISCARD and handle fullscreen mode
+  // differently. See #8979 for suggestions.
   DXGI_SWAP_CHAIN_DESC sd;
   ZeroMemory(&sd, sizeof(sd));
   sd.BufferCount = 2;
@@ -222,17 +240,20 @@ bool CreateDeviceD3D(HWND hWnd) {
       D3D_FEATURE_LEVEL_11_0,
       D3D_FEATURE_LEVEL_10_0,
   };
-  HRESULT res = D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, createDeviceFlags, featureLevelArray, 2, D3D11_SDK_VERSION, &sd, &g_pSwapChain, &g_pd3dDevice, &featureLevel,
-                                              &g_pd3dDeviceContext);
+  HRESULT res = D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, createDeviceFlags,
+                                              featureLevelArray, 2, D3D11_SDK_VERSION, &sd, &g_pSwapChain,
+                                              &g_pd3dDevice, &featureLevel, &g_pd3dDeviceContext);
   if (res == DXGI_ERROR_UNSUPPORTED) // Try high-performance WARP software driver if hardware is not available.
-    res = D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, createDeviceFlags, featureLevelArray, 2, D3D11_SDK_VERSION, &sd, &g_pSwapChain, &g_pd3dDevice, &featureLevel,
+    res = D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, createDeviceFlags, featureLevelArray, 2,
+                                        D3D11_SDK_VERSION, &sd, &g_pSwapChain, &g_pd3dDevice, &featureLevel,
                                         &g_pd3dDeviceContext);
   if (res != S_OK)
     return false;
 
   // Disable DXGI's default Alt+Enter fullscreen behavior.
   // - You are free to leave this enabled, but it will not work properly with multiple viewports.
-  // - This must be done for all windows associated to the device. Our DX11 backend does this automatically for secondary viewports that it creates.
+  // - This must be done for all windows associated to the device. Our DX11 backend does this automatically for
+  // secondary viewports that it creates.
   IDXGIFactory *pSwapChainFactory;
   if (SUCCEEDED(g_pSwapChain->GetParent(IID_PPV_ARGS(&pSwapChainFactory)))) {
     pSwapChainFactory->MakeWindowAssociation(hWnd, DXGI_MWA_NO_ALT_ENTER);
@@ -278,9 +299,11 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 
 // Win32 message handler
 // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
-// - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application, or clear/overwrite your copy of the mouse data.
-// - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application, or clear/overwrite your copy of the keyboard data.
-// Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
+// - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application, or clear/overwrite
+// your copy of the mouse data.
+// - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application, or
+// clear/overwrite your copy of the keyboard data. Generally you may always pass all inputs to dear imgui, and hide them
+// from your application based on those two flags.
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
   if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
     return true;

@@ -38,16 +38,20 @@ bool rounded_button(const char *label, const ImVec2 &size, ImU32 color, float ro
   return clicked;
 }
 
-void colored_flag(char *text, bool state, ImVec4 on_color, ImVec4 off_color, char *imgui_id) {
+void status_flag(char *text, bool state_ok, char *imgui_id) {
   ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
-  if (state) {
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, on_color);
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, on_color);
-    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, on_color);
+
+  ImVec4 red = ImVec4(204.0 / 255.0, 0.0f, 0.0f, 1.0f);
+  ImVec4 green = ImVec4(0.0f, 153.0 / 255.0, 0.0f, 1.0f);
+
+  if (state_ok) {
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, green);
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, green);
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, green);
   } else {
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, off_color);
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, off_color);
-    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, off_color);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, red);
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, red);
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, red);
   }
 
   ImGui::SetNextItemWidth(200.0f); // pixels
