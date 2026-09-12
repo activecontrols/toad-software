@@ -1,8 +1,10 @@
 #pragma once
 #include <stdint.h>
-#include "stm32h7xx_hal.h"
+#include "api/HardwareCAN.h"
 
-class CAN
+
+
+class CAN : arduino::HardwareCAN
 {
 public:
     CAN(uint32_t tx_pin, uint32_t rx_pin);
@@ -11,24 +13,30 @@ public:
     // returns actual bitrate in bps
     uint32_t begin(uint32_t bit_rate);
 
-    // get number of elements in the receive fifo
-    uint32_t rcv_count(void);
+    bool begin(CanBitRate bit_rate);
 
-    // get number free positions in the transmit fifo
+    // get number of elements in the receive fifo
+    size_t available(void);
+
+    // get number free positions in the transmit fifo - not part of the arduino API
     uint32_t tx_free_count(void);
 
     // transmit a data frame in classic CAN mode with an 11 bit ID
     // return true on success, false on error
-    bool send(uint16_t id, uint32_t data_length, const uint8_t* data);
+    int write(CanMsg const & msg);
 
 
     // if a message was waiting in the recieve FIFO, this returns true; otherwise returns false
     // returns false if an error occurs
     // 
-    bool receive(FDCAN_RxHeaderTypeDef* header, uint8_t* data);
+    CanMsg read(void);
+
+    void end(void);
 
 // private:
     FDCAN_HandleTypeDef hfdcan;
     uint32_t tx_pin;
     uint32_t rx_pin;
+    uint8_t rx_data[64];
+    FDCAN_RxHeaderTypeDef rx_header;
 };

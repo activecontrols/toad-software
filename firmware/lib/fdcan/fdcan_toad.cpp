@@ -1,5 +1,6 @@
 #include "stm32h7xx_hal.h"
 #include "Arduino.h"
+
 #include "fdcan_toad.h"
 #include "variant_TOAD_H7.h"
 #include "ec_pins.h"
@@ -249,15 +250,19 @@ uint32_t CAN::begin(uint32_t bit_rate)
 }
 
 
-// get number of elements in the receive fifo
-uint32_t CAN::rcv_count(void)
+// for compliance with the arduino api spec
+// this function always just returns true because it will enter an error handler routine in the event of a failure
+bool CAN::begin(CanBitRate bit_rate)
 {
-  return HAL_FDCAN_GetRxFifoFillLevel(&hfdcan, FDCAN_RX_FIFO0);
+  this->begin((uint32_t)bit_rate);
+
+  return true;
 }
 
-bool CAN::receive(FDCAN_RxHeaderTypeDef* header, uint8_t* data)
+// get number of elements in the receive fifo
+size_t CAN::available(void)
 {
-  return (HAL_FDCAN_GetRxMessage(&(this->hfdcan), FDCAN_RX_FIFO0, header, data) == HAL_OK);
+  return HAL_FDCAN_GetRxFifoFillLevel(&hfdcan, FDCAN_RX_FIFO0);
 }
 
 
@@ -275,7 +280,7 @@ uint32_t CAN::tx_free_count(void)
 }
 
 
-bool CAN::send(uint16_t id, uint32_t data_length, const uint8_t* data)
+int CAN::write(CanMsg const & msg)
 {
   FDCAN_TxHeaderTypeDef tx_header = {0};
   FDCAN_ErrorCountersTypeDef err_count_old = {0};
@@ -305,10 +310,31 @@ bool CAN::send(uint16_t id, uint32_t data_length, const uint8_t* data)
     return false;
   }
 
+  uint32_t id;
+
+  if (msg.isStandardId())
+  {
+    id = msg.getStandardId();
+  }
+  else if (msg.isExtendedId())
+  {
+    id = msg.getExtendedId();
+  }
+  else // error ? this shouldn't be possible
+  {
+    return 0;
+  }
+
+  if (msg.data_length > 8)
+  {
+    // invalid data length
+    return 0;
+  }
+
   /* 2. begin new transmission */
   tx_header.Identifier = id;
   tx_header.IdType = FDCAN_STANDARD_ID;
-  tx_header.DataLength = data_length;
+  tx_header.DataLength = msg.data_length;
   tx_header.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
   tx_header.BitRateSwitch = FDCAN_BRS_OFF; // bit rate switching is off
   tx_header.FDFormat = FDCAN_CLASSIC_CAN;
@@ -316,7 +342,7 @@ bool CAN::send(uint16_t id, uint32_t data_length, const uint8_t* data)
   tx_header.MessageMarker = 0;
 
   // place the message in the first buffer
-  HAL_StatusTypeDef status = HAL_FDCAN_AddMessageToTxBuffer(&hfdcan, &tx_header, data, 0);
+  HAL_StatusTypeDef status = HAL_FDCAN_AddMessageToTxBuffer(&hfdcan, &tx_header, msg.data, 0);
 
   if (status != HAL_OK)
   {
@@ -337,17 +363,36 @@ bool CAN::send(uint16_t id, uint32_t data_length, const uint8_t* data)
 }
 
 
-bool CAN::receive(FDCAN_RxHeaderTypeDef* header, uint8_t* data)
+CanMsg CAN::read(void)
 {
   // check that there is room in the rx fifo
-  uint32_t count = this->rcv_count();
+  size_t count = this->available();
 
   if (count == 0)
   {
-    return false;
+    return CanMsg(); // return empty message
   }
   
-  HAL_StatusTypeDef status = HAL_FDCAN_GetRxMessage(&(this->hfdcan), FDCAN_RX_FIFO0, header, data);
+  HAL_StatusTypeDef status = HAL_FDCAN_GetRxMessage(&(this->hfdcan), FDCAN_RX_FIFO0, &(this->rx_header), this->rx_data);
 
-  return (status == HAL_OK);
+  uint32_t arduino_msg_id = this->rx_header.Identifier;
+
+  if (rx_header.IdType == FDCAN_EXTENDED_ID)
+  {
+    arduino_msg_id |= (1 << 31); // bit 31 marks it as extended ID format according to the comment in CanMsg.h
+  }
+
+  // for standard CAN messages: DLC <= 8 means data_length = DLC
+  if (this->rx_header.DataLength > FDCAN_DLC_BYTES_8)
+  {
+    return CanMsg(); // return empty message because an error occured (invalid DLC for standard CAN)
+  }
+
+  return CanMsg(arduino_msg_id, this->rx_header.DataLength, this->rx_data);
+}
+
+// not implemented right now: we aren't going to need to de-init the CAN
+void CAN::end(void)
+{
+  return;
 }
