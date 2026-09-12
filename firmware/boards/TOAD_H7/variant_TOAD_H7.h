@@ -300,7 +300,7 @@
 #define HAL_FDCAN_MODULE_ENABLED
 #endif
 #if !defined (USE_HAL_FDCAN_REGISTER_CALLBACKS)
-#define USE_HAL_FDCAN_REGISTER_CALLBACKS
+#define USE_HAL_FDCAN_REGISTER_CALLBACKS 0
 #endif
 
 /*----------------------------------------------------------------------------
