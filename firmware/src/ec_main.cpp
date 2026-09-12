@@ -37,8 +37,8 @@ void setup() {
   HW_CommsSerial.begin(RADIO_BAUD);
   HW_FallbackSerial.begin(RADIO_BAUD);
 
-  CAN_FC.begin(1'000'000);
-  CAN_TVC.begin(1'000'000);
+  CAN_FC.begin(CanBitRate::BR_1000k);
+  CAN_TVC.begin(CanBitRate::BR_1000k);
 
   RS485_6.begin(9600); // TODO - what baud?
   RS485_2.begin(9600);
