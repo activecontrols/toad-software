@@ -354,10 +354,10 @@ int CAN::write(CanMsg const & msg)
     return false;
   }
 
-  // if (err_count_old.TxErrorCnt != err_count_new.TxErrorCnt)
-  // {
-  //   return false; // a tx error occurred
-  // }
+  if (err_count_old.TxErrorCnt != err_count_new.TxErrorCnt)
+  {
+    return false; // a tx error occurred
+  }
 
   return true;
 }
@@ -379,7 +379,7 @@ CanMsg CAN::read(void)
 
   if (rx_header.IdType == FDCAN_EXTENDED_ID)
   {
-    arduino_msg_id |= (1 << 31); // bit 31 marks it as extended ID format according to the comment in CanMsg.h
+    arduino_msg_id |= arduino::CanMsg::CAN_EFF_FLAG; // bit 31 marks it as extended ID format according to the comment in CanMsg.h
   }
 
   // for standard CAN messages: DLC <= 8 means data_length = DLC
