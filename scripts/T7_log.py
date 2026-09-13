@@ -33,7 +33,7 @@ def main():
 
     # Tracking overall session averages using Welford's algorithm (overflow-proof)
     sorted_channel_keys = sorted(CHANNELS.keys())
-    channel_names = [CHANNELS[ch][0] for ch in sorted_channel_keys]
+    channel_names = [f"{CHANNELS[ch][0]}_{CHANNELS[ch][1]}" for ch in sorted_channel_keys]
     total_samples = 0
     total_avg_voltages = [0.0] * len(channel_names)
     total_avg_pressures = [0.0] * len(channel_names)
