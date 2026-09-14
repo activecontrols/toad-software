@@ -202,7 +202,7 @@ uint32_t CAN::begin(uint32_t bit_rate)
   this->hfdcan.Init.RxBuffersNbr = 0;
   this->hfdcan.Init.TxEventsNbr = 0;
   this->hfdcan.Init.TxBuffersNbr = 1;
-  this->hfdcan.Init.TxFifoQueueElmtsNbr = 16;
+  this->hfdcan.Init.TxFifoQueueElmtsNbr = 0;
   this->hfdcan.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION; // other option is queue operation; with fifo messages are sent in the order they are placed in the fifo, with queue they are sent in order of priority. i think we want fifo
   this->hfdcan.Init.TxElmtSize = FDCAN_DATA_BYTES_8;
 
@@ -226,7 +226,7 @@ uint32_t CAN::begin(uint32_t bit_rate)
   // filter creation should go around here, but we are not using any (no filtering)
 
   /* Configure global filter to accept all 11 bit ID frames (and reject remote frames); jhillman todo: confirm the hardware on the bus does not use remote frames */
-  HAL_FDCAN_ConfigGlobalFilter(&hfdcan, FDCAN_ACCEPT_IN_RX_FIFO0, FDCAN_REJECT, FDCAN_REJECT_REMOTE, FDCAN_REJECT_REMOTE);
+  HAL_FDCAN_ConfigGlobalFilter(&hfdcan, FDCAN_ACCEPT_IN_RX_FIFO0, FDCAN_ACCEPT_IN_RX_FIFO0, FDCAN_REJECT_REMOTE, FDCAN_REJECT_REMOTE);
 
   // step 2 end
 
@@ -311,14 +311,17 @@ int CAN::write(CanMsg const & msg)
   }
 
   uint32_t id;
+  uint32_t id_type;
 
   if (msg.isStandardId())
   {
     id = msg.getStandardId();
+    id_type = FDCAN_STANDARD_ID;
   }
   else if (msg.isExtendedId())
   {
     id = msg.getExtendedId();
+    id_type = FDCAN_EXTENDED_ID;
   }
   else // error ? this shouldn't be possible
   {
@@ -333,7 +336,7 @@ int CAN::write(CanMsg const & msg)
 
   /* 2. begin new transmission */
   tx_header.Identifier = id;
-  tx_header.IdType = FDCAN_STANDARD_ID;
+  tx_header.IdType = id_type;
   tx_header.DataLength = msg.data_length;
   tx_header.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
   tx_header.BitRateSwitch = FDCAN_BRS_OFF; // bit rate switching is off
@@ -342,12 +345,14 @@ int CAN::write(CanMsg const & msg)
   tx_header.MessageMarker = 0;
 
   // place the message in the first buffer
-  HAL_StatusTypeDef status = HAL_FDCAN_AddMessageToTxBuffer(&hfdcan, &tx_header, msg.data, 0);
+  HAL_StatusTypeDef status = HAL_FDCAN_AddMessageToTxBuffer(&hfdcan, &tx_header, msg.data, FDCAN_TX_BUFFER0);
 
   if (status != HAL_OK)
   {
     return false;
   }
+
+  status = HAL_FDCAN_EnableTxBufferRequest(&(this->hfdcan), FDCAN_TX_BUFFER0);
 
   if (HAL_FDCAN_GetErrorCounters(&hfdcan, &err_count_new) != HAL_OK)
   {
