@@ -148,6 +148,10 @@ void init_fluids_data() {
     u_long mode = 1; // nonblocking
     ioctlsocket(sock, FIONBIO, &mode);
 
+    // Limit OS kernel receive buffer to 4 KB (~40 packets) to prevent stale packet accumulation
+    int rcvbuf = 4096;
+    setsockopt(sock, SOL_SOCKET, SO_RCVBUF, (const char *)&rcvbuf, sizeof(rcvbuf));
+
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
@@ -183,24 +187,26 @@ void fluids_data_periodic() {
   if (sock == INVALID_SOCKET) return;
 
   struct sockaddr_in sender;
-  int sender_len = sizeof(sender);
-  uint8_t buffer[512];
-
+  uint8_t temp_buf[512];
+  uint8_t latest_buf[512];
   int last_bytes = 0;
-  // Non-blocking socket drain loop: processes all pending packets to display latest state
+
+  // Non-blocking socket drain loop: drains all queued packets to commit the newest packet
   while (true) {
-    int bytes = recvfrom(sock, (char *)buffer, sizeof(buffer), 0, (struct sockaddr *)&sender, &sender_len);
+    int sender_len = sizeof(sender);
+    int bytes = recvfrom(sock, (char *)temp_buf, sizeof(temp_buf), 0, (struct sockaddr *)&sender, &sender_len);
     if (bytes <= 0) {
       break;
     }
+    memcpy(latest_buf, temp_buf, bytes);
     last_bytes = bytes;
   }
 
   if (last_bytes == sizeof(ec_telemetry_packet)) { // 100 bytes (EC_FMT)
-    commit_ec_packet(*(const ec_telemetry_packet *)buffer);
+    commit_ec_packet(*(const ec_telemetry_packet *)latest_buf);
   } else if (last_bytes == 288) { // 288 bytes (GNC 188 + EC 100)
-    commit_ec_packet(*(const ec_telemetry_packet *)(buffer + 188));
+    commit_ec_packet(*(const ec_telemetry_packet *)(latest_buf + 188));
   } else if (last_bytes == sizeof(legacy_telemetry_packet)) {
-    commit_legacy_packet(*(const legacy_telemetry_packet *)buffer);
+    commit_legacy_packet(*(const legacy_telemetry_packet *)latest_buf);
   }
 }

@@ -427,7 +427,7 @@ void DrawIgniter(ImVec2 center) {
   dl->AddTriangle(tri_1, tri_2, tri_3, PID_COLOR_OUTLINE, 1);
 }
 
-void DrawReadout(ImVec2 center, ImVec2 attach_point, const char *name, const char *unit, float reading, char attach_direction) {
+void DrawReadout(ImVec2 center, ImVec2 attach_point, const char *name, const char *unit, float reading, char attach_direction, ImU32 text_col, ImU32 unit_col) {
   ImDrawList *dl = ImGui::GetWindowDrawList();
 
   char text_buf[20];
@@ -448,8 +448,8 @@ void DrawReadout(ImVec2 center, ImVec2 attach_point, const char *name, const cha
   dl->AddRectFilled(rect_tl, rect_br, PID_COLOR_READOUT_BOX, 5);
   dl->AddRect(rect_tl, rect_br, PID_COLOR_OUTLINE, 5);
 
-  dl->AddText(center - text_size / 2 - ImVec2(max_text_size.x, 0) * 0.35, PID_COLOR_READOUT_BOX_TEXT, text_buf);
-  dl->AddText(center - ImVec2(0, unit_label_size.y / 2) + ImVec2(max_text_size.x, 0) * 0.35, PID_COLOR_OUTLINE, unit);
+  dl->AddText(center - text_size / 2 - ImVec2(max_text_size.x, 0) * 0.35, text_col, text_buf);
+  dl->AddText(center - ImVec2(0, unit_label_size.y / 2) + ImVec2(max_text_size.x, 0) * 0.35, unit_col, unit);
 
   int flip = 1;
   if (attach_direction == 'b') {

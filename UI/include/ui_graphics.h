@@ -14,6 +14,6 @@ void DrawTank(ImVec2 center, const char *label, ImColor col, float fillLevel);
 void DrawLargeNozzle(ImVec2 center);
 void DrawSmallNozzle(ImVec2 center, char orientation);
 void DrawIgniter(ImVec2 center);
-void DrawReadout(ImVec2 center, ImVec2 attach_point, const char *name, const char *unit, float reading, char attach_direction);
+void DrawReadout(ImVec2 center, ImVec2 attach_point, const char *name, const char *unit, float reading, char attach_direction, ImU32 text_col = IM_COL32(0, 255, 0, 255), ImU32 unit_col = IM_COL32(200, 200, 200, 255));
 
 bool MouseInValveHitbox(ImVec2 center, char orientation);

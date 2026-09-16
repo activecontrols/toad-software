@@ -161,13 +161,19 @@ void fluids_panel() {
     PID_Instrument psensor = pid_diagram.instruments[i];
 
     char *unit;
+    ImU32 text_col = PID_COLOR_READOUT_BOX_TEXT; // Green
+    ImU32 unit_col = PID_COLOR_OUTLINE;          // Grey
     if (psensor.instrument_type == Instrument_Type::PT) {
       unit = "psia";
+      text_col = PID_COLOR_READOUT_BOX_TEXT;
+      unit_col = PID_COLOR_OUTLINE;
     } else if (psensor.instrument_type == Instrument_Type::TC) {
       unit = "K";
+      text_col = IM_COL32(255, 185, 50, 255);  // Amber/Orange for Thermocouples
+      unit_col = IM_COL32(255, 200, 100, 255); // Light Amber
     }
 
-    DrawReadout(psensor.location + diagram_offset, psensor.attach_location + diagram_offset, psensor.name, unit, sensor_readings[i], psensor.attach_direction);
+    DrawReadout(psensor.location + diagram_offset, psensor.attach_location + diagram_offset, psensor.name, unit, sensor_readings[i], psensor.attach_direction, text_col, unit_col);
   }
 
   dl->PopClipRect();

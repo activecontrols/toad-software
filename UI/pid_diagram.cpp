@@ -48,10 +48,10 @@ void init_diagram() {
   static_assert(21 == NUMBER_OF_PID_ITEMS);
 
   pid_diagram.instruments[0] = {Instrument_Type::PT, "PT-FU-01", ImVec2(890.0, 75.0), ImVec2(812.5, 75.0), 't'};
-  pid_diagram.instruments[1] = {Instrument_Type::PT, "PT-N2-01", ImVec2(160.0, 45.0), ImVec2(237.5, 55.0), 't'};
+  pid_diagram.instruments[1] = {Instrument_Type::PT, "PT-N2-01", ImVec2(160.0, 35.0), ImVec2(237.5, 60.0), 'b'};
   pid_diagram.instruments[2] = {Instrument_Type::PT, "PT-N2-02", ImVec2(500.0, -10.0), ImVec2(500.0, -75.0), 'u'};
   pid_diagram.instruments[3] = {Instrument_Type::PT, "PT-O2-01", ImVec2(-10.0, 75.0), ImVec2(-87.5, 75.0), 't'};
-  pid_diagram.instruments[4] = {Instrument_Type::TC, "TC-N2-01", ImVec2(160.0, 105.0), ImVec2(237.5, 95.0), 'b'};
+  pid_diagram.instruments[4] = {Instrument_Type::TC, "TC-N2-01", ImVec2(160.0, 115.0), ImVec2(237.5, 90.0), 't'};
   pid_diagram.instruments[5] = {Instrument_Type::TC, "TC-O2-01", ImVec2(-270.0, 75.0), ImVec2(-212.5, 75.0), 't'};
   pid_diagram.instruments[6] = {Instrument_Type::PT, "PT-FU-02", ImVec2(170.0, 590.0), ImVec2(250.0, 600.0), 't'};
   pid_diagram.instruments[7] = {Instrument_Type::PT, "PT-O2-02", ImVec2(170.0, 510.0), ImVec2(250.0, 600.0), 'b'};
