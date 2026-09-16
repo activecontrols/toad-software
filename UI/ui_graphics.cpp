@@ -173,6 +173,85 @@ ImVec2 CrossingPoint(ImVec2 pPrev, ImVec2 p, float target_y) {
   return pPrev + (p - pPrev) * alpha;
 }
 
+#define QD_WIDTH 24.0f
+#define QD_HEIGHT 14.0f
+#define QD_GAP 4.0f
+
+void DrawQD(ImVec2 center, char orientation, const char *label) {
+  ImDrawList *dl = ImGui::GetWindowDrawList();
+  ImColor bk_color = ImGui::GetStyle().Colors[ImGuiCol_WindowBg];
+  ImColor line_color = PID_COLOR_OUTLINE;
+  int edge_thk = 2;
+
+  if (orientation == 'V') { // Full vertical QD: top and bottom triangles
+    // Top triangle (apex pointing up)
+    ImVec2 top_apex = center + ImVec2(0.0f, -QD_GAP * 0.5f - QD_HEIGHT);
+    ImVec2 top_bl   = center + ImVec2(-QD_WIDTH * 0.5f, -QD_GAP * 0.5f);
+    ImVec2 top_br   = center + ImVec2(QD_WIDTH * 0.5f, -QD_GAP * 0.5f);
+
+    // Bottom triangle (apex pointing down)
+    ImVec2 bot_tl   = center + ImVec2(-QD_WIDTH * 0.5f, QD_GAP * 0.5f);
+    ImVec2 bot_tr   = center + ImVec2(QD_WIDTH * 0.5f, QD_GAP * 0.5f);
+    ImVec2 bot_apex = center + ImVec2(0.0f, QD_GAP * 0.5f + QD_HEIGHT);
+
+    dl->AddTriangleFilled(top_apex, top_bl, top_br, bk_color);
+    dl->AddTriangle(top_apex, top_bl, top_br, line_color, edge_thk);
+
+    dl->AddTriangleFilled(bot_apex, bot_tl, bot_tr, bk_color);
+    dl->AddTriangle(bot_apex, bot_tl, bot_tr, line_color, edge_thk);
+
+    if (label && label[0] != '\0') {
+      ImVec2 text_size = ImGui::CalcTextSize(label);
+      dl->AddText(center + ImVec2(QD_WIDTH * 0.5f + 10.0f, -text_size.y * 0.5f), line_color, label);
+    }
+  } else if (orientation == 'H') { // Full horizontal QD: left and right triangles
+    // Left triangle (apex pointing left)
+    ImVec2 l_apex = center + ImVec2(-QD_GAP * 0.5f - QD_HEIGHT, 0.0f);
+    ImVec2 l_tr   = center + ImVec2(-QD_GAP * 0.5f, -QD_WIDTH * 0.5f);
+    ImVec2 l_br   = center + ImVec2(-QD_GAP * 0.5f, QD_WIDTH * 0.5f);
+
+    // Right triangle (apex pointing right)
+    ImVec2 r_tl   = center + ImVec2(QD_GAP * 0.5f, -QD_WIDTH * 0.5f);
+    ImVec2 r_bl   = center + ImVec2(QD_GAP * 0.5f, QD_WIDTH * 0.5f);
+    ImVec2 r_apex = center + ImVec2(QD_GAP * 0.5f + QD_HEIGHT, 0.0f);
+
+    dl->AddTriangleFilled(l_apex, l_tr, l_br, bk_color);
+    dl->AddTriangle(l_apex, l_tr, l_br, line_color, edge_thk);
+
+    dl->AddTriangleFilled(r_apex, r_tl, r_bl, bk_color);
+    dl->AddTriangle(r_apex, r_tl, r_bl, line_color, edge_thk);
+
+    if (label && label[0] != '\0') {
+      ImVec2 text_size = ImGui::CalcTextSize(label);
+      dl->AddText(center + ImVec2(-text_size.x * 0.5f, -QD_WIDTH * 0.5f - text_size.y - 4.0f), line_color, label);
+    }
+  } else if (orientation == 'L') { // Left triangle only (apex on left, flat base on right)
+    ImVec2 l_apex = center + ImVec2(-QD_HEIGHT, 0.0f);
+    ImVec2 l_tr   = center + ImVec2(0.0f, -QD_WIDTH * 0.5f);
+    ImVec2 l_br   = center + ImVec2(0.0f, QD_WIDTH * 0.5f);
+
+    dl->AddTriangleFilled(l_apex, l_tr, l_br, bk_color);
+    dl->AddTriangle(l_apex, l_tr, l_br, line_color, edge_thk);
+
+    if (label && label[0] != '\0') {
+      ImVec2 text_size = ImGui::CalcTextSize(label);
+      dl->AddText(center + ImVec2(-text_size.x * 0.5f, -QD_WIDTH * 0.5f - text_size.y - 4.0f), line_color, label);
+    }
+  } else if (orientation == 'R') { // Right triangle only (flat base on left, apex on right)
+    ImVec2 r_tl   = center + ImVec2(0.0f, -QD_WIDTH * 0.5f);
+    ImVec2 r_bl   = center + ImVec2(0.0f, QD_WIDTH * 0.5f);
+    ImVec2 r_apex = center + ImVec2(QD_HEIGHT, 0.0f);
+
+    dl->AddTriangleFilled(r_apex, r_tl, r_bl, bk_color);
+    dl->AddTriangle(r_apex, r_tl, r_bl, line_color, edge_thk);
+
+    if (label && label[0] != '\0') {
+      ImVec2 text_size = ImGui::CalcTextSize(label);
+      dl->AddText(center + ImVec2(-text_size.x * 0.5f, -QD_WIDTH * 0.5f - text_size.y - 4.0f), line_color, label);
+    }
+  }
+}
+
 void DrawTank(ImVec2 center, const char *label, ImColor col, float fillLevel) {
   ImDrawList *dl = ImGui::GetWindowDrawList();
   ImVec2 tl = center + ImVec2(-TANK_WIDTH * 0.5, -TANK_HEIGHT * 0.5);

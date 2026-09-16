@@ -7,8 +7,6 @@
 #include "ui_components.h"
 #include "ui_graphics.h"
 
-float fill_level = 0.5;
-
 #define VALVE_CLICK_TIME_THRESHOLD 5 // seconds
 int last_clicked_valve = NULL_VALVE;
 time_t last_clicked_valve_time;
@@ -24,7 +22,7 @@ void fluids_panel() {
   ImVec2 diagram_offset = canvasOrigin + ImVec2(400, 300);
   ImDrawList *dl = ImGui::GetWindowDrawList();
 
-  ImVec2 canvasSize = {1400, 1100};
+  ImVec2 canvasSize = {1700, 1100};
 
   dl->PushClipRect(canvasOrigin, canvasOrigin + canvasSize, true);
 
@@ -93,6 +91,7 @@ void fluids_panel() {
       if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && !ImGui::IsMouseDragPastThreshold(ImGuiMouseButton_Left)) {
         if (last_clicked_valve == i) { // TODO - check if state hasn't changed since we clicked
           valve_states[i] = !valve_states[i];
+          send_valve_command();
           last_clicked_valve = NULL_VALVE;
         } else {
           last_clicked_valve = i;
@@ -120,17 +119,27 @@ void fluids_panel() {
     ImVec2 center = pitem.location + diagram_offset;
     if (pitem.pid_type == PID_Type::Tank) {
       ImColor col;
+      float tank_fill = 0.5f;
       if (pitem.orientation == 'O') {
         col = PID_COLOR_O2;
+        tank_fill = fill_levels[1];
       }
       if (pitem.orientation == 'F') {
         col = PID_COLOR_FU;
+        tank_fill = fill_levels[2];
       }
       if (pitem.orientation == 'N') {
         col = PID_COLOR_N2;
+        if (strcmp(pitem.name, "TK-N2-BULK") == 0) {
+          float bulk_p = sensor_readings[PT_N2_BULK_IDX];
+          tank_fill = bulk_p > 6000.0f ? 1.0f : (bulk_p < 0.0f ? 0.0f : bulk_p / 6000.0f);
+        } else {
+          float copv_p = sensor_readings[PT_N2_01_IDX];
+          tank_fill = copv_p > 4500.0f ? 1.0f : (copv_p < 0.0f ? 0.0f : copv_p / 4500.0f);
+        }
       }
 
-      DrawTank(center, pitem.name, col, fill_level);
+      DrawTank(center, pitem.name, col, tank_fill);
     } else if (pitem.pid_type == PID_Type::Large_Nozzle) {
       DrawLargeNozzle(center);
     } else if (pitem.pid_type == PID_Type::Small_Nozzle) {
@@ -143,6 +152,8 @@ void fluids_panel() {
       DrawCheckValve(center, pitem.orientation);
     } else if (pitem.pid_type == PID_Type::ManualValve) {
       DrawManualValve(center, pitem.name);
+    } else if (pitem.pid_type == PID_Type::QD) {
+      DrawQD(center, pitem.orientation, pitem.name);
     }
   }
 

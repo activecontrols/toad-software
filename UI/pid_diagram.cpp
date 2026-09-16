@@ -21,7 +21,8 @@ void init_diagram() {
   pid_diagram.valves[15] = {Valve_Type::Ball, "BV-FU-03", ImVec2(750.0, 250.0), 'V',  ImVec2(690.0, 250.0)};
   pid_diagram.valves[16] = {Valve_Type::Throttle, "BV-FU-04", ImVec2(600.0, 700.0), 'H',  ImVec2(600.0, 730.0)};
   pid_diagram.valves[17] = {Valve_Type::Solenoid, "SV-FU-01", ImVec2(400.0, 375.0), 'H',  ImVec2(400.0, 405.0)};
-  static_assert(18 == NUMBER_OF_VALVES);
+  pid_diagram.valves[18] = {Valve_Type::Ball, "BV-N2-FILL", ImVec2(1070.0, 75.0), 'H', ImVec2(1070.0, 45.0)};
+  static_assert(19 == NUMBER_OF_VALVES);
 
   pid_diagram.pid_items[0] = {PID_Type::Tank, "TK-O2-01", ImVec2(-150.0, 75.0), 'O'};
   pid_diagram.pid_items[1] = {PID_Type::Tank, "TK-FU-01", ImVec2(750.0, 75.0), 'F'};
@@ -40,20 +41,25 @@ void init_diagram() {
   pid_diagram.pid_items[14] = {PID_Type::CheckValve, "CK-FU-02", ImVec2(525.0, 650.0), 'V'};
   pid_diagram.pid_items[15] = {PID_Type::CheckValve, "CK-FU-03", ImVec2(338.0, 325.0), 'V'};
   pid_diagram.pid_items[16] = {PID_Type::ManualValve, "BV-FU-02", ImVec2(850.0, 200.0), 'H'};
-  static_assert(17 == NUMBER_OF_PID_ITEMS);
+  pid_diagram.pid_items[17] = {PID_Type::Tank, "TK-N2-BULK", ImVec2(1200.0, 75.0), 'N'};
+  pid_diagram.pid_items[18] = {PID_Type::QD, "QD-O2-01", ImVec2(-320.0, 260.0), 'V'};
+  pid_diagram.pid_items[19] = {PID_Type::QD, "QD-N2-01", ImVec2(440.0, 75.0), 'L'};
+  pid_diagram.pid_items[20] = {PID_Type::QD, "QD-N2-01", ImVec2(980.0, 75.0), 'R'};
+  static_assert(21 == NUMBER_OF_PID_ITEMS);
 
   pid_diagram.instruments[0] = {Instrument_Type::PT, "PT-FU-01", ImVec2(890.0, 75.0), ImVec2(812.5, 75.0), 't'};
-  pid_diagram.instruments[1] = {Instrument_Type::PT, "PT-N2-01", ImVec2(440.0, 75.0), ImVec2(362.5, 75.0), 't'};
+  pid_diagram.instruments[1] = {Instrument_Type::PT, "PT-N2-01", ImVec2(160.0, 45.0), ImVec2(237.5, 55.0), 't'};
   pid_diagram.instruments[2] = {Instrument_Type::PT, "PT-N2-02", ImVec2(500.0, -10.0), ImVec2(500.0, -75.0), 'u'};
   pid_diagram.instruments[3] = {Instrument_Type::PT, "PT-O2-01", ImVec2(-10.0, 75.0), ImVec2(-87.5, 75.0), 't'};
-  pid_diagram.instruments[4] = {Instrument_Type::TC, "TC-N2-01", ImVec2(180.0, 75.0), ImVec2(237.5, 75.0), 't'};
+  pid_diagram.instruments[4] = {Instrument_Type::TC, "TC-N2-01", ImVec2(160.0, 105.0), ImVec2(237.5, 95.0), 'b'};
   pid_diagram.instruments[5] = {Instrument_Type::TC, "TC-O2-01", ImVec2(-270.0, 75.0), ImVec2(-212.5, 75.0), 't'};
   pid_diagram.instruments[6] = {Instrument_Type::PT, "PT-FU-02", ImVec2(170.0, 590.0), ImVec2(250.0, 600.0), 't'};
   pid_diagram.instruments[7] = {Instrument_Type::PT, "PT-O2-02", ImVec2(170.0, 510.0), ImVec2(250.0, 600.0), 'b'};
   pid_diagram.instruments[8] = {Instrument_Type::TC, "TC-FU-01", ImVec2(50.0, 590.0), ImVec2(250.0, 600.0), 't'};
   pid_diagram.instruments[9] = {Instrument_Type::TC, "TC-O2-02", ImVec2(50.0, 510.0), ImVec2(250.0, 600.0), 'b'};
   pid_diagram.instruments[10] = {Instrument_Type::PT, "PT-FU-04", ImVec2(420.0, 465.0), ImVec2(342.5, 465.0), 'l'};
-  static_assert(11 == NUMBER_OF_INSTRUMENTS);
+  pid_diagram.instruments[11] = {Instrument_Type::PT, "PT-N2-BULK", ImVec2(1340.0, 75.0), ImVec2(1262.5, 75.0), 't'};
+  static_assert(12 == NUMBER_OF_INSTRUMENTS);
 
   pid_diagram.pipes[0] = {ImVec2(625.0, -125.0), ImVec2(625.0, 200.0), PID_COLOR_N2, {1, -1, -1}, {-1, -1, -1}};
   pid_diagram.pipes[1] = {ImVec2(0.0, 270.0), ImVec2(625.0, 200.0), PID_COLOR_N2, {1, -1, -1}, {-1, -1, -1}, ImVec2(0.0, 200.0)};
@@ -99,5 +105,10 @@ void init_diagram() {
   pid_diagram.pipes[41] = {ImVec2(-220.0, -50.0), ImVec2(-150.0, -30.0), PID_COLOR_O2, {-1, -1, -1}, {-1, -1, -1}, ImVec2(-150.0, -50.0)};
   pid_diagram.pipes[42] = {ImVec2(830.0, 200.0), ImVec2(750.0, 200.0), PID_COLOR_FU, {-1, -1, -1}, {-1, -1, -1}};
   pid_diagram.pipes[43] = {ImVec2(820.0, -50.0), ImVec2(750.0, -30.0), PID_COLOR_FU, {-1, -1, -1}, {-1, -1, -1}, ImVec2(750.0, -50.0)};
-  static_assert(44 == NUMBER_OF_PIPES);
+  pid_diagram.pipes[44] = {ImVec2(-280.0, 200.0), ImVec2(-320.0, 244.0), PID_COLOR_O2, {10, -1, -1}, {-1, -1, -1}, ImVec2(-320.0, 200.0)};
+  pid_diagram.pipes[45] = {ImVec2(-320.0, 276.0), ImVec2(-320.0, 320.0), PID_COLOR_O2, {10, -1, -1}, {-1, -1, -1}};
+  pid_diagram.pipes[46] = {ImVec2(362.5, 75.0), ImVec2(426.0, 75.0), PID_COLOR_N2, {-1, -1, -1}, {-1, -1, -1}};
+  pid_diagram.pipes[47] = {ImVec2(1137.5, 75.0), ImVec2(1085.0, 75.0), PID_COLOR_N2, {-1, -1, -1}, {-1, -1, -1}};
+  pid_diagram.pipes[48] = {ImVec2(1055.0, 75.0), ImVec2(994.0, 75.0), PID_COLOR_N2, {18, -1, -1}, {-1, -1, -1}};
+  static_assert(49 == NUMBER_OF_PIPES);
 }

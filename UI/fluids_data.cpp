@@ -1,15 +1,36 @@
 #include "fluids_data.h"
 #include "pid_diagram.h"
+#include <stdint.h>
 #include <stdio.h>
 #include <windows.h>
 
-// persist socket data
-SOCKET sock;
+// Persist socket data
+SOCKET sock = INVALID_SOCKET;
+SOCKET cmd_sock = INVALID_SOCKET;
+struct sockaddr_in cmd_dest_addr;
 
 float sensor_readings[NUMBER_OF_INSTRUMENTS];
 bool valve_states[NUMBER_OF_VALVES];
+float fill_levels[3] = {1.0f, 0.9f, 0.9f};
 
-struct telemetry_packet {
+#pragma pack(push, 1)
+struct ec_telemetry_packet {
+  uint8_t pt_crc;
+  uint8_t padding[3];
+  float pressures[12];
+  float temperatures[6];
+  uint32_t valve_state;
+  float valve_angles[2];
+  float fill_levels[3];
+};
+
+struct valve_command_packet {
+  uint32_t commanded_valves;
+  float ox_throttle;
+  float fu_throttle;
+};
+
+struct legacy_telemetry_packet {
   float TK_N2_press;
   float TK_O2_press;
   float TK_FU_press;
@@ -27,8 +48,33 @@ struct telemetry_packet {
   bool SV_N2_07;
   bool SV_N2_08;
 };
+#pragma pack(pop)
 
-void commit_packet(telemetry_packet tp) {
+void commit_ec_packet(const ec_telemetry_packet &tp) {
+  // Map pressures [psia]
+  sensor_readings[PT_N2_01_IDX] = tp.pressures[0];
+  sensor_readings[PT_O2_01_IDX] = tp.pressures[1];
+  sensor_readings[PT_FU_01_IDX] = tp.pressures[2];
+  sensor_readings[PT_N2_02_IDX] = tp.pressures[3];
+  sensor_readings[PT_O2_02_IDX] = tp.pressures[4];
+  sensor_readings[PT_FU_02_IDX] = tp.pressures[5];
+  sensor_readings[PT_FU_04_IDX] = tp.pressures[6];
+  sensor_readings[PT_N2_BULK_IDX] = tp.pressures[7];
+
+  // Map temperatures [K]
+  sensor_readings[TC_N2_01_IDX] = tp.temperatures[0];
+  sensor_readings[TC_O2_01_IDX] = tp.temperatures[1];
+  sensor_readings[TC_O2_02_IDX] = tp.temperatures[2];
+  sensor_readings[TC_FU_01_IDX] = tp.temperatures[3];
+
+  // Map fill levels (N2 COPV dependent on 4.5 ksi max pressure)
+  float copv_p = sensor_readings[PT_N2_01_IDX];
+  fill_levels[0] = copv_p > 4500.0f ? 1.0f : (copv_p < 0.0f ? 0.0f : copv_p / 4500.0f);
+  fill_levels[1] = tp.fill_levels[1]; // LOX
+  fill_levels[2] = tp.fill_levels[2]; // Fuel
+}
+
+void commit_legacy_packet(const legacy_telemetry_packet &tp) {
   sensor_readings[PT_FU_01_IDX] = tp.TK_FU_press;
   sensor_readings[PT_N2_01_IDX] = tp.TK_N2_press;
   sensor_readings[PT_O2_01_IDX] = tp.TK_O2_press;
@@ -44,61 +90,117 @@ void commit_packet(telemetry_packet tp) {
   valve_states[SV_N2_05_IDX] = tp.SV_N2_05;
   valve_states[SV_N2_06_IDX] = tp.SV_N2_06;
   valve_states[SV_N2_07_IDX] = tp.SV_N2_07;
-  valve_states[SV_N2_08_IDX] = tp.SV_N2_08;
+}
+
+void send_valve_command() {
+  if (cmd_sock == INVALID_SOCKET) {
+    return;
+  }
+
+  valve_command_packet cmd = {};
+
+  // Build bitmask matching ec_valves.h:
+  // Bits 0..3: SV-N2-01..04 (RCS)
+  if (valve_states[SV_N2_01_IDX]) cmd.commanded_valves |= (1 << 0);
+  if (valve_states[SV_N2_02_IDX]) cmd.commanded_valves |= (1 << 1);
+  if (valve_states[SV_N2_03_IDX]) cmd.commanded_valves |= (1 << 2);
+  if (valve_states[SV_N2_04_IDX]) cmd.commanded_valves |= (1 << 3);
+
+  // Bits 4..6: SV-N2-05..07 (Purges)
+  if (valve_states[SV_N2_05_IDX]) cmd.commanded_valves |= (1 << 4);
+  if (valve_states[SV_N2_06_IDX]) cmd.commanded_valves |= (1 << 5);
+  if (valve_states[SV_N2_07_IDX]) cmd.commanded_valves |= (1 << 6);
+
+  // Bits 7..8: SV-O2-01, SV-FU-01 (DART Igniter)
+  if (valve_states[SV_O2_01_IDX]) cmd.commanded_valves |= (1 << 7);
+  if (valve_states[SV_FU_01_IDX]) cmd.commanded_valves |= (1 << 8);
+
+  // Bits 9..10: BV-N2-01, BV-N2-02
+  if (valve_states[BV_N2_01_IDX]) cmd.commanded_valves |= (1 << 9);
+  if (valve_states[BV_N2_02_IDX]) cmd.commanded_valves |= (1 << 10);
+
+  // Bits 11..13: BV-O2-01, BV-O2-02, BV-O2-03
+  if (valve_states[BV_O2_01_IDX]) cmd.commanded_valves |= (1 << 11);
+  if (valve_states[BV_O2_02_IDX]) cmd.commanded_valves |= (1 << 12);
+  if (valve_states[BV_O2_03_IDX]) cmd.commanded_valves |= (1 << 13);
+
+  // Bits 14..15: BV-FU-01, BV-FU-03
+  if (valve_states[BV_FU_01_IDX]) cmd.commanded_valves |= (1 << 14);
+  if (valve_states[BV_FU_03_IDX]) cmd.commanded_valves |= (1 << 15);
+
+  // Bit 16: BV-N2-FILL
+  if (valve_states[BV_N2_FILL_IDX]) cmd.commanded_valves |= (1 << 16);
+
+  // Throttle positions (binary 0.0 or 1.0)
+  cmd.ox_throttle = valve_states[BV_O2_04_IDX] ? 1.0f : 0.0f;
+  cmd.fu_throttle = valve_states[BV_FU_04_IDX] ? 1.0f : 0.0f;
+
+  sendto(cmd_sock, (const char *)&cmd, sizeof(cmd), 0, (struct sockaddr *)&cmd_dest_addr, sizeof(cmd_dest_addr));
 }
 
 void init_fluids_data() {
-  // setup socket
   WSADATA wsa;
   WSAStartup(MAKEWORD(2, 2), &wsa);
 
+  // Receiver Socket (Port 9000)
   sock = socket(AF_INET, SOCK_DGRAM, 0);
+  if (sock != INVALID_SOCKET) {
+    u_long mode = 1; // nonblocking
+    ioctlsocket(sock, FIONBIO, &mode);
 
-  if (sock < 0) {
-    printf("Error creating socket...");
-    return;
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(9000);
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+
+    if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+      printf("Error binding receiver socket to port 9000\n");
+    }
   }
 
-  // Make socket nonblocking
-  u_long mode = 1;
-  ioctlsocket(sock, FIONBIO, &mode);
-
-  // Bind to localhost:9000
-  struct sockaddr_in addr;
-  memset(&addr, 0, sizeof(addr));
-
-  addr.sin_family = AF_INET;
-  addr.sin_port = htons(9000);
-  addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-  // use INADDR_ANY instead if desired
-
-  if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-    printf("Error binding socket...");
-    return;
-  }
+  // Transmitter Socket for Commands (Targeting 127.0.0.1:9001)
+  cmd_sock = socket(AF_INET, SOCK_DGRAM, 0);
+  memset(&cmd_dest_addr, 0, sizeof(cmd_dest_addr));
+  cmd_dest_addr.sin_family = AF_INET;
+  cmd_dest_addr.sin_port = htons(9001);
+  cmd_dest_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 }
 
 void deinit_fluids_data() {
-  closesocket(sock);
+  if (sock != INVALID_SOCKET) {
+    closesocket(sock);
+    sock = INVALID_SOCKET;
+  }
+  if (cmd_sock != INVALID_SOCKET) {
+    closesocket(cmd_sock);
+    cmd_sock = INVALID_SOCKET;
+  }
   WSACleanup();
 }
 
 void fluids_data_periodic() {
+  if (sock == INVALID_SOCKET) return;
+
   struct sockaddr_in sender;
   int sender_len = sizeof(sender);
+  uint8_t buffer[512];
 
-  telemetry_packet tp;
-  int bytes = recvfrom(sock, (char *)&tp, sizeof(tp), 0, (struct sockaddr *)&sender, &sender_len);
+  int last_bytes = 0;
+  // Non-blocking socket drain loop: processes all pending packets to display latest state
+  while (true) {
+    int bytes = recvfrom(sock, (char *)buffer, sizeof(buffer), 0, (struct sockaddr *)&sender, &sender_len);
+    if (bytes <= 0) {
+      break;
+    }
+    last_bytes = bytes;
+  }
 
-  // MATLAB CODE
-  // pt_vec = [X_cur(1), X_cur(3), X_cur(4), X_cur(11), X_cur(12), X_cur(13)] / 6895;
-  // valve_vec = [ U(1), U(2), U(3), U(4), U(5), U(9), U(10), U(11), U(12) ] > 0;
-  // pkt = [ typecast(single(pt_vec), "uint8"), uint8(valve_vec), uint8([ 0, 0, 0 ]) ];
-  // write(u, pkt, "127.0.0.1", 9000);
-
-  if (bytes == sizeof(tp)) {
-    commit_packet(tp);
-  } else if (bytes >= 0) {
-    printf("rcv size error - update the matlab code: %d %d\n", bytes, sizeof(tp));
+  if (last_bytes == sizeof(ec_telemetry_packet)) { // 100 bytes (EC_FMT)
+    commit_ec_packet(*(const ec_telemetry_packet *)buffer);
+  } else if (last_bytes == 288) { // 288 bytes (GNC 188 + EC 100)
+    commit_ec_packet(*(const ec_telemetry_packet *)(buffer + 188));
+  } else if (last_bytes == sizeof(legacy_telemetry_packet)) {
+    commit_legacy_packet(*(const legacy_telemetry_packet *)buffer);
   }
 }

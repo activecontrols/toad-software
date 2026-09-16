@@ -1,10 +1,10 @@
 #pragma once
 #include "imgui.h"
 
-#define NUMBER_OF_VALVES 18
-#define NUMBER_OF_PID_ITEMS 17
-#define NUMBER_OF_INSTRUMENTS 11
-#define NUMBER_OF_PIPES 44
+#define NUMBER_OF_VALVES 19
+#define NUMBER_OF_PID_ITEMS 21
+#define NUMBER_OF_INSTRUMENTS 12
+#define NUMBER_OF_PIPES 49
 
 // orig from P&ID
 // #define PID_COLOR_O2 IM_COL32(0, 176, 240, 255)
@@ -35,7 +35,7 @@
 #define CHECK_VALVE_SIZE 15
 
 namespace PID_Type {
-enum PID_Type { Tank, Large_Nozzle, Small_Nozzle, Igniter, Reg, CheckValve, ManualValve };
+enum PID_Type { Tank, Large_Nozzle, Small_Nozzle, Igniter, Reg, CheckValve, ManualValve, QD };
 }
 
 namespace Instrument_Type {

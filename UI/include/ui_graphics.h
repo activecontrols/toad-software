@@ -9,6 +9,7 @@ void DrawThrottleValve(ImVec2 center, char orientation, const char *label, ImVec
 void DrawReg(ImVec2 center, const char *label);
 void DrawCheckValve(ImVec2 center, char orientation);
 void DrawManualValve(ImVec2 center, const char *label);
+void DrawQD(ImVec2 center, char orientation, const char *label);
 void DrawTank(ImVec2 center, const char *label, ImColor col, float fillLevel);
 void DrawLargeNozzle(ImVec2 center);
 void DrawSmallNozzle(ImVec2 center, char orientation);
