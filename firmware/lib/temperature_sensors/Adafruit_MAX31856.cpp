@@ -56,7 +56,7 @@ SPISettings Adafruit_MAX31856_SPI_SETTINGS(4000000, MSBFIRST, SPI_MODE1);
 /**************************************************************************/
 bool Adafruit_MAX31856::begin(void) {
   pinMode(cs_pin, OUTPUT);
-  pinMode(cs_pin, HIGH);
+  digitalWrite(cs_pin, HIGH);
 
   // assert on any fault
   writeRegister8(MAX31856_MASK_REG, 0x0);
@@ -307,7 +307,7 @@ void Adafruit_MAX31856::readRegisterN(uint8_t addr, uint8_t buffer[], uint8_t n)
   addr &= 0x7F; // MSB=0 for read, make sure top bit is not set
 
   // TODO - might want delays after these
-  pinMode(cs_pin, LOW);
+  digitalWrite(cs_pin, LOW);
   spi_bus.beginTransaction(Adafruit_MAX31856_SPI_SETTINGS);
 
   spi_bus.transfer(addr);
@@ -317,7 +317,7 @@ void Adafruit_MAX31856::readRegisterN(uint8_t addr, uint8_t buffer[], uint8_t n)
   }
 
   spi_bus.endTransaction();
-  pinMode(cs_pin, HIGH);
+  digitalWrite(cs_pin, HIGH);
 }
 
 void Adafruit_MAX31856::writeRegister8(uint8_t addr, uint8_t data) {
@@ -325,7 +325,7 @@ void Adafruit_MAX31856::writeRegister8(uint8_t addr, uint8_t data) {
 
   uint8_t buffer[2] = {addr, data};
 
-  pinMode(cs_pin, LOW);
+  digitalWrite(cs_pin, LOW);
   spi_bus.beginTransaction(Adafruit_MAX31856_SPI_SETTINGS);
 
   for (size_t i = 0; i < 2; i++) {
@@ -333,5 +333,5 @@ void Adafruit_MAX31856::writeRegister8(uint8_t addr, uint8_t data) {
   }
 
   spi_bus.endTransaction();
-  pinMode(cs_pin, HIGH);
+  digitalWrite(cs_pin, HIGH);
 }
