@@ -4,7 +4,8 @@
 #include "prog_pins.h"
 #include "toad_can_bus.h"
 
-// Based on https://www.st.com/resource/en/application_note/an4286-how-to-use-spi-protocol-in-bootloader-on-stm32-mcus-stmicroelectronics.pdf
+// Based on
+// https://www.st.com/resource/en/application_note/an4286-how-to-use-spi-protocol-in-bootloader-on-stm32-mcus-stmicroelectronics.pdf
 // Citations commented as [pg#]
 
 CommsSerial_t<USBSerial> USB_CommsSerial;
@@ -56,7 +57,7 @@ void setup() {
 
   // Configure SPI interface and set CS HIGH
   Prog_SPI.begin();
-  pinMode(PIN_PROG_SPI_CS, HIGH);
+  digitalWrite(PIN_PROG_SPI_CS, HIGH);
 
   // Configure BOOT and NRST to default the STM32H7 into normal code execution
   digitalWrite(PIN_H7_BOOT, BOOT_MODE_RUN);
@@ -104,11 +105,11 @@ bool spi_ack_frame() {
 
 bool enter_bootloader() {
   // Reset the H7 into the bootloader
-  pinMode(PIN_H7_BOOT, BOOT_MODE_FLASH);
+  digitalWrite(PIN_H7_BOOT, BOOT_MODE_FLASH);
   reset_h7();
 
   // Send SYNC byte and get ACK [6]
-  pinMode(PIN_PROG_SPI_CS, LOW);
+  digitalWrite(PIN_PROG_SPI_CS, LOW);
 
   Prog_SPI.transfer(SYNC);
   ExitOnFail(spi_ack_frame());
@@ -226,7 +227,8 @@ void loop() {
     if (all_chunk_rcv) {
       for (size_t i = 0; i < NUM_WRITE_CHUNKS_PER_PAGE; i++) {
         static_assert(WRITE_CHUNK_SIZE <= 256);
-        write_memory(active_pg_addr * PAGE_CACHE_SIZE + WRITE_CHUNK_SIZE * i, &page_cache[WRITE_CHUNK_SIZE * i], WRITE_CHUNK_SIZE);
+        write_memory(active_pg_addr * PAGE_CACHE_SIZE + WRITE_CHUNK_SIZE * i, &page_cache[WRITE_CHUNK_SIZE * i],
+                     WRITE_CHUNK_SIZE);
         // TODO - send ok
       }
       prog_state = STATE_READY;
