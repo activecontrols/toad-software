@@ -63,7 +63,7 @@ bool begin() {
 // All valves must enter a 'default / safe' state when they receive a LOW signal.
 // This requirement is driven by the flight termination system functionality.
 // So to check whether the DO should be LOW or HIGH, just compare against this default state.
-bool valve_state_to_logic_level(int valve_num, valve_state_t target_state) {
+PinStatus valve_state_to_logic_level(int valve_num, valve_state_t target_state) {
   return target_state == sv_and_bvs[valve_num].default_state ? LOW : HIGH;
 }
 
