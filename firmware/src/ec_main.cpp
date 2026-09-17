@@ -9,12 +9,14 @@
 #include "TemperatureSensors.h"
 #include "ThrottleValves.h"
 #include "ValveController.h"
+#include "RS485.h"
 
 // shared interfaces
 CommsSerial_t<USBSerial> USB_CommsSerial;
 CommsSerial_t<Uart> HW_CommsSerial(PIN_HW_COMM_SERIAL_RX, PIN_HW_COMM_SERIAL_TX);
 CommsSerial_t<Uart> HW_FallbackSerial(PIN_HW_FALLBACK_SERIAL_RX, PIN_HW_FALLBACK_SERIAL_TX);
-// TODO - configure DE pin
+
+// DE is passed as RTS and is converted to hardware DE mode by RS485Bus; DO NOT call begin() on these. 
 Uart RS485_6(PIN_RS485_6_RX, PIN_RS485_6_TX, PIN_RS485_6_DE);
 Uart RS485_2(PIN_RS485_2_RX, PIN_RS485_2_TX, PIN_RS485_2_DE);
 
@@ -33,9 +35,6 @@ void setup() {
   HW_CommsSerial.begin(RADIO_BAUD);
   HW_FallbackSerial.begin(RADIO_BAUD);
 
-  RS485_6.begin(9600); // TODO - what baud?
-  RS485_2.begin(9600);
-
   PT_TC_SPI_1.begin();
   PT_TC_SPI_3.begin();
 
@@ -49,6 +48,7 @@ void setup() {
   bool all_modules_ok = true;
   all_modules_ok &= PressureSensors::begin();
   all_modules_ok &= TemperatureSensors::begin();
+  all_modules_ok &= RS485s::begin();
   all_modules_ok &= ThrottleValves::begin();
   all_modules_ok &= SolenoidValves::begin();
   all_modules_ok &= TVC_Actuators::begin();
