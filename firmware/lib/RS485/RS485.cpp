@@ -143,10 +143,12 @@ namespace RS485s {
 namespace {
 constexpr uint32_t kEncBaud = 2000000; // AMT24 2 Mbps data rate
 constexpr uint32_t kTvcBaud = 2000000; // TODO - Check Baud rate for TVC
+constexpr uint32_t kDrvBaud = 115200; // TODO - check driver's RS485 config; placeholder
+
 
 // Index in each array == device index below
-const uint32_t bus6_sels[] = {PIN_TVC_PITCH_SEL, PIN_ENC_OX_SEL};
-const uint32_t bus2_sels[] = {PIN_TVC_YAW_SEL, PIN_ENC_FU_SEL};
+const uint32_t bus6_sels[] = {PIN_TVC_PITCH_SEL, PIN_ENC_OX_SEL, PIN_DRV_OX_SEL};
+const uint32_t bus2_sels[] = {PIN_TVC_YAW_SEL, PIN_ENC_FU_SEL, PIN_DRV_FU_SEL};
 } // namespace
 
 RS485Bus bus6(RS485_6, bus6_sels, std::size(bus6_sels));
@@ -154,8 +156,11 @@ RS485Bus bus2(RS485_2, bus2_sels, std::size(bus2_sels));
 
 RS485Device tvc_pitch(bus6, 0, kTvcBaud);
 RS485Device enc_ox(bus6, 1, kEncBaud);
+RS485Device drv_ox(bus6, 2, kDrvBaud);
+
 RS485Device tvc_yaw(bus2, 0, kTvcBaud);
 RS485Device enc_fu(bus2, 1, kEncBaud);
+RS485Device drv_fu(bus2, 2, kDrvBaud);
 
 bool begin() {
   bool ok = true;
