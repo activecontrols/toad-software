@@ -64,6 +64,8 @@ extern RS485Bus bus2;
 
 extern RS485Device tvc_pitch;
 extern RS485Device enc_ox;
+extern RS485Device drv_ox;
 extern RS485Device tvc_yaw;
 extern RS485Device enc_fu;
+extern RS485Device drv_fu;
 } // namespace RS485s
