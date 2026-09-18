@@ -4,7 +4,7 @@
 #include <iterator>
 
 namespace {
-constexpr uint32_t kMarginUs = 200; // tune against response time
+constexpr uint32_t kMarginUs = 200; // TODO: tune against response time
 constexpr uint32_t kTxSlackUs = 2000;
 } // namespace
 
@@ -61,7 +61,7 @@ void RS485Bus::applyDE(USART_TypeDef *u) {
   u->CR3 |= USART_CR3_DEM;
   u->CR1 &= ~(USART_CR1_DEAT | USART_CR1_DEDT);
 
-  // DEAT = 31/16 bit: gives the transceiver time to enable 
+  // DEAT = 31/16 bit: gives the transceiver time to enable
   u->CR1 |= (31U << USART_CR1_DEAT_Pos) | (1U << USART_CR1_DEDT_Pos);
 }
 
@@ -116,20 +116,23 @@ bool RS485Device::beginTransaction() {
 
 size_t RS485Device::read(uint8_t *dst, size_t len, uint32_t latency_us) {
   // Don't start response clock while our own request is still sending
-  bus_.waitTxComplete(bus_.frameTimeUs(SERIAL_TX_BUFFER_SIZE) + kTxSlackUs);
+  bool complete = bus_.waitTxComplete(bus_.frameTimeUs(SERIAL_TX_BUFFER_SIZE) + kTxSlackUs);
 
   const uint32_t budget = latency_us + bus_.frameTimeUs(len) + kMarginUs;
   const uint32_t start = micros();
   size_t n = 0;
-  while (n < len) {
-    if (uart.available()) {
-      dst[n++] = (uint8_t)uart.read();
-      continue;
+  if (complete) {
+    while (n < len) {
+      if (uart.available()) {
+        dst[n++] = (uint8_t)uart.read();
+        continue;
+      }
+      if (micros() - start >= budget)
+        break;
     }
-    if (micros() - start >= budget)
-      break;
+    return n;
   }
-  return n;
+  return 0;
 }
 
 void RS485Device::endTransaction() {
@@ -137,14 +140,13 @@ void RS485Device::endTransaction() {
   bus_.deselectAll();
 }
 
-// Namespace Globals 
+// Namespace Globals
 
 namespace RS485s {
 namespace {
 constexpr uint32_t kEncBaud = 2000000; // AMT24 2 Mbps data rate
 constexpr uint32_t kTvcBaud = 2000000; // TODO - Check Baud rate for TVC
-constexpr uint32_t kDrvBaud = 115200; // TODO - check driver's RS485 config; placeholder
-
+constexpr uint32_t kDrvBaud = 115200;  // TODO - check driver's RS485 config; placeholder
 
 // Index in each array == device index below
 const uint32_t bus6_sels[] = {PIN_TVC_PITCH_SEL, PIN_ENC_OX_SEL, PIN_DRV_OX_SEL};
