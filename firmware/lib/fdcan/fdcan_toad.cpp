@@ -165,7 +165,7 @@ CAN::CAN(uint32_t _tx_pin, uint32_t _rx_pin)
 
   this->hal = std::make_unique<CAN::HAL>();
   
-  if ((inst_1 != inst_2 ) || inst_1 == nullptr)
+  if ((inst_1 != inst_2 ) || inst_1 == NP)
   {
     Error_Handler();
   }
@@ -510,7 +510,7 @@ void CAN::set_error_cbk(CAN_error_cbk_t error_cbk)
   return;
 }
 
-// note: must only be called from an interrupt context, without nested interrupts
+// note: must only be called from an interrupt context, from a single isr
 void CAN::error_update_from_isr(void)
 {
   FDCAN_ErrorCountersTypeDef new_error_counts = {0};
