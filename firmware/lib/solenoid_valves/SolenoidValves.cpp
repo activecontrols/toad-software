@@ -107,7 +107,7 @@ void set_valve_by_num(int i, valve_state_t state, bool pulse_latch) {
 // Set valve by its name (either short name or full name). Prints error if name not found.
 void set_valve_by_name(const char *name, valve_state_t state) {
   for (int i = 0; i < NUM_SV_BV_VALVES; i++) {
-    if (strlen(name) == VALVE_SHORT_NAME_LEN || strncmp(name, sv_and_bvs[i].name, VALVE_SHORT_NAME_LEN) == 0) {
+    if (strlen(name) == VALVE_SHORT_NAME_LEN && strncmp(name, sv_and_bvs[i].name, VALVE_SHORT_NAME_LEN) == 0) {
       set_valve_by_num(i, state);
       return;
     }
