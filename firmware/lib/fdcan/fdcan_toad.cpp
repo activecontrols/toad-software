@@ -66,6 +66,16 @@ UM2217 (UM) Rev 6 (Description of STM32H7 HAL and low-layer drivers)
 for actuator CAN: likely configuration is to store all incoming messages in rx FIFO 0, no filtering
 */
 
+static CAN* can1 = nullptr;
+static CAN* can2 = nullptr;
+
+struct CAN::HAL
+{
+  FDCAN_ErrorCountersTypeDef error_counts = {0};
+  FDCAN_HandleTypeDef hfdcan = {0};
+  FDCAN_RxHeaderTypeDef rx_header = {0};
+};
+
 
 /* enable GPIO clock and configure pin (must pass a bit mask for which pin(s) to configure on the specific port) */
 static void CAN_init_gpio_dynamic(uint32_t pin, const PinMap pin_map[])
@@ -80,10 +90,6 @@ static void CAN_init_gpio_dynamic(uint32_t pin, const PinMap pin_map[])
 
 // adapted from https://github.com/STMicroelectronics/STM32CubeH7/blob/master/Projects/STM32H743I-EVAL/Examples/FDCAN/FDCAN_Classic_Frame_Networking/Src/stm32h7xx_hal_msp.c
 // this is called by STM32 HAL during HAL_FDCAN_Init()
-
-
-static CAN* can1 = nullptr;
-static CAN* can2 = nullptr;
 
 
 extern "C" 
@@ -183,12 +189,6 @@ void FDCAN2_IT0_IRQHandler(void)
 } // extern "C"
 
 
-struct CAN::HAL
-{
-  FDCAN_ErrorCountersTypeDef error_counts = {0};
-  FDCAN_HandleTypeDef hfdcan = {0};
-  FDCAN_RxHeaderTypeDef rx_header = {0};
-};
 
 CAN::~CAN() = default;
 
