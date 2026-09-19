@@ -10,6 +10,9 @@
 
 using namespace arduino;
 
+
+// IMPORTANT TODO: make sure to change the SystemClock_Config() in variant_TOAD_H7.cpp for 120MHz FDCAN peripheral clock !!!!
+
 /*
 jhillman notes:
 So far the goal is to get one FDCAN interface working in normal CAN mode for interfacing with the actuators
