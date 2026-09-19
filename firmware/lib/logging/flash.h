@@ -3,8 +3,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define FLASH_PAGE_SIZE (2048U)
-
 typedef enum { 
   FLASH_ERROR_SUCCESS, 
   FLASH_ERROR_FAIL, 
