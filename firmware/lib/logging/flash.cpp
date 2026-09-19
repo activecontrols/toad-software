@@ -9,7 +9,9 @@
 #include "flash_defs.h"
 
 #include "CommsSerial.h"
+#include "stm32h7xx_hal_qspi.h"
 #include <Arduino.h>
+#include <cstdint>
 #include <stm32h747xx.h>
 #include <string.h>
 
@@ -19,93 +21,70 @@ QSPI_HandleTypeDef hqspi;
 
 bool cache_loaded = false;
 
-bool exec_command(uint8_t instruction, uint32_t data_len = 0, uint32_t addr = UINT32_MAX, uint8_t addr_size_bits = 24, unsigned int dummy = 0, bool quad_data = false) {
-  QSPI_CommandTypeDef cmd{};
+void build_cmd(QSPI_CommandTypeDef *cmd, uint32_t nand_cmd, uint32_t addr, uint32_t addr_size, uint32_t data_size = 0) {
+  memset(cmd, 0, sizeof(*cmd));
 
-  cmd.Instruction = instruction;
-  cmd.InstructionMode = QSPI_INSTRUCTION_1_LINE;
-  cmd.DummyCycles = dummy;
-  cmd.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
-
-  if (addr != UINT32_MAX) {
-    cmd.Address = addr;
-    cmd.AddressMode = QSPI_ADDRESS_1_LINE;
-    cmd.AddressSize = (addr_size_bits == 8) ? QSPI_ADDRESS_8_BITS : (addr_size_bits == 16) ? QSPI_ADDRESS_16_BITS : QSPI_ADDRESS_24_BITS;
+  cmd->Instruction      = nand_cmd;
+  cmd->Address          = addr;
+  cmd->AddressSize      = addr_size;
+  cmd->InstructionMode  = QSPI_INSTRUCTION_1_LINE; // during instr phase, use 1 spi line
+  cmd->AddressMode      = QSPI_ADDRESS_1_LINE; // during address phase, use 1 spi line
+  
+  if (data_size != 0) {
+    cmd->DataMode       = QSPI_DATA_1_LINE;
+    cmd->NbData         = data_size;
   }
-
-  if (data_len) {
-    cmd.NbData = data_len;
-    cmd.DataMode = quad_data ? QSPI_DATA_4_LINES : QSPI_DATA_1_LINE;
-  }
-
-  return HAL_QSPI_Command(&hqspi, &cmd, HAL_TIMEOUT) == HAL_OK;
 }
 
-bool receive(uint8_t instruction, void *data, uint32_t len, uint32_t addr = UINT32_MAX, uint8_t addr_size_bits = 24, unsigned int dummy = 0, bool quad_data = false) {
-  if (!exec_command(instruction, len, addr, addr_size_bits, dummy, quad_data))
+bool get_status(uint32_t addr, uint8_t *data_out) {
+  QSPI_CommandTypeDef cmd;
+  build_cmd(&cmd, CMD_NAND_GET_FEATURES, addr, QSPI_ADDRESS_8_BITS, 1);
+  if (HAL_QSPI_Command(&hqspi, &cmd, HAL_TIMEOUT) != HAL_OK) {
     return false;
-  return HAL_QSPI_Receive(&hqspi, static_cast<uint8_t *>(data), HAL_TIMEOUT) == HAL_OK;
-}
+  }
 
-bool transmit(uint8_t instruction, void *data, uint32_t len, uint32_t addr = UINT32_MAX, uint8_t addr_size_bits = 24, bool quad_data = false) {
-  if (!exec_command(instruction, len, addr, addr_size_bits, 0, quad_data))
+  uint8_t data;
+  if (HAL_QSPI_Receive(&hqspi, &data, HAL_TIMEOUT) != HAL_OK) {
     return false;
-  return HAL_QSPI_Transmit(&hqspi, static_cast<uint8_t *>(data), HAL_TIMEOUT) == HAL_OK;
-}
-
-bool get_feature(uint8_t feature_addr, uint8_t *out) {
-  return receive(CMD_NAND_GET_FEATURES, out, 1, feature_addr, 8);
-}
-
-bool set_feature(uint8_t feature_addr, uint8_t value) {
-  return transmit(CMD_NAND_SET_FEATURES, &value, 1, feature_addr, 8);
-}
-
-flash_error_t read_status(flash_status_a_t *status_a, flash_status_b_t *status_b) {
-  uint8_t raw;
-
-  if (status_a) {
-    if (!get_feature(FEATURE_ADDR_STATUS_A, &raw))
-      return FLASH_ERROR_FAIL;
-    memcpy(status_a, &raw, sizeof(raw));
   }
 
-  if (status_b) {
-    if (!get_feature(FEATURE_ADDR_STATUS_B, &raw))
-      return FLASH_ERROR_FAIL;
-    memcpy(status_b, &raw, sizeof(raw));
+  *data_out = data;
+  return true;
+};
+
+flash_error_t wait_until_ready(uint32_t timeout) {
+  uint32_t start_time = micros();
+
+  while (true) {
+    uint8_t data;
+    if (!get_status(FEATURE_ADDR_STATUS_A, &data)) {
+      return FLASH_FAIL;
+    }
+
+    if (!(data & (1 << 0))) {
+      return FLASH_SUCCESS;
+    }
+
+    if (micros() - start_time > timeout) {
+      return FLASH_TIMED_OUT;
+    }
   }
-
-  return FLASH_ERROR_SUCCESS;
-}
-
-flash_error_t wait_until_ready(uint32_t timeout_us) {
-  flash_status_a_t status{};
-  uint32_t start = micros();
-
-  do {
-    if (!get_feature(FEATURE_ADDR_STATUS_A, reinterpret_cast<uint8_t *>(&status)))
-      return FLASH_ERROR_FAIL;
-
-    if (!status.OIP)
-      return FLASH_ERROR_SUCCESS;
-
-    if (micros() - start > timeout_us)
-      return FLASH_ERROR_TIMED_OUT;
-  } while (true);
 }
 
 flash_error_t read_page(uint32_t addr, uint8_t *out) {
-  // Page Read: array -> cache.
-  if (!exec_command(CMD_NAND_PAGE_READ, 0, addr, 24))
-    return FLASH_ERROR_FAIL;
+  // load page into cache
+  QSPI_CommandTypeDef cmd;
+  build_cmd(&cmd, CMD_NAND_PAGE_READ, addr, QSPI_ADDRESS_24_BITS);
+  if (HAL_QSPI_Command(&hqspi, &cmd, HAL_TIMEOUT) != HAL_OK) {
+    return FLASH_FAIL;
+  }
 
-  flash_error_t err = wait_until_ready(50000); // TODO - confirm max tR from datasheet
-  if (err != FLASH_ERROR_SUCCESS)
+  // wait for page to arrive
+  flash_error_t err = wait_until_ready(60);
+  if (err != FLASH_SUCCESS) {
     return err;
+  }
 
-  // Read From Cache: cache -> host, quad data lines, starting at column 0.
-  // TODO - confirm dummy cycle count for the quad read opcode against the datasheet.
   if (!receive(CMD_NAND_READ_FROM_CACHE_QUAD, out, FLASH_PAGE_SIZE, 0, 16, 8, true))
     return FLASH_ERROR_FAIL;
 
@@ -150,7 +129,7 @@ flash_error_t program(uint32_t addr, uint32_t timeout_us) {
     return FLASH_ERROR_FAIL;
 
   err = wait_until_ready(timeout_us);
-  cache_loaded = false; // next write_to_cache() call starts a fresh cache, regardless of outcome
+  cache_loaded = false;
 
   if (err != FLASH_ERROR_SUCCESS)
     return err;
