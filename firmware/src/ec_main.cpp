@@ -2,7 +2,7 @@
 
 #include "CommandRouter.h"
 #include "CommsSerial.h"
-#include "ErrorCounters.h"
+#include "logging.h"
 #include "PressureSensors.h"
 #include "RCS.h"
 #include "RS485.h"
@@ -40,6 +40,9 @@ void setup() {
 
   PT_TC_SPI_1.begin();
   PT_TC_SPI_3.begin();
+
+  Flash::begin();
+  Logging::begin();
 
   delay(3000);
 
