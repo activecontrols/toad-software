@@ -4,7 +4,7 @@
 #include <memory>
 #include "Arduino.h"
 
-class CAN : arduino::HardwareCAN
+class CAN : public arduino::HardwareCAN
 {
 public:
     CAN(uint32_t tx_pin, uint32_t rx_pin);
@@ -38,7 +38,6 @@ public:
 
     // if a message was waiting in the recieve FIFO, this returns true; otherwise returns false
     // returns false if an error occurs
-    // 
     arduino::CanMsg read(void) override;
 
     void end(void) override;
@@ -60,6 +59,4 @@ public:
     uint32_t rx_pin;
     uint8_t rx_data[64];
     CAN_error_cbk_t error_cbk = nullptr;
-    bool already_allocated_ram = false; // keep track of whether or not we have already allocated objects in the 10KB
-    uint32_t ram_start_address = 0;
 };
