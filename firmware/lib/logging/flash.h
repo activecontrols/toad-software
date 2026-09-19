@@ -4,9 +4,9 @@
 #include <stdint.h>
 
 typedef enum { 
-  FLASH_ERROR_SUCCESS, 
-  FLASH_ERROR_FAIL, 
-  FLASH_ERROR_TIMED_OUT 
+  FLASH_SUCCESS, 
+  FLASH_FAIL, 
+  FLASH_TIMED_OUT 
 } flash_error_t;
 
 typedef struct __attribute__((packed)) {
