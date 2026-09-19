@@ -1,3 +1,10 @@
+/**
+ * @file flash.cpp
+ * @brief NAND flash implementation for GD5F1GQ5UEYIGR chip
+ *
+ * @author Daniel Proano (dproano@purdue.edu)
+ */
+
 #include "flash.h"
 #include "flash_defs.h"
 
@@ -5,9 +12,6 @@
 #include <Arduino.h>
 #include <stm32h747xx.h>
 #include <string.h>
-
-#define FREQ_MAX 50'000'000
-#define HAL_TIMEOUT 10000
 
 namespace Flash {
 
