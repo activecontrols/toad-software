@@ -2,9 +2,9 @@
 
 #include "CommandRouter.h"
 #include "CommsSerial.h"
-#include "logging.h"
 #include "PressureSensors.h"
 #include "RCS.h"
+#include "flash.h"
 #include "SolenoidValves.h"
 #include "TVC_Actuators.h"
 #include "TemperatureSensors.h"
@@ -41,7 +41,6 @@ void setup() {
   PT_TC_SPI_3.begin();
 
   Flash::begin();
-  Logging::begin();
 
   delay(3000);
 

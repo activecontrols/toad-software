@@ -5,11 +5,11 @@
  * @author Daniel Proano (dproano@purdue.edu)
  */
 
+#include "CommsSerial.h"
 #include "flash.h"
 #include "flash_defs.h"
-
-#include "CommsSerial.h"
 #include "stm32h7xx_hal_qspi.h"
+
 #include <Arduino.h>
 #include <cstdint>
 #include <stm32h747xx.h>
@@ -21,24 +21,38 @@ QSPI_HandleTypeDef hqspi;
 
 bool cache_loaded = false;
 
-void build_cmd(QSPI_CommandTypeDef *cmd, uint32_t nand_cmd, uint32_t addr, uint32_t addr_size, uint32_t data_size = 0) {
+typedef struct {
+  uint32_t opcode;
+  uint32_t addr = UINT32_MAX;              // UINT32_MAX = no address phase
+  uint32_t addr_size = QSPI_ADDRESS_8_BITS;
+  uint32_t data_size = 0;                  // 0 = no data phase
+  uint32_t dummy_cycles = 0;
+  uint32_t data_lines = QSPI_DATA_1_LINE;
+} cmd_spec;
+
+void build_cmd(QSPI_CommandTypeDef *cmd, cmd_spec spec) {
   memset(cmd, 0, sizeof(*cmd));
 
-  cmd->Instruction      = nand_cmd;
-  cmd->Address          = addr;
-  cmd->AddressSize      = addr_size;
+  cmd->Instruction      = spec.opcode;
   cmd->InstructionMode  = QSPI_INSTRUCTION_1_LINE; // during instr phase, use 1 spi line
-  cmd->AddressMode      = QSPI_ADDRESS_1_LINE; // during address phase, use 1 spi line
-  
-  if (data_size != 0) {
-    cmd->DataMode       = QSPI_DATA_1_LINE;
-    cmd->NbData         = data_size;
+  cmd->DummyCycles      = spec.dummy_cycles;
+
+  // Some commands have no address phase at all
+  if (spec.addr != UINT32_MAX) {
+    cmd->Address        = spec.addr;
+    cmd->AddressSize    = spec.addr_size;
+    cmd->AddressMode    = QSPI_ADDRESS_1_LINE; // during address phase, use 1 spi line
+  }
+
+  if (spec.data_size != 0) {
+    cmd->DataMode       = spec.data_lines;
+    cmd->NbData         = spec.data_size;
   }
 }
 
-bool get_status(uint32_t addr, uint8_t *data_out) {
+bool get_status_a(flash_status_a_t *data_out) {
   QSPI_CommandTypeDef cmd;
-  build_cmd(&cmd, CMD_NAND_GET_FEATURES, addr, QSPI_ADDRESS_8_BITS, 1);
+  build_cmd(&cmd, {.opcode = CMD_NAND_GET_FEATURES, .addr = FEATURE_ADDR_STATUS_A, .data_size = 1});
   if (HAL_QSPI_Command(&hqspi, &cmd, HAL_TIMEOUT) != HAL_OK) {
     return false;
   }
@@ -48,7 +62,24 @@ bool get_status(uint32_t addr, uint8_t *data_out) {
     return false;
   }
 
-  *data_out = data;
+  memcpy(data_out, &data, sizeof(data));
+  return true;
+};
+
+
+bool get_status_b(flash_status_b_t *data_out) {
+  QSPI_CommandTypeDef cmd;
+  build_cmd(&cmd, {.opcode = CMD_NAND_GET_FEATURES, .addr = FEATURE_ADDR_STATUS_B, .data_size = 1});
+  if (HAL_QSPI_Command(&hqspi, &cmd, HAL_TIMEOUT) != HAL_OK) {
+    return false;
+  }
+
+  uint8_t data;
+  if (HAL_QSPI_Receive(&hqspi, &data, HAL_TIMEOUT) != HAL_OK) {
+    return false;
+  }
+
+  memcpy(data_out, &data, sizeof(data));
   return true;
 };
 
@@ -56,12 +87,13 @@ flash_error_t wait_until_ready(uint32_t timeout) {
   uint32_t start_time = micros();
 
   while (true) {
-    uint8_t data;
-    if (!get_status(FEATURE_ADDR_STATUS_A, &data)) {
+    flash_status_a_t data;
+    if (!get_status_a(&data)) {
       return FLASH_FAIL;
     }
 
-    if (!(data & (1 << 0))) {
+    // if operation no longer in progress
+    if (data.OIP == 0) {
       return FLASH_SUCCESS;
     }
 
@@ -71,105 +103,195 @@ flash_error_t wait_until_ready(uint32_t timeout) {
   }
 }
 
-flash_error_t read_page(uint32_t addr, uint8_t *out) {
+flash_error_t read_page(uint32_t addr, uint8_t *data_out) {
   // load page into cache
   QSPI_CommandTypeDef cmd;
-  build_cmd(&cmd, CMD_NAND_PAGE_READ, addr, QSPI_ADDRESS_24_BITS);
+  build_cmd(&cmd, {.opcode = CMD_NAND_PAGE_READ, .addr = addr, .addr_size = QSPI_ADDRESS_24_BITS});
   if (HAL_QSPI_Command(&hqspi, &cmd, HAL_TIMEOUT) != HAL_OK) {
     return FLASH_FAIL;
   }
 
-  // wait for page to arrive
+  // wait for page to arrive in cache
   flash_error_t err = wait_until_ready(60);
   if (err != FLASH_SUCCESS) {
     return err;
   }
 
-  if (!receive(CMD_NAND_READ_FROM_CACHE_QUAD, out, FLASH_PAGE_SIZE, 0, 16, 8, true))
-    return FLASH_ERROR_FAIL;
+  // tell cache to send data
+  build_cmd(&cmd, {.opcode = CMD_NAND_READ_FROM_CACHE_QUAD, .addr = 0, .addr_size = QSPI_ADDRESS_16_BITS, .data_size = NAND_PAGE_SIZE, .dummy_cycles = 8, .data_lines = QSPI_DATA_4_LINES});
+  if (HAL_QSPI_Command(&hqspi, &cmd, HAL_TIMEOUT) != HAL_OK) {
+    return FLASH_FAIL;
+  }
 
-  flash_status_a_t status_a{};
-  if (read_status(&status_a, nullptr) != FLASH_ERROR_SUCCESS)
-    return FLASH_ERROR_FAIL;
+  // receive data pointer from cache across spi
+  if (HAL_QSPI_Receive(&hqspi, data_out, HAL_TIMEOUT) != HAL_OK) {
+    return FLASH_FAIL;
+  }
 
-  // TODO - confirm which ECCS value(s) mean "uncorrectable" vs. "corrected" against the
-  // datasheet (DS p.42/46). Treating any nonzero ECCS as a failure is conservative for now.
-  if (status_a.ECCS != 0)
-    return FLASH_ERROR_FAIL;
+  // load status register
+  flash_status_a_t status_a;
+  memset(&status_a, 0, sizeof(status_a));
+  if (!get_status_a(&status_a)) {
+    return FLASH_FAIL;
+  }
 
-  return FLASH_ERROR_SUCCESS;
+  // check whether read was ok
+  if (status_a.ECCS != 0) {
+    return FLASH_FAIL;
+  }
+
+  return FLASH_SUCCESS;
 }
 
 flash_error_t write_to_cache(uint32_t col_addr, uint8_t *data, size_t len) {
-  if (col_addr + len > FLASH_PAGE_SIZE)
-    return FLASH_ERROR_FAIL;
+  // does cache page have enough space?
+  if (col_addr + len > NAND_PAGE_SIZE) {
+    return FLASH_FAIL;
+  }
 
-  // The first write into a fresh cache uses PROGRAM LOAD, which resets the rest of the
-  // cache to 0xFF - so unwritten bytes in a partially-filled page read back as erased
-  // rather than leftover data from whatever was cached before. Later writes in the same
-  // page cycle use PROGRAM LOAD RANDOM DATA so they don't clobber earlier writes.
-  uint8_t cmd = cache_loaded ? CMD_NAND_PROGRAM_LOAD_RANDOM : CMD_NAND_PROGRAM_LOAD;
+  // The first write to cache needs to use Program Load to clear cache
+  // and afterwards need to use Load Random to not overwrite content
+  uint32_t nand_cmd = cache_loaded ? CMD_NAND_PROGRAM_LOAD_RANDOM : CMD_NAND_PROGRAM_LOAD;
 
-  if (!transmit(cmd, data, len, col_addr, 16))
-    return FLASH_ERROR_FAIL;
+  // load data into cache
+  QSPI_CommandTypeDef cmd;
+  build_cmd(&cmd, {.opcode = nand_cmd, .addr = col_addr, .addr_size = QSPI_ADDRESS_16_BITS, .data_size = len});
+  if (HAL_QSPI_Command(&hqspi, &cmd, HAL_TIMEOUT) != HAL_OK) {
+    return FLASH_FAIL;
+  }
+
+  // send data across spi into cache
+  if (HAL_QSPI_Transmit(&hqspi, data, HAL_TIMEOUT) != HAL_OK) {
+    return FLASH_FAIL;
+  }
 
   cache_loaded = true;
-  return FLASH_ERROR_SUCCESS;
+  return FLASH_SUCCESS;
 }
 
-flash_error_t program(uint32_t addr, uint32_t timeout_us) {
-  flash_error_t err = wait_until_ready(timeout_us);
-  if (err != FLASH_ERROR_SUCCESS)
+flash_error_t program(uint32_t addr) {
+  // chip can lose commands if it is busy when instruction occurs
+  // ensure worst case timeout is waited until chip free
+  flash_error_t err = wait_until_ready(WORST_CASE_PROGRAM_TIMEOUT);
+  if (err != FLASH_SUCCESS)
     return err;
 
-  if (!exec_command(CMD_NAND_WRITE_ENABLE))
-    return FLASH_ERROR_FAIL;
+  // write enable
+  QSPI_CommandTypeDef cmd;
+  build_cmd(&cmd, {.opcode = CMD_NAND_WRITE_ENABLE});
+  if (HAL_QSPI_Command(&hqspi, &cmd, HAL_TIMEOUT) != HAL_OK) {
+    return FLASH_FAIL;
+  }
 
-  if (!exec_command(CMD_NAND_PROGRAM_EXECUTE, 0, addr, 24))
-    return FLASH_ERROR_FAIL;
+  // commit cache to memory
+  build_cmd(&cmd, {.opcode = CMD_NAND_PROGRAM_EXECUTE, .addr = addr, .addr_size = QSPI_ADDRESS_24_BITS});
+  if (HAL_QSPI_Command(&hqspi, &cmd, HAL_TIMEOUT) != HAL_OK) {
+    return FLASH_FAIL;
+  }
 
-  err = wait_until_ready(timeout_us);
+  // wait for cache to be written
+  err = wait_until_ready(WORST_CASE_MEMORY_TIMEOUT);
   cache_loaded = false;
 
-  if (err != FLASH_ERROR_SUCCESS)
+  if (err != FLASH_SUCCESS) {
     return err;
+  }
 
-  flash_status_a_t status_a{};
-  if (read_status(&status_a, nullptr) != FLASH_ERROR_SUCCESS)
-    return FLASH_ERROR_FAIL;
+  // ensure successful write
+  flash_status_a_t status_a;
+  if (!get_status_a(&status_a)) {
+    return FLASH_FAIL;
+  }
 
-  if (status_a.P_FAIL)
-    return FLASH_ERROR_FAIL; // caller (Logging) is expected to mark this page/block bad
+  if (status_a.P_FAIL) {
+    return FLASH_FAIL;
+  }
 
-  return FLASH_ERROR_SUCCESS;
+  return FLASH_SUCCESS;
 }
 
-flash_error_t erase_block(uint32_t addr, uint32_t timeout_us) {
-  flash_error_t err = wait_until_ready(timeout_us);
-  if (err != FLASH_ERROR_SUCCESS)
+flash_error_t erase_block(uint32_t addr) {
+  // ensure chip is done with any previous erases
+  flash_error_t err = wait_until_ready(WORST_CASE_MEMORY_TIMEOUT);
+  if (err != FLASH_SUCCESS)
     return err;
 
-  if (!exec_command(CMD_NAND_WRITE_ENABLE))
-    return FLASH_ERROR_FAIL;
+  // write enable
+  QSPI_CommandTypeDef cmd;
+  build_cmd(&cmd, {.opcode = CMD_NAND_WRITE_ENABLE});
+  if (HAL_QSPI_Command(&hqspi, &cmd, HAL_TIMEOUT) != HAL_OK) {
+    return FLASH_FAIL;
+  }
 
-  if (!exec_command(CMD_NAND_BLOCK_ERASE, 0, addr, 24))
-    return FLASH_ERROR_FAIL;
+  // erase block
+  build_cmd(&cmd, {.opcode = CMD_NAND_BLOCK_ERASE, .addr = addr, .addr_size = QSPI_ADDRESS_24_BITS});
+  if (HAL_QSPI_Command(&hqspi, &cmd, HAL_TIMEOUT) != HAL_OK) {
+    return FLASH_FAIL;
+  }
 
-  err = wait_until_ready(timeout_us);
-  if (err != FLASH_ERROR_SUCCESS)
+  // wait for erase to finish
+  err = wait_until_ready(WORST_CASE_MEMORY_TIMEOUT);
+  if (err != FLASH_SUCCESS) {
     return err;
+  }
 
-  flash_status_a_t status_a{};
-  if (read_status(&status_a, nullptr) != FLASH_ERROR_SUCCESS)
-    return FLASH_ERROR_FAIL;
+  // ensure erase was successful
+  flash_status_a_t status_a;
+  if (!get_status_a(&status_a)) {
+    return FLASH_FAIL;
+  }
 
-  if (status_a.E_FAIL)
-    return FLASH_ERROR_FAIL; // caller (BPT) is expected to mark this block bad
+  if (status_a.E_FAIL) {
+    return FLASH_FAIL;
+  }
 
-  return FLASH_ERROR_SUCCESS;
+  return FLASH_SUCCESS;
+}
+
+void init_qspi_gpio() {
+  __HAL_RCC_QSPI_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOD_CLK_ENABLE();
+  __HAL_RCC_GPIOF_CLK_ENABLE();
+  __HAL_RCC_GPIOG_CLK_ENABLE();
+
+  GPIO_InitTypeDef gpio_init{};
+  gpio_init.Mode = GPIO_MODE_AF_PP;
+  gpio_init.Pull = GPIO_NOPULL;
+  gpio_init.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+
+  // CLK, IO0, IO1, IO3 - all AF9
+  gpio_init.Alternate = GPIO_AF9_QUADSPI;
+
+  gpio_init.Pin = GPIO_PIN_2;
+  HAL_GPIO_Init(GPIOB, &gpio_init);
+
+  gpio_init.Pin = GPIO_PIN_11 | GPIO_PIN_12 | GPIO_PIN_13;
+  HAL_GPIO_Init(GPIOD, &gpio_init);
+
+  gpio_init.Pin = GPIO_PIN_7; // PF7 - IO2
+  HAL_GPIO_Init(GPIOF, &gpio_init);
+
+  // NCS - AF10
+  gpio_init.Alternate = GPIO_AF10_QUADSPI;
+  gpio_init.Pin = GPIO_PIN_6; // PG6 - NCS
+  HAL_GPIO_Init(GPIOG, &gpio_init);
+}
+
+bool disable_block_protection() {
+  QSPI_CommandTypeDef cmd;
+  build_cmd(&cmd, {.opcode = CMD_NAND_SET_FEATURES, .addr = FEATURE_ADDR_BLOCK_LOCK, .data_size = 1});
+  if (HAL_QSPI_Command(&hqspi, &cmd, HAL_TIMEOUT) != HAL_OK) {
+    return false;
+  }
+
+  uint8_t unlock = 0x00;
+  return HAL_QSPI_Transmit(&hqspi, &unlock, HAL_TIMEOUT) == HAL_OK;
 }
 
 bool init_qspi_peripheral() {
+  init_qspi_gpio();
+
   uint32_t f_hclk = HAL_RCC_GetHCLKFreq();
 
   hqspi.Instance = QUADSPI;
@@ -181,67 +303,96 @@ bool init_qspi_peripheral() {
   hqspi.Init.ClockMode = QSPI_CLOCK_MODE_0;
   hqspi.Init.SampleShifting = QSPI_SAMPLE_SHIFTING_NONE;
   hqspi.Init.ChipSelectHighTime = QSPI_CS_HIGH_TIME_8_CYCLE;
-  hqspi.Init.FlashSize = 23; // TODO - set to log2(chip size in bytes) - 1 once the part is confirmed
+  hqspi.Init.FlashSize = 23;
   hqspi.Init.FlashID = QSPI_FLASH_ID_1;
 
   return HAL_QSPI_Init(&hqspi) == HAL_OK;
 }
 
 bool reset_and_check_id() {
-  if (!exec_command(CMD_NAND_RESET))
+  QSPI_CommandTypeDef cmd;
+
+  // reset
+  build_cmd(&cmd, {.opcode = CMD_NAND_RESET});
+  if (HAL_QSPI_Command(&hqspi, &cmd, HAL_TIMEOUT) != HAL_OK) {
     return false;
-
-  delay(2); // TODO - confirm reset recovery time against the datasheet
-
-  uint8_t id[2]; // TODO - confirm ID response length/format against the datasheet
-  if (!receive(CMD_NAND_READ_ID, id, sizeof(id), 0x00, 8, 8))
-    return false;
-
-  CommsSerial.print("NAND JEDEC ID: ");
-  for (size_t i = 0; i < sizeof(id); ++i) {
-    CommsSerial.print(id[i], HEX);
-    CommsSerial.print(' ');
   }
-  CommsSerial.println();
-  // TODO - compare against the known-good ID once the part is finalized.
+
+  // wait for reset to happen
+  delayMicroseconds(500); 
+
+  // read id - opcode, 1 dummy byte, then MID/DID data bytes
+  build_cmd(&cmd, {.opcode = CMD_NAND_READ_ID, .data_size = 2, .dummy_cycles = 8});
+  if (HAL_QSPI_Command(&hqspi, &cmd, HAL_TIMEOUT) != HAL_OK) {
+    return false;
+  }
+
+  uint8_t id[2];
+  if (HAL_QSPI_Receive(&hqspi, id, HAL_TIMEOUT) != HAL_OK) {
+    return false;
+  }
+
+  // MID & DID ID values for GD5F1GQ5UExxG
+  if (id[0] != 0xC8 || id[1] != 0x51) {
+    CommsSerial.print("Bad Chip ID Values");
+    return false;
+  }
 
   return true;
 }
 
 bool enable_quad_mode() {
-  uint8_t config;
-  if (!get_feature(FEATURE_ADDR_CONFIG, &config))
+  QSPI_CommandTypeDef cmd;
+
+  // tell registers to send config
+  build_cmd(&cmd, {.opcode = CMD_NAND_GET_FEATURES, .addr = FEATURE_ADDR_CONFIG, .data_size = 1});
+  if (HAL_QSPI_Command(&hqspi, &cmd, HAL_TIMEOUT) != HAL_OK) {
     return false;
+  }
+
+  // receive config
+  uint8_t config;
+  if (HAL_QSPI_Receive(&hqspi, &config, HAL_TIMEOUT) != HAL_OK) {
+    return false;
+  }
 
   config |= CONFIG_QE_BIT;
-  return set_feature(FEATURE_ADDR_CONFIG, config);
+
+  // write updated config back
+  build_cmd(&cmd, {.opcode = CMD_NAND_SET_FEATURES, .addr = FEATURE_ADDR_CONFIG, .data_size = 1});
+  if (HAL_QSPI_Command(&hqspi, &cmd, HAL_TIMEOUT) != HAL_OK) {
+    return false;
+  }
+
+  return HAL_QSPI_Transmit(&hqspi, &config, HAL_TIMEOUT) == HAL_OK;
 }
 
-void begin() {
+bool begin() {
   if (!init_qspi_peripheral()) {
-    while (1) {
-      CommsSerial.println("QSPI Init Failed");
-      delay(1000);
-    }
+    CommsSerial.println("QSPI Init Failed");
+    return false;
   }
 
   if (!reset_and_check_id()) {
-    while (1) {
-      CommsSerial.println("NAND reset/ID check failed");
-      delay(1000);
-    }
+    CommsSerial.println("NAND reset/ID check failed");
+    return false;
+  }
+
+  if (!disable_block_protection()) {
+    CommsSerial.println("NAND disable block protection failed");
+    return false;
   }
 
   if (!enable_quad_mode()) {
-    while (1) {
-      CommsSerial.println("NAND enable quad mode failed");
-      delay(1000);
-    }
+    CommsSerial.println("NAND enable quad mode failed");
+    return false;
   }
 
   cache_loaded = false;
 
-  CommsSerial.println("NAND flash driver ready.");
+  CommsSerial.println("NAND flash driver ready");
+
+  return true;
 }
 
 }; // namespace Flash
