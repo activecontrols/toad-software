@@ -16,10 +16,6 @@ CommsSerial_t<USBSerial> USB_CommsSerial;
 CommsSerial_t<Uart> HW_CommsSerial(PIN_HW_COMM_SERIAL_RX, PIN_HW_COMM_SERIAL_TX);
 CommsSerial_t<Uart> HW_FallbackSerial(PIN_HW_FALLBACK_SERIAL_RX, PIN_HW_FALLBACK_SERIAL_TX);
 
-// DE is passed as RTS and is converted to hardware DE mode by RS485Bus; DO NOT call begin() on these. 
-Uart RS485_6(PIN_RS485_6_RX, PIN_RS485_6_TX, PIN_RS485_6_DE);
-Uart RS485_2(PIN_RS485_2_RX, PIN_RS485_2_TX, PIN_RS485_2_DE);
-
 SPIClass PT_TC_SPI_1(PIN_PT_TC_SPI_1_MOSI, PIN_PT_TC_SPI_1_MISO, PIN_PT_TC_SPI_1_SCK);
 SPIClass PT_TC_SPI_3(PIN_PT_TC_SPI_3_MOSI, PIN_PT_TC_SPI_3_MISO, PIN_PT_TC_SPI_3_SCK);
 

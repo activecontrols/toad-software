@@ -6,22 +6,25 @@
 
 // DE pin is passed to the Uart constructor as RTS so that the core muxes it,
 // and RS485Bus converts RTS flow control into DE mode.
-// NOTE: DO NOT call uart.begin() on a bus after RS485s::begin() since it will re-enable RTSE and kill DE.
+// NOTE: (re)initialize only via RS485Bus::begin()/setBaud(). Calling uart().begin()
+// directly re-enables RTSE and drops DE mode.
 class RS485Bus {
 public:
-  RS485Bus(Uart &uart, const uint32_t *sels, size_t sel_count);
+  RS485Bus(uint32_t rx, uint32_t tx, uint32_t de, const uint32_t *sels, size_t sel_count);
 
-  bool begin(uint32_t baud);   // once, at startup
+  bool begin(const uint32_t baud);   // once, at startup
   bool setBaud(uint32_t baud); // waits for TX to finish 
   uint32_t baud() const { return baud_; }
+  Uart &uart() { return uart_; }
+  const Uart &uart() const { return uart_; }
 
   void deselectAll();
   bool waitTxComplete(uint32_t timeout_us);
   uint32_t frameTimeUs(size_t len) const; // 8N1: 10 bits per byte
-  bool deModeActive() const;
+  bool deModeActive();
 
 private:
-  Uart &uart_;
+  Uart uart_;
   const uint32_t *sels_;
   size_t sel_count_;
   uint32_t baud_ = 0;
@@ -30,6 +33,7 @@ private:
   static void applyDE(USART_TypeDef *u); // requires UE = 0
 
   friend class RS485Device;
+  bool initAt(uint32_t baud); // core begin() + RS485 delta
 };
 
 class RS485Device {
