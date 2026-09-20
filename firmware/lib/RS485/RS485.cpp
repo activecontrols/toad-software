@@ -6,21 +6,19 @@
 namespace {
 constexpr uint32_t kMarginUs = 200; // TODO: tune against response time
 constexpr uint32_t kTxSlackUs = 2000;
+constexpr uint32_t kAckTimeoutUs = 1000; // TEACK/REACK after UE re-enable
+
 } // namespace
 
-RS485Bus::RS485Bus(Uart &uart, const uint32_t *sels, size_t sel_count)
-    : uart_(uart), sels_(sels), sel_count_(sel_count) {}
+RS485Bus::RS485Bus(uint32_t rx, uint32_t tx, uint32_t de, const uint32_t *sels, size_t sel_count)
+    : uart_(rx, tx, de), sels_(sels), sel_count_(sel_count) {}
 
 bool RS485Bus::begin(uint32_t baud) {
   for (size_t i = 0; i < sel_count_; i++) {
     pinMode(sels_[i], OUTPUT);
     digitalWrite(sels_[i], LOW);
   }
-
-  uart_.begin(baud); // core muxes RX/TX/DE (as RTS) and sets RTSE
-  if (!uart_)
-    return false;
-  return setBaud(baud); // also converts RTS flow control -> DE mode
+  return initAt(baud);
 }
 
 bool RS485Bus::setBaud(uint32_t baud) {
@@ -28,32 +26,31 @@ bool RS485Bus::setBaud(uint32_t baud) {
     return false;
   if (!waitTxComplete(frameTimeUs(SERIAL_TX_BUFFER_SIZE) + kTxSlackUs))
     return false;
+  uart_.end();
+  return initAt(baud);
+}
 
-  UART_HandleTypeDef *h = uart_.getHandle();
-  USART_TypeDef *u = h->Instance;
+  // RS485 delta from HAL_RS485Ex_Init. SetConfig/AdvFeatureConfig
+  // are already done by uart_.begin(). UART_CheckIdleState skipped because it resets RxState and
+  // would disarm the core's Receive_IT; TX idle, bus deselected.
 
-  h->Init.BaudRate = baud;
-  h->Init.HwFlowCtl = UART_HWCONTROL_NONE; // stop UART_SetConfig from re-enabling RTSE
+bool RS485Bus::initAt(uint32_t baud) {
+  uart_.begin(baud);
 
-  noInterrupts();
-  // UART_SetConfig clears the HAL ISR pointers the core's IT-mode RX depends on.
-  auto rx_isr = h->RxISR;
-  auto tx_isr = h->TxISR;
-
-  u->CR1 &= ~USART_CR1_UE;                 // BRR/DE fields writable only with UE = 0
-  bool ok = (UART_SetConfig(h) == HAL_OK); // BRR + PRESC from the real clock source
+  USART_TypeDef *u = uart_.getHandle()->Instance;
+  u->CR1 &= ~USART_CR1_UE;
   applyDE(u);
   u->CR1 |= USART_CR1_UE;
-
-  h->RxISR = rx_isr;
-  h->TxISR = tx_isr;
   interrupts();
 
-  while (uart_.available())
-    uart_.read(); // anything framed at the old rate is garbage
-  if (ok)
-    baud_ = baud;
-  return ok;
+  const uint32_t ack = USART_ISR_TEACK | USART_ISR_REACK;
+  const uint32_t start = micros();
+  while ((u->ISR & ack) != ack) {
+    if (micros() - start >= kAckTimeoutUs)
+      return false;
+  }
+  baud_ = baud;
+  return true;
 }
 
 void RS485Bus::applyDE(USART_TypeDef *u) {
@@ -65,7 +62,7 @@ void RS485Bus::applyDE(USART_TypeDef *u) {
   u->CR1 |= (31U << USART_CR1_DEAT_Pos) | (1U << USART_CR1_DEDT_Pos);
 }
 
-bool RS485Bus::deModeActive() const {
+bool RS485Bus::deModeActive() {
   return (uart_.getHandle()->Instance->CR3 & USART_CR3_DEM) != 0;
 }
 
@@ -153,8 +150,8 @@ const uint32_t bus6_sels[] = {PIN_TVC_PITCH_SEL, PIN_ENC_OX_SEL, PIN_DRV_OX_SEL}
 const uint32_t bus2_sels[] = {PIN_TVC_YAW_SEL, PIN_ENC_FU_SEL, PIN_DRV_FU_SEL};
 } // namespace
 
-RS485Bus bus6(RS485_6, bus6_sels, std::size(bus6_sels));
-RS485Bus bus2(RS485_2, bus2_sels, std::size(bus2_sels));
+RS485Bus bus6(PIN_RS485_6_RX, PIN_RS485_6_TX, PIN_RS485_6_DE, bus6_sels, std::size(bus6_sels));
+RS485Bus bus2(PIN_RS485_2_RX, PIN_RS485_2_TX, PIN_RS485_2_DE, bus2_sels, std::size(bus2_sels));
 
 RS485Device tvc_pitch(bus6, 0, kTvcBaud);
 RS485Device enc_ox(bus6, 1, kEncBaud);
@@ -166,7 +163,7 @@ RS485Device drv_fu(bus2, 2, kDrvBaud);
 
 bool begin() {
   bool ok = true;
-  ok &= bus6.begin(kEncBaud); // start at the in-flight rate
+  ok &= bus6.begin(kEncBaud);
   ok &= bus2.begin(kEncBaud);
   ok &= bus6.deModeActive();
   ok &= bus2.deModeActive();
