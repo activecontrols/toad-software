@@ -1,3 +1,9 @@
+/**
+ * @file flash.h
+ * @brief NAND flash header for GD5F1GQ5UEYIGR chip
+ *
+ * @author Daniel Proano (dproano@purdue.edu)
+ */
 #pragma once
 
 #include <stddef.h>
@@ -27,16 +33,14 @@ typedef struct __attribute__((packed)) {
 
 namespace Flash {
 
-void begin();
+bool begin();
 
 flash_error_t read_page(uint32_t addr, uint8_t *out);
 
 flash_error_t write_to_cache(uint32_t col_addr, uint8_t *data, size_t len);
 
-flash_error_t program(uint32_t addr, uint32_t timeout_us = 1000);
+flash_error_t program(uint32_t addr);
 
-flash_error_t erase_block(uint32_t addr, uint32_t timeout_us = 10000);
-
-flash_error_t read_status(flash_status_a_t *status_a, flash_status_b_t *status_b);
+flash_error_t erase_block(uint32_t addr);
 
 }; // namespace Flash
