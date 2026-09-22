@@ -2,7 +2,7 @@
 
 The flight history system takes a data stream and converts it into a structured representation of a flight that can be used in data view panels. The data stream can be from the flight vehicle / groundstation, from a log file, or from a simulation.
 
-![Diagram showing flight history system](flight_history.png).
+![Diagram showing flight history system](flight_history.png)
 
 Data Formats:
  - Packet - a struct containing some vehicle data from a single point in time
