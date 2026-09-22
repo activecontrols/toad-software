@@ -1,8 +1,8 @@
 #pragma once
 #include <stdint.h>
 #include "api/HardwareCAN.h"
-#include <memory>
 #include "Arduino.h"
+#include "stm32h7xx_hal.h"
 
 class CAN : public arduino::HardwareCAN
 {
@@ -19,44 +19,53 @@ public:
     
     typedef void (*CAN_error_cbk_t)(error_type_t error_type, uint32_t new_count);
 
-    // initialize the FDCAN peripheral for use with the Toad EC
-    // returns actual bitrate in bps
+    // Initialize the FDCAN peripheral with a specific bitrate in bps.
+    // Returns actual bitrate achieved in bps.
     float begin(uint32_t bit_rate);
 
+    // Initialize using standard Arduino CanBitRate enum.
+    // Conforms to arduino::HardwareCAN interface.
     bool begin(CanBitRate bit_rate) override;
 
-    // get number of elements in the receive fifo
+    // Get number of messages waiting in the receive FIFO.
+    // Conforms to arduino::HardwareCAN interface.
     size_t available(void) override;
 
-    // get number free positions in the transmit fifo - not part of the arduino API
+    // Get number of free positions in the transmit buffer (1 if free, 0 if busy).
     uint32_t tx_free_count(void);
 
-    // transmit a data frame in classic CAN mode with an 11 bit ID
-    // return true on success, false on error
+    // Transmit a data frame in classic CAN mode with an 11-bit or 29-bit ID.
+    // Conforms to arduino::HardwareCAN interface.
+    // Returns 1 on success, 0 on error or timeout.
     int write(arduino::CanMsg const & msg) override;
 
-
-    // if a message was waiting in the recieve FIFO, this returns true; otherwise returns false
-    // returns false if an error occurs
+    // Retrieve the next received message from the receive FIFO.
+    // Conforms to arduino::HardwareCAN interface.
+    // Returns an empty CanMsg if no message was available or an error occurred.
     arduino::CanMsg read(void) override;
 
+    // Disable the FDCAN peripheral.
+    // Conforms to arduino::HardwareCAN interface.
     void end(void) override;
 
+    // Register a callback for CAN bus error updates.
     void set_error_cbk(CAN_error_cbk_t error_cbk);
     
-    // note: must only be called from an interrupt context, without nested interrupts
+    // Internal handler called from interrupt service routine.
+    // Note: Must only be called from an interrupt context, without nested interrupts.
     void error_update_from_isr(void);
 
-    // wait for all tx to complete
-    // returns true if timed out
+    // Wait for ongoing transmission in TX buffer 0 to complete.
+    // Returns true if buffer is free, false if timed out.
     bool flush(uint32_t timeout_ms = UINT32_MAX);
 
 
 // private:
-    struct HAL;
-    std::unique_ptr<HAL> hal;
-    uint32_t tx_pin;
-    uint32_t rx_pin;
-    uint8_t rx_data[64];
+    FDCAN_HandleTypeDef hfdcan = {0};
+    FDCAN_ErrorCountersTypeDef error_counts = {0};
+    FDCAN_RxHeaderTypeDef rx_header = {0};
+    uint32_t tx_pin = 0;
+    uint32_t rx_pin = 0;
+    uint8_t rx_data[64] = {0};
     CAN_error_cbk_t error_cbk = nullptr;
 };

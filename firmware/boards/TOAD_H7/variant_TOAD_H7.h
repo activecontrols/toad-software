@@ -303,6 +303,12 @@
 #define USE_HAL_FDCAN_REGISTER_CALLBACKS 1 
 #endif
 
+
+#if !defined(HSE_VALUE)
+// our HSE is 8MHz
+#define HSE_VALUE 8'000'000
+#endif
+
 /*----------------------------------------------------------------------------
  *        Arduino objects - C++ only
  *----------------------------------------------------------------------------*/
