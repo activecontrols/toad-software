@@ -14,6 +14,6 @@ typedef struct {
   double y_min;
 } scrolling_line_chart_arg_t;
 
-void scrolling_line_chart(scrolling_line_chart_arg_t arg, float y1[FLIGHT_HISTORY_LENGTH],
-                          float y2[FLIGHT_HISTORY_LENGTH], float y3[FLIGHT_HISTORY_LENGTH]);
+void scrolling_line_chart(scrolling_line_chart_arg_t arg, float y1[FLIGHT_HISTORY_LENGTH * 2],
+                          float y2[FLIGHT_HISTORY_LENGTH * 2], float y3[FLIGHT_HISTORY_LENGTH * 2]);
 void rotatable_cube_plot(ImVec4 q);
