@@ -20,11 +20,12 @@ public:
     typedef void (*CAN_error_cbk_t)(error_type_t error_type, uint32_t new_count);
 
     // Initialize the FDCAN peripheral with a specific bitrate in bps.
-    // Returns actual bitrate achieved in bps.
+    // Returns actual bitrate achieved in bps, or 0.0f on failure.
     float begin(uint32_t bit_rate);
 
     // Initialize using standard Arduino CanBitRate enum.
     // Conforms to arduino::HardwareCAN interface.
+    // Returns true on success, false on failure.
     bool begin(CanBitRate bit_rate) override;
 
     // Get number of messages waiting in the receive FIFO.

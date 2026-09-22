@@ -306,7 +306,7 @@
 
 #if !defined(HSE_VALUE)
 // our HSE is 8MHz
-#define HSE_VALUE 8'000'000
+#define HSE_VALUE (8000000U)
 #endif
 
 /*----------------------------------------------------------------------------

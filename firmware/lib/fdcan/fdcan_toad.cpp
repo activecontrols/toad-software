@@ -6,8 +6,6 @@
 #include "variant_TOAD_H7.h"
 #include "ec_pins.h"
 
-#include "CommsSerial.h"
-
 using namespace arduino;
 
 
@@ -103,7 +101,7 @@ void HAL_FDCAN_MspInit(FDCAN_HandleTypeDef* hfdcan)
     PeriphClkInitStruct.FdcanClockSelection = RCC_FDCANCLKSOURCE_PLL; // jhillman: I expect PLL1 Q1 to give 120MHz
     if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
     {
-      Error_Handler();
+      return;
     }
 
 
@@ -200,19 +198,19 @@ CAN::~CAN()
 
 CAN::CAN(uint32_t _tx_pin, uint32_t _rx_pin)
 {
+  this->tx_pin = _tx_pin;
+  this->rx_pin = _rx_pin;
+  this->hfdcan = {0};
+
   FDCAN_GlobalTypeDef* inst_1 = static_cast<FDCAN_GlobalTypeDef*>(pinmap_find_peripheral(digitalPinToPinName(_tx_pin), PinMap_CAN_TD));
   FDCAN_GlobalTypeDef* inst_2 = static_cast<FDCAN_GlobalTypeDef*>(pinmap_find_peripheral(digitalPinToPinName(_rx_pin), PinMap_CAN_RD));
 
-  if ((inst_1 != inst_2 ) || inst_1 == NP)
+  if ((inst_1 != inst_2) || inst_1 == NP)
   {
-    Error_Handler();
+    return;
   }
 
-  this->hfdcan = {0};
   this->hfdcan.Instance = inst_1;
-
-  this->tx_pin = _tx_pin;
-  this->rx_pin = _rx_pin;
 }
 
 
@@ -230,14 +228,15 @@ float CAN::begin(uint32_t bit_rate)
   }
   else
   {
-    CommsSerial.println("Error: only FDCAN1 or 2 are supported\n");
-    Error_Handler(); 
+    return 0.0f;
   }
 
   if (bit_rate == 0U || bit_rate > 1'000'000U)
   {
     // not allowed for normal CAN operation
-    Error_Handler();
+    if (can1 == this) can1 = nullptr;
+    if (can2 == this) can2 = nullptr;
+    return 0.0f;
   }
   // TODO: audit this
 
@@ -248,9 +247,9 @@ float CAN::begin(uint32_t bit_rate)
   // Check if rate divides evenly without any remainder
   if ((tq_freq % bit_rate) != 0) {
     // Exact baud rate is mathematically impossible with this prescaler/clock
-
-    CommsSerial.println("Error: CAN target bit rate not possible with this clock configuration.\n");
-    Error_Handler();
+    if (can1 == this) can1 = nullptr;
+    if (can2 == this) can2 = nullptr;
+    return 0.0f;
   }
 
   // bit_time_tq unit: tq per bit: (tq / s) / (bit / s)
@@ -273,16 +272,18 @@ float CAN::begin(uint32_t bit_rate)
   }
   else
   {
-    // shouldn't happen
-    Error_Handler();
+    if (can1 == this) can1 = nullptr;
+    if (can2 == this) can2 = nullptr;
+    return 0.0f;
   }
 
   seg_2_tq = bit_time_tq - tq_before_sample;
 
   if (seg_1_tq > 256 || seg_2_tq > 128 || seg_1_tq < 2 || seg_2_tq < 2)
   {
-    CommsSerial.println("Error: Bit timing segments exceed hardware register limits.");
-    Error_Handler();
+    if (can1 == this) can1 = nullptr;
+    if (can2 == this) can2 = nullptr;
+    return 0.0f;
   }
 
   // FDCAN_FilterTypeDef sFilterConfig;
@@ -321,7 +322,9 @@ float CAN::begin(uint32_t bit_rate)
   if (HAL_FDCAN_Init(&(this->hfdcan)) != HAL_OK)
   {
     /* Initialization Error */
-    Error_Handler();
+    if (can1 == this) can1 = nullptr;
+    if (can2 == this) can2 = nullptr;
+    return 0.0f;
   }
 
   // step 1 end
@@ -332,17 +335,18 @@ float CAN::begin(uint32_t bit_rate)
   /* Configure global filter to accept all 11 bit ID frames (and reject remote frames); jhillman todo: confirm the hardware on the bus does not use remote frames */
   if (HAL_FDCAN_ConfigGlobalFilter(&(this->hfdcan), FDCAN_ACCEPT_IN_RX_FIFO0, FDCAN_ACCEPT_IN_RX_FIFO0, FDCAN_REJECT_REMOTE, FDCAN_REJECT_REMOTE) != HAL_OK)
   {
-    CommsSerial.println("HAL_FDCAN_ConfigGlobalFilter() failed");
-
-    Error_Handler();
+    if (can1 == this) can1 = nullptr;
+    if (can2 == this) can2 = nullptr;
+    return 0.0f;
   }
 
   constexpr uint32_t it_list = FDCAN_IT_ERROR_PASSIVE | FDCAN_IT_ERROR_WARNING;
 
   if (HAL_FDCAN_ConfigInterruptLines(&(this->hfdcan), it_list, FDCAN_INTERRUPT_LINE0) != HAL_OK)
   {
-    CommsSerial.println("HAL_FDCAN_ConfigInterruptLines() failed");
-    Error_Handler();
+    if (can1 == this) can1 = nullptr;
+    if (can2 == this) can2 = nullptr;
+    return 0.0f;
   }
 
   if (HAL_FDCAN_ActivateNotification(
@@ -351,8 +355,9 @@ float CAN::begin(uint32_t bit_rate)
       0x00
     ) != HAL_OK)
   {
-    CommsSerial.println("HAL_FDCAN_ActivateNotification() failed");
-    Error_Handler();
+    if (can1 == this) can1 = nullptr;
+    if (can2 == this) can2 = nullptr;
+    return 0.0f;
   }
 
   // step 2 end
@@ -361,9 +366,10 @@ float CAN::begin(uint32_t bit_rate)
   /* Start the FDCAN module */
   if (HAL_FDCAN_Start(&(this->hfdcan)) != HAL_OK)
   {
-    CommsSerial.println("HAL_FDCAN_Start() failed");
     /* Start Error */
-    Error_Handler();
+    if (can1 == this) can1 = nullptr;
+    if (can2 == this) can2 = nullptr;
+    return 0.0f;
   }
   // step 3 end
 
@@ -373,17 +379,19 @@ float CAN::begin(uint32_t bit_rate)
 
 
 // for compliance with the arduino api spec
-// this function always just returns true because it will enter an error handler routine in the event of a failure
+// returns true on success, false on failure
 bool CAN::begin(CanBitRate bit_rate)
 {
-  this->begin((uint32_t)bit_rate);
-
-  return true;
+  return this->begin((uint32_t)bit_rate) > 0.0f;
 }
 
 // get number of elements in the receive fifo
 size_t CAN::available(void)
 {
+  if (this->hfdcan.Instance == nullptr)
+  {
+    return 0;
+  }
   return HAL_FDCAN_GetRxFifoFillLevel(&(this->hfdcan), FDCAN_RX_FIFO0);
 }
 
@@ -391,12 +399,21 @@ size_t CAN::available(void)
 // return 1 if the buffer is empty, 0 otherwise
 uint32_t CAN::tx_free_count(void)
 {
+  if (this->hfdcan.Instance == nullptr)
+  {
+    return 0;
+  }
   return 1 - HAL_FDCAN_IsTxBufferMessagePending(&(this->hfdcan), FDCAN_TX_BUFFER0);
 }
 
 
 bool CAN::flush(uint32_t timeout_ms)
 {
+  if (this->hfdcan.Instance == nullptr)
+  {
+    return false;
+  }
+
   uint32_t start_time = millis();
 
   bool success = false;
@@ -413,6 +430,11 @@ bool CAN::flush(uint32_t timeout_ms)
 
 int CAN::write(CanMsg const & msg)
 {
+  if (this->hfdcan.Instance == nullptr)
+  {
+    return 0;
+  }
+
   FDCAN_TxHeaderTypeDef tx_header = {0};
 
   /* 1. wait for ongoing transmission to complete: */
@@ -472,6 +494,11 @@ int CAN::write(CanMsg const & msg)
 
 CanMsg CAN::read(void)
 {
+  if (this->hfdcan.Instance == nullptr)
+  {
+    return CanMsg();
+  }
+
   // check that there is room in the rx fifo
   size_t count = this->available();
 
@@ -502,9 +529,22 @@ CanMsg CAN::read(void)
 
 void CAN::end(void)
 {
+  if (this->hfdcan.Instance == nullptr)
+  {
+    return;
+  }
+
   // from the HAL reference: this places the controller back in init mode
   // it should then be legal to eg change baud rate after calling CAN::end() by a successive call to CAN::begin()
   HAL_FDCAN_Stop(&(this->hfdcan));
+  if (can1 == this)
+  {
+    can1 = nullptr;
+  }
+  else if (can2 == this)
+  {
+    can2 = nullptr;
+  }
   return;
 }
 
@@ -518,6 +558,11 @@ void CAN::set_error_cbk(CAN_error_cbk_t error_cbk)
 // note: must only be called from an interrupt context, from a single isr
 void CAN::error_update_from_isr(void)
 {
+  if (this->hfdcan.Instance == nullptr)
+  {
+    return;
+  }
+
   FDCAN_ErrorCountersTypeDef new_error_counts = {0};
 
   HAL_FDCAN_GetErrorCounters(&(this->hfdcan), &new_error_counts);
