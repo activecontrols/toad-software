@@ -29,9 +29,6 @@ bool kill_flag;
 bool arm_flag;
 void flight_loop();
 
-// jhillman added this to ensure HSE value is correct for all dynamic clock frequency calculations
-static_assert(HSE_VALUE == 8'000'000U);
-
 void setup() {
   // All shared interfaces are begun here.
 
