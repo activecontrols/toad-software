@@ -60,6 +60,8 @@ void flight_data_periodic() {
   // write(u, pkt, "127.0.0.1", 9000);
 
   if (bytes == sizeof(combined_telem)) {
+    // TODO - add support for partial packets
+    // TODO - add support for load/save from file
     commit_packet(combined_telem.ec);
     commit_packet(combined_telem.gnc);
     update_fh_pos();

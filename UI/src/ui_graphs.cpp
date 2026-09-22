@@ -5,8 +5,8 @@
 
 ImVec4 axis_colors[3] = {{1.0, 0.0, 0.0, 1.0}, {0.0, 1.0, 0.0, 1.0}, {0.0, 0.0, 1.0, 1.0}};
 
-void scrolling_line_chart(scrolling_line_chart_arg_t arg, float y1[FLIGHT_HISTORY_LENGTH],
-                          float y2[FLIGHT_HISTORY_LENGTH], float y3[FLIGHT_HISTORY_LENGTH]) {
+void scrolling_line_chart(scrolling_line_chart_arg_t arg, float y1[FLIGHT_HISTORY_LENGTH * 2],
+                          float y2[FLIGHT_HISTORY_LENGTH * 2], float y3[FLIGHT_HISTORY_LENGTH * 2]) {
   centered_text(arg.plot_title);
   if (ImPlot::BeginPlot(arg.render_title, ImVec2(-1, 175))) { // width = fill, height auto
     ImPlot::SetupAxisLimits(ImAxis_X1, 0, 1000, ImPlotCond_Always);
