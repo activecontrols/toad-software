@@ -2,6 +2,7 @@
 
 #include "CommandRouter.h"
 #include "CommsSerial.h"
+#include "ErrorCounters.h"
 #include "PressureSensors.h"
 #include "RCS.h"
 #include "SolenoidValves.h"
@@ -44,6 +45,7 @@ void setup() {
   CommsSerial.println("Engine Controller Started!");
   HW_FallbackSerial.println("Enginer Controller Started! [Fallback Serial]");
 
+  ErrorCounters::begin();
   CommandRouter::begin();
 
   bool all_modules_ok = true;
