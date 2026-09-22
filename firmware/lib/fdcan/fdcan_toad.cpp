@@ -72,13 +72,6 @@ for actuator CAN: likely configuration is to store all incoming messages in rx F
 static CAN* can1 = nullptr;
 static CAN* can2 = nullptr;
 
-struct CAN::HAL
-{
-  FDCAN_ErrorCountersTypeDef error_counts = {0};
-  FDCAN_HandleTypeDef hfdcan = {0};
-  FDCAN_RxHeaderTypeDef rx_header = {0};
-};
-
 
 /* enable GPIO clock and configure pin (must pass a bit mask for which pin(s) to configure on the specific port) */
 static void CAN_init_gpio_dynamic(uint32_t pin, const PinMap pin_map[])
@@ -100,8 +93,6 @@ extern "C"
 
 void HAL_FDCAN_MspInit(FDCAN_HandleTypeDef* hfdcan)
 {
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-
   static bool has_initialized_clock = false;
 
   if (!has_initialized_clock)
@@ -176,7 +167,7 @@ void FDCAN1_IT0_IRQHandler(void)
 {
   if (can1 != nullptr)
   {
-    HAL_FDCAN_IRQHandler(&(can1->hal->hfdcan));
+    HAL_FDCAN_IRQHandler(&(can1->hfdcan));
   }
 }
 
@@ -185,7 +176,7 @@ void FDCAN2_IT0_IRQHandler(void)
 {
   if (can2 != nullptr)
   {
-    HAL_FDCAN_IRQHandler(&(can2->hal->hfdcan));
+    HAL_FDCAN_IRQHandler(&(can2->hfdcan));
   }
 }
 
@@ -193,23 +184,32 @@ void FDCAN2_IT0_IRQHandler(void)
 
 
 
-CAN::~CAN() = default;
+CAN::~CAN()
+{
+  if (can1 == this)
+  {
+    HAL_NVIC_DisableIRQ(FDCAN1_IT0_IRQn);
+    can1 = nullptr;
+  }
+  else if (can2 == this)
+  {
+    HAL_NVIC_DisableIRQ(FDCAN2_IT0_IRQn);
+    can2 = nullptr;
+  }
+}
 
 CAN::CAN(uint32_t _tx_pin, uint32_t _rx_pin)
 {
   FDCAN_GlobalTypeDef* inst_1 = static_cast<FDCAN_GlobalTypeDef*>(pinmap_find_peripheral(digitalPinToPinName(_tx_pin), PinMap_CAN_TD));
   FDCAN_GlobalTypeDef* inst_2 = static_cast<FDCAN_GlobalTypeDef*>(pinmap_find_peripheral(digitalPinToPinName(_rx_pin), PinMap_CAN_RD));
 
-  this->hal = std::make_unique<CAN::HAL>();
-  
   if ((inst_1 != inst_2 ) || inst_1 == NP)
   {
     Error_Handler();
   }
- 
 
-  this->hal->hfdcan = {0};
-  this->hal->hfdcan.Instance = inst_1;
+  this->hfdcan = {0};
+  this->hfdcan.Instance = inst_1;
 
   this->tx_pin = _tx_pin;
   this->rx_pin = _rx_pin;
@@ -219,27 +219,12 @@ CAN::CAN(uint32_t _tx_pin, uint32_t _rx_pin)
 // jhillman adapted from https://github.com/STMicroelectronics/STM32CubeH7/blob/master/Projects/STM32H743I-EVAL/Examples/FDCAN/FDCAN_Classic_Frame_Networking/Src/main.c
 float CAN::begin(uint32_t bit_rate)
 {
-  // excerpt from the HAL_FDCAN_Init: (since this is for classic CAN, no need to fill out the data bit timing register related fields since those are only used when bit rate switching is enabled)
-
-  // /* Set the nominal bit timing register */
-  // hfdcan->Instance->NBTP = ((((uint32_t)hfdcan->Init.NominalSyncJumpWidth - 1U) << FDCAN_NBTP_NSJW_Pos) |
-  //                           (((uint32_t)hfdcan->Init.NominalTimeSeg1 - 1U) << FDCAN_NBTP_NTSEG1_Pos)    |
-  //                           (((uint32_t)hfdcan->Init.NominalTimeSeg2 - 1U) << FDCAN_NBTP_NTSEG2_Pos)    |
-  //                           (((uint32_t)hfdcan->Init.NominalPrescaler - 1U) << FDCAN_NBTP_NBRP_Pos));
-
-  // /* If FD operation with BRS is selected, set the data bit timing register */
-  // if (hfdcan->Init.FrameFormat == FDCAN_FRAME_FD_BRS)
-  // {
-  //   hfdcan->Instance->DBTP = ((((uint32_t)hfdcan->Init.DataSyncJumpWidth - 1U) << FDCAN_DBTP_DSJW_Pos)  |
-  //                             (((uint32_t)hfdcan->Init.DataTimeSeg1 - 1U) << FDCAN_DBTP_DTSEG1_Pos)     |
-  //                             (((uint32_t)hfdcan->Init.DataTimeSeg2 - 1U) << FDCAN_DBTP_DTSEG2_Pos)     |
-  //                             (((uint32_t)hfdcan->Init.DataPrescaler - 1U) << FDCAN_DBTP_DBRP_Pos));
- 
-  if (this->hal->hfdcan.Instance == FDCAN1)
+  // Map this instance for interrupt handling and MSP initialization
+  if (this->hfdcan.Instance == FDCAN1)
   {
     can1 = this;
   }
-  else if (this->hal->hfdcan.Instance == FDCAN2)
+  else if (this->hfdcan.Instance == FDCAN2)
   {
     can2 = this;
   }
@@ -302,29 +287,29 @@ float CAN::begin(uint32_t bit_rate)
 
   // FDCAN_FilterTypeDef sFilterConfig;
 
-  this->hal->hfdcan.Init.FrameFormat = FDCAN_FRAME_CLASSIC;
-  this->hal->hfdcan.Init.Mode = FDCAN_MODE_NORMAL;
-  this->hal->hfdcan.Init.AutoRetransmission = ENABLE;
-  this->hal->hfdcan.Init.TransmitPause = DISABLE;
-  this->hal->hfdcan.Init.ProtocolException = ENABLE;
-  this->hal->hfdcan.Init.NominalPrescaler = prescaler;
-  this->hal->hfdcan.Init.NominalSyncJumpWidth = 8U < seg_2_tq ? 8U : seg_2_tq;
-  this->hal->hfdcan.Init.NominalTimeSeg1 = seg_1_tq;
-  this->hal->hfdcan.Init.NominalTimeSeg2 = seg_2_tq;
-  this->hal->hfdcan.Init.MessageRAMOffset = (this->hal->hfdcan.Instance == FDCAN1 ? 0 : 1280); // FDCAN1 gets 0-1279, FDCAN2 gets 1280-2559
-  this->hal->hfdcan.Init.StdFiltersNbr = 0; // not using any filters on this bus - that way CPU receives all messages (since we are just talking to actuators anyway, this is fine)
-  this->hal->hfdcan.Init.ExtFiltersNbr = 0;
-  this->hal->hfdcan.Init.RxFifo0ElmtsNbr = 8;
-  this->hal->hfdcan.Init.RxFifo0ElmtSize = FDCAN_DATA_BYTES_8;
-  this->hal->hfdcan.Init.RxFifo1ElmtsNbr = 0;
-  this->hal->hfdcan.Init.RxBuffersNbr = 0;
-  this->hal->hfdcan.Init.TxEventsNbr = 0;
-  this->hal->hfdcan.Init.TxBuffersNbr = 1;
-  this->hal->hfdcan.Init.TxFifoQueueElmtsNbr = 0;
-  this->hal->hfdcan.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION; // other option is queue operation; with fifo messages are sent in the order they are placed in the fifo, with queue they are sent in order of priority. i think we want fifo
-  this->hal->hfdcan.Init.TxElmtSize = FDCAN_DATA_BYTES_8;
-  this->hal->hfdcan.ErrorCallback = fdcan_error_cbk;
-  this->hal->hfdcan.ErrorStatusCallback = fdcan_error_status_cbk;
+  this->hfdcan.Init.FrameFormat = FDCAN_FRAME_CLASSIC;
+  this->hfdcan.Init.Mode = FDCAN_MODE_NORMAL;
+  this->hfdcan.Init.AutoRetransmission = ENABLE;
+  this->hfdcan.Init.TransmitPause = DISABLE;
+  this->hfdcan.Init.ProtocolException = ENABLE;
+  this->hfdcan.Init.NominalPrescaler = prescaler;
+  this->hfdcan.Init.NominalSyncJumpWidth = 8U < seg_2_tq ? 8U : seg_2_tq;
+  this->hfdcan.Init.NominalTimeSeg1 = seg_1_tq;
+  this->hfdcan.Init.NominalTimeSeg2 = seg_2_tq;
+  this->hfdcan.Init.MessageRAMOffset = (this->hfdcan.Instance == FDCAN1 ? 0 : 1280); // FDCAN1 gets 0-1279, FDCAN2 gets 1280-2559
+  this->hfdcan.Init.StdFiltersNbr = 0; // not using any filters on this bus - that way CPU receives all messages (since we are just talking to actuators anyway, this is fine)
+  this->hfdcan.Init.ExtFiltersNbr = 0;
+  this->hfdcan.Init.RxFifo0ElmtsNbr = 8;
+  this->hfdcan.Init.RxFifo0ElmtSize = FDCAN_DATA_BYTES_8;
+  this->hfdcan.Init.RxFifo1ElmtsNbr = 0;
+  this->hfdcan.Init.RxBuffersNbr = 0;
+  this->hfdcan.Init.TxEventsNbr = 0;
+  this->hfdcan.Init.TxBuffersNbr = 1;
+  this->hfdcan.Init.TxFifoQueueElmtsNbr = 0;
+  this->hfdcan.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION; // other option is queue operation; with fifo messages are sent in the order they are placed in the fifo, with queue they are sent in order of priority. i think we want fifo
+  this->hfdcan.Init.TxElmtSize = FDCAN_DATA_BYTES_8;
+  this->hfdcan.ErrorCallback = fdcan_error_cbk;
+  this->hfdcan.ErrorStatusCallback = fdcan_error_status_cbk;
 
 
   // step (1) refers to steps as they are defined by the HAL reference
@@ -333,7 +318,7 @@ float CAN::begin(uint32_t bit_rate)
 
   // pass along the which pins to configure to the MspInit(), which is called during HAL_FDCAN_Init
 
-  if (HAL_FDCAN_Init(&(this->hal->hfdcan)) != HAL_OK)
+  if (HAL_FDCAN_Init(&(this->hfdcan)) != HAL_OK)
   {
     /* Initialization Error */
     Error_Handler();
@@ -345,7 +330,7 @@ float CAN::begin(uint32_t bit_rate)
   // filter creation should go around here, but we are not using any (no filtering)
 
   /* Configure global filter to accept all 11 bit ID frames (and reject remote frames); jhillman todo: confirm the hardware on the bus does not use remote frames */
-  if (HAL_FDCAN_ConfigGlobalFilter(&(this->hal->hfdcan), FDCAN_ACCEPT_IN_RX_FIFO0, FDCAN_ACCEPT_IN_RX_FIFO0, FDCAN_REJECT_REMOTE, FDCAN_REJECT_REMOTE) != HAL_OK)
+  if (HAL_FDCAN_ConfigGlobalFilter(&(this->hfdcan), FDCAN_ACCEPT_IN_RX_FIFO0, FDCAN_ACCEPT_IN_RX_FIFO0, FDCAN_REJECT_REMOTE, FDCAN_REJECT_REMOTE) != HAL_OK)
   {
     CommsSerial.println("HAL_FDCAN_ConfigGlobalFilter() failed");
 
@@ -354,15 +339,15 @@ float CAN::begin(uint32_t bit_rate)
 
   constexpr uint32_t it_list = FDCAN_IT_ERROR_PASSIVE | FDCAN_IT_ERROR_WARNING;
 
-  if (HAL_FDCAN_ConfigInterruptLines(&(this->hal->hfdcan), it_list, FDCAN_INTERRUPT_LINE0) != HAL_OK)
+  if (HAL_FDCAN_ConfigInterruptLines(&(this->hfdcan), it_list, FDCAN_INTERRUPT_LINE0) != HAL_OK)
   {
     CommsSerial.println("HAL_FDCAN_ConfigInterruptLines() failed");
     Error_Handler();
   }
 
   if (HAL_FDCAN_ActivateNotification(
-      &(this->hal->hfdcan),
-      it_list, // when either the tx error counter or the rx error counter overflows, this interrupt is triggered (RM p.2685)
+      &(this->hfdcan),
+      it_list, // enables error passive and error warning interrupt notifications
       0x00
     ) != HAL_OK)
   {
@@ -374,19 +359,13 @@ float CAN::begin(uint32_t bit_rate)
 
   // step 3: start the FDCAN
   /* Start the FDCAN module */
-  if (HAL_FDCAN_Start(&(this->hal->hfdcan)) != HAL_OK)
+  if (HAL_FDCAN_Start(&(this->hfdcan)) != HAL_OK)
   {
     CommsSerial.println("HAL_FDCAN_Start() failed");
     /* Start Error */
     Error_Handler();
   }
   // step 3 end
-
-  // if (HAL_FDCAN_ActivateNotification(&(this->hal->hfdcan), FDCAN_IT_TX_FIFO_EMPTY, 0) != HAL_OK)
-  // {
-  //   /* Notification Error */
-  //   Error_Handler();
-  // }
 
   // calculate actual bitrate
   return ((float)tq_freq / (1 + seg_1_tq + seg_2_tq));
@@ -405,14 +384,14 @@ bool CAN::begin(CanBitRate bit_rate)
 // get number of elements in the receive fifo
 size_t CAN::available(void)
 {
-  return HAL_FDCAN_GetRxFifoFillLevel(&(this->hal->hfdcan), FDCAN_RX_FIFO0);
+  return HAL_FDCAN_GetRxFifoFillLevel(&(this->hfdcan), FDCAN_RX_FIFO0);
 }
 
 
 // return 1 if the buffer is empty, 0 otherwise
 uint32_t CAN::tx_free_count(void)
 {
-  return 1 - HAL_FDCAN_IsTxBufferMessagePending(&(this->hal->hfdcan), FDCAN_TX_BUFFER0);
+  return 1 - HAL_FDCAN_IsTxBufferMessagePending(&(this->hfdcan), FDCAN_TX_BUFFER0);
 }
 
 
@@ -423,7 +402,7 @@ bool CAN::flush(uint32_t timeout_ms)
   bool success = false;
   while (millis() - start_time < timeout_ms || timeout_ms == UINT32_MAX)
   {
-    if (HAL_FDCAN_IsTxBufferMessagePending(&(this->hal->hfdcan), FDCAN_TX_BUFFER0) != 1)
+    if (HAL_FDCAN_IsTxBufferMessagePending(&(this->hfdcan), FDCAN_TX_BUFFER0) != 1)
     {
       success = true;
       break;
@@ -469,22 +448,23 @@ int CAN::write(CanMsg const & msg)
   /* 2. begin new transmission */
   tx_header.Identifier = id;
   tx_header.IdType = id_type;
+  tx_header.TxFrameType = FDCAN_DATA_FRAME;
   tx_header.DataLength = msg.data_length;
   tx_header.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
   tx_header.BitRateSwitch = FDCAN_BRS_OFF; // bit rate switching is off
   tx_header.FDFormat = FDCAN_CLASSIC_CAN;
-  tx_header.TxEventFifoControl = FDCAN_NO_TX_EVENTS; // events will go in the tx fifo, for feedback so we know whether transmission was successful or not
+  tx_header.TxEventFifoControl = FDCAN_NO_TX_EVENTS; // do not store transmission events in the TX event FIFO
   tx_header.MessageMarker = 0;
 
   // place the message in the first buffer
-  HAL_StatusTypeDef status = HAL_FDCAN_AddMessageToTxBuffer(&(this->hal->hfdcan), &tx_header, msg.data, FDCAN_TX_BUFFER0);
+  HAL_StatusTypeDef status = HAL_FDCAN_AddMessageToTxBuffer(&(this->hfdcan), &tx_header, msg.data, FDCAN_TX_BUFFER0);
 
   if (status != HAL_OK)
   {
-    return false;
+    return 0;
   }
 
-  status = HAL_FDCAN_EnableTxBufferRequest(&(this->hal->hfdcan), FDCAN_TX_BUFFER0);
+  status = HAL_FDCAN_EnableTxBufferRequest(&(this->hfdcan), FDCAN_TX_BUFFER0);
 
   return (status == HAL_OK) ? 1 : 0;
 }
@@ -500,34 +480,31 @@ CanMsg CAN::read(void)
     return CanMsg(); // return empty message
   }
   
-  HAL_StatusTypeDef status = HAL_FDCAN_GetRxMessage(&(this->hal->hfdcan), FDCAN_RX_FIFO0, &(this->hal->rx_header), this->rx_data);
+  HAL_StatusTypeDef status = HAL_FDCAN_GetRxMessage(&(this->hfdcan), FDCAN_RX_FIFO0, &(this->rx_header), this->rx_data);
 
   if (status != HAL_OK)
   {
     return CanMsg();
   }
 
-  uint32_t arduino_msg_id = this->hal->rx_header.Identifier;
+  uint32_t arduino_msg_id = this->rx_header.Identifier;
 
-  if (this->hal->rx_header.IdType == FDCAN_EXTENDED_ID)
+  if (this->rx_header.IdType == FDCAN_EXTENDED_ID)
   {
     arduino_msg_id |= CanMsg::CAN_EFF_FLAG; // bit 31 marks it as extended ID format according to the comment in CanMsg.h
   }
 
-  // for standard CAN messages: DLC <= 8 means data_length = DLC
-  if (this->hal->rx_header.DataLength > FDCAN_DLC_BYTES_8)
-  {
-    return CanMsg(); // return empty message because an error occured (invalid DLC for standard CAN)
-  }
+  // For classic CAN messages, clamp payload length to 8 bytes maximum (DLC 9-15 indicate 8 bytes in CAN 2.0B)
+  uint8_t len = (this->rx_header.DataLength > FDCAN_DLC_BYTES_8) ? 8 : (uint8_t)this->rx_header.DataLength;
 
-  return CanMsg(arduino_msg_id, this->hal->rx_header.DataLength, this->rx_data);
+  return CanMsg(arduino_msg_id, len, this->rx_data);
 }
 
 void CAN::end(void)
 {
   // from the HAL reference: this places the controller back in init mode
   // it should then be legal to eg change baud rate after calling CAN::end() by a successive call to CAN::begin()
-  HAL_FDCAN_Stop(&(this->hal->hfdcan));
+  HAL_FDCAN_Stop(&(this->hfdcan));
   return;
 }
 
@@ -543,29 +520,29 @@ void CAN::error_update_from_isr(void)
 {
   FDCAN_ErrorCountersTypeDef new_error_counts = {0};
 
-  HAL_FDCAN_GetErrorCounters(&(this->hal->hfdcan), &new_error_counts);
+  HAL_FDCAN_GetErrorCounters(&(this->hfdcan), &new_error_counts);
 
   if (this->error_cbk == nullptr)
   {
-    memcpy(&(this->hal->error_counts), &new_error_counts, sizeof(new_error_counts));
+    memcpy(&(this->error_counts), &new_error_counts, sizeof(new_error_counts));
     return;
   }
 
-  if (new_error_counts.RxErrorCnt != this->hal->error_counts.RxErrorCnt)
+  if (new_error_counts.RxErrorCnt != this->error_counts.RxErrorCnt)
   {
     this->error_cbk(CAN::error_type_t::RX_ERROR, new_error_counts.RxErrorCnt);
   }
 
-  if (new_error_counts.RxErrorPassive != this->hal->error_counts.RxErrorPassive)
+  if (new_error_counts.RxErrorPassive != this->error_counts.RxErrorPassive)
   {
     this->error_cbk(CAN::error_type_t::RX_ERROR_PASSIVE, new_error_counts.RxErrorPassive);
   }
 
-  if (new_error_counts.TxErrorCnt != this->hal->error_counts.TxErrorCnt)
+  if (new_error_counts.TxErrorCnt != this->error_counts.TxErrorCnt)
   {
     this->error_cbk(CAN::error_type_t::TX_ERROR, new_error_counts.TxErrorCnt);
   }
 
-  memcpy(&(this->hal->error_counts), &new_error_counts, sizeof(new_error_counts));
+  memcpy(&(this->error_counts), &new_error_counts, sizeof(new_error_counts));
   return;
 }
