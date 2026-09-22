@@ -13,6 +13,9 @@ def parse_file(fname: str, structs: dict[str, dict[str, str]]):
         line = line.split('//')[0].strip().removesuffix(';')
         if line:
             if 'struct' in line:
+                if '{}' in line: # ignore empty structs
+                    continue
+                line = line.removeprefix('template <typename Tag>').strip()
                 active_struct_name = line.removeprefix('struct').removesuffix('{').strip()
                 continue
 
@@ -25,6 +28,12 @@ def parse_file(fname: str, structs: dict[str, dict[str, str]]):
             if active_struct_name:
                 var_type, var_name = line.split()
                 active_struct[var_name] = var_type
+
+            if 'using' in line:
+                tagged_name, base_name = line.removeprefix('using').strip().split('=')
+                tagged_name = tagged_name.strip()
+                base_name = base_name.split('<')[0].strip()
+                structs[tagged_name] = structs[base_name]
 
 
 def gen_history_struct(type_name: str, obj_name: str, svars: dict[str, str], structs: dict[str, dict[str, str]], indent: str, history: bool):
