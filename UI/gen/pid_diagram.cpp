@@ -22,8 +22,8 @@ void init_diagram() {
   pid_diagram.valves[BV_O2_03_run] = {Valve_Type::Ball, "BV-O2-03", BV_O2_03_run_default, ImVec2(-150.0, 250.0), 'V', ImVec2(-90.0, 250.0)};
   pid_diagram.valves[BV_FU_01_release] = {Valve_Type::Ball, "BV-FU-01", BV_FU_01_release_default, ImVec2(850.0, -50.0), 'H', ImVec2(850.0, -20.0)};
   pid_diagram.valves[BV_FU_03_run] = {Valve_Type::Ball, "BV-FU-03", BV_FU_03_run_default, ImVec2(750.0, 250.0), 'V', ImVec2(690.0, 250.0)};
-  pid_diagram.throttle_valves[0] = {"BV-O2-04", &FlightHistory.fu_valve_angle, ImVec2(-75.0, 450.0), 'H', ImVec2(-75.0, 480.0)};
-  pid_diagram.throttle_valves[1] = {"BV-FU-04", &FlightHistory.fu_valve_angle, ImVec2(600.0, 700.0), 'H', ImVec2(600.0, 730.0)};
+  pid_diagram.throttle_valves[0] = {"BV-O2-04", &FlightHistory.ec.fu_valve_angle, ImVec2(-75.0, 450.0), 'H', ImVec2(-75.0, 480.0)};
+  pid_diagram.throttle_valves[1] = {"BV-FU-04", &FlightHistory.ec.fu_valve_angle, ImVec2(600.0, 700.0), 'H', ImVec2(600.0, 730.0)};
 
   pid_diagram.pid_items[0] = {PID_Type::Tank, "TK-O2-01", ImVec2(-150.0, 75.0), 'O'};
   pid_diagram.pid_items[1] = {PID_Type::Tank, "TK-FU-01", ImVec2(750.0, 75.0), 'F'};
@@ -44,17 +44,17 @@ void init_diagram() {
   pid_diagram.pid_items[16] = {PID_Type::ManualValve, "BV-FU-02", ImVec2(850.0, 200.0), 'H'};
   static_assert(17 == NUMBER_OF_PID_ITEMS);
 
-  pid_diagram.instruments[0] = {Instrument_Type::PT, "PT-FU-01", &FlightHistory.pts.PT_FU_01_tank, ImVec2(890.0, 75.0), ImVec2(812.5, 75.0), 't'};
-  pid_diagram.instruments[1] = {Instrument_Type::PT, "PT-N2-01", &FlightHistory.pts.PT_N2_01_tank, ImVec2(440.0, 75.0), ImVec2(362.5, 75.0), 't'};
-  pid_diagram.instruments[2] = {Instrument_Type::PT, "PT-N2-02", &FlightHistory.pts.PT_N2_02_reg, ImVec2(500.0, -10.0), ImVec2(500.0, -75.0), 'u'};
-  pid_diagram.instruments[3] = {Instrument_Type::PT, "PT-O2-01", &FlightHistory.pts.PT_O2_01_tank, ImVec2(-10.0, 75.0), ImVec2(-87.5, 75.0), 't'};
-  pid_diagram.instruments[4] = {Instrument_Type::TC, "TC-N2-01", &FlightHistory.tcs.TC_N2_01_tank, ImVec2(180.0, 75.0), ImVec2(237.5, 75.0), 't'};
-  pid_diagram.instruments[5] = {Instrument_Type::TC, "TC-O2-01", &FlightHistory.tcs.TC_O2_01_tank, ImVec2(-270.0, 75.0), ImVec2(-212.5, 75.0), 't'};
-  pid_diagram.instruments[6] = {Instrument_Type::PT, "PT-FU-02", &FlightHistory.pts.PT_FU_02_inj, ImVec2(170.0, 590.0), ImVec2(250.0, 600.0), 't'};
-  pid_diagram.instruments[7] = {Instrument_Type::PT, "PT-O2-02", &FlightHistory.pts.PT_O2_02_inj, ImVec2(170.0, 510.0), ImVec2(250.0, 600.0), 'b'};
-  pid_diagram.instruments[8] = {Instrument_Type::TC, "TC-FU-01", &FlightHistory.tcs.TC_FU_01_inj, ImVec2(50.0, 590.0), ImVec2(250.0, 600.0), 't'};
-  pid_diagram.instruments[9] = {Instrument_Type::TC, "TC-O2-02", &FlightHistory.tcs.TC_O2_02_inj, ImVec2(50.0, 510.0), ImVec2(250.0, 600.0), 'b'};
-  pid_diagram.instruments[10] = {Instrument_Type::PT, "PT-FU-04", &FlightHistory.pts.PT_FU_04_igniter, ImVec2(420.0, 465.0), ImVec2(342.5, 465.0), 'l'};
+  pid_diagram.instruments[0] = {Instrument_Type::PT, "PT-FU-01", &FlightHistory.ec.pts.PT_FU_01_tank, ImVec2(890.0, 75.0), ImVec2(812.5, 75.0), 't'};
+  pid_diagram.instruments[1] = {Instrument_Type::PT, "PT-N2-01", &FlightHistory.ec.pts.PT_N2_01_tank, ImVec2(440.0, 75.0), ImVec2(362.5, 75.0), 't'};
+  pid_diagram.instruments[2] = {Instrument_Type::PT, "PT-N2-02", &FlightHistory.ec.pts.PT_N2_02_reg, ImVec2(500.0, -10.0), ImVec2(500.0, -75.0), 'u'};
+  pid_diagram.instruments[3] = {Instrument_Type::PT, "PT-O2-01", &FlightHistory.ec.pts.PT_O2_01_tank, ImVec2(-10.0, 75.0), ImVec2(-87.5, 75.0), 't'};
+  pid_diagram.instruments[4] = {Instrument_Type::TC, "TC-N2-01", &FlightHistory.ec.tcs.TC_N2_01_tank, ImVec2(180.0, 75.0), ImVec2(237.5, 75.0), 't'};
+  pid_diagram.instruments[5] = {Instrument_Type::TC, "TC-O2-01", &FlightHistory.ec.tcs.TC_O2_01_tank, ImVec2(-270.0, 75.0), ImVec2(-212.5, 75.0), 't'};
+  pid_diagram.instruments[6] = {Instrument_Type::PT, "PT-FU-02", &FlightHistory.ec.pts.PT_FU_02_inj, ImVec2(170.0, 590.0), ImVec2(250.0, 600.0), 't'};
+  pid_diagram.instruments[7] = {Instrument_Type::PT, "PT-O2-02", &FlightHistory.ec.pts.PT_O2_02_inj, ImVec2(170.0, 510.0), ImVec2(250.0, 600.0), 'b'};
+  pid_diagram.instruments[8] = {Instrument_Type::TC, "TC-FU-01", &FlightHistory.ec.tcs.TC_FU_01_inj, ImVec2(50.0, 590.0), ImVec2(250.0, 600.0), 't'};
+  pid_diagram.instruments[9] = {Instrument_Type::TC, "TC-O2-02", &FlightHistory.ec.tcs.TC_O2_02_inj, ImVec2(50.0, 510.0), ImVec2(250.0, 600.0), 'b'};
+  pid_diagram.instruments[10] = {Instrument_Type::PT, "PT-FU-04", &FlightHistory.ec.pts.PT_FU_04_igniter, ImVec2(420.0, 465.0), ImVec2(342.5, 465.0), 'l'};
   static_assert(11 == NUMBER_OF_INSTRUMENTS);
 
   pid_diagram.pipes[0] = {ImVec2(625.0, -125.0), ImVec2(625.0, 200.0), PID_COLOR_N2, {BV_N2_02_fill}, {}};

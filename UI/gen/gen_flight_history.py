@@ -27,7 +27,7 @@ def parse_file(fname: str, structs: dict[str, dict[str, str]]):
                 active_struct[var_name] = var_type
 
 
-def gen_history_struct(type_name: str, obj_name: str, svars: dict[str, str], structs: dict[str, dict[str, str]], indent: str):
+def gen_history_struct(type_name: str, obj_name: str, svars: dict[str, str], structs: dict[str, dict[str, str]], indent: str, history: bool):
     if type_name:
         type_name = f" {type_name}"
     if obj_name:
@@ -36,20 +36,23 @@ def gen_history_struct(type_name: str, obj_name: str, svars: dict[str, str], str
     out = f"{indent}struct{type_name} {{\n"
     for var_name, var_type in svars.items():
         if var_type in structs:
-            out += gen_history_struct("", var_name, structs[var_type], structs, indent + "  ")
+            out += gen_history_struct("", var_name, structs[var_type], structs, indent + "  ", history)
         else:
-            out += f"{indent}  {var_type} {var_name}[FLIGHT_HISTORY_LENGTH * 2];\n"
+            if history:
+                out += f"{indent}  {var_type} {var_name}[FLIGHT_HISTORY_LENGTH * 2];\n"
+            else:
+                out += f"{indent}  {var_type} {var_name};\n"
     out += f"{indent}}}{obj_name};\n"
     return out
 
-def gen_expansion(prefix: str, var_type: str, structs: dict[str, dict[str, str]]):
+def gen_expansion(packet_name: str, prefix: str, var_type: str, structs: dict[str, dict[str, str]]):
     out = ""
     if var_type in structs:
         for var_name, new_type in structs[var_type].items():
-            out += gen_expansion(f"{prefix}.{var_name}", new_type, structs)
+            out += gen_expansion(packet_name, f"{prefix}.{var_name}", new_type, structs)
     else:
-        out += f"  FlightHistory{prefix}[write_pos] = packet{prefix};\n"
-        out += f"  FlightHistory{prefix}[write_pos + FLIGHT_HISTORY_LENGTH] = packet{prefix};\n"
+        out += f"  FlightHistory.{packet_name}{prefix}[write_pos] = packet{prefix};\n"
+        out += f"  FlightHistory.{packet_name}{prefix}[write_pos + FLIGHT_HISTORY_LENGTH] = packet{prefix};\n"
     return out
 
 
@@ -111,8 +114,9 @@ void update_fh_pos() {
 def main():
     parse_fnames = sys.argv[1:]
 
-    telemetry_structs = ['gnc_telemetry_t', 'ec_telemetry_t']
+    telemetry_structs = {'gnc': 'gnc_telemetry_t', 'ec': 'ec_telemetry_t'}
     output_struct = 'flight_history_t'
+    frame_struct = 'flight_frame_t'
     output_h_fname = 'UI/gen/flight_history.h'
     output_cpp_fname = 'UI/gen/flight_history.cpp'
 
@@ -121,25 +125,29 @@ def main():
         parse_file(fname, structs)
 
 
-    structs[output_struct] = {}
-    for sname, svars in structs.items():
-            if sname in telemetry_structs:
-                structs[output_struct].update(svars)
+    structs[output_struct] = telemetry_structs
         
     with open(output_h_fname, 'w+') as f:
         f.write(flight_data_h_start)
-        f.write(gen_history_struct(output_struct, "", structs[output_struct], structs, ""))
+        f.write(gen_history_struct(output_struct, "", structs[output_struct], structs, "", True))
+        f.write('\n')
+        f.write(gen_history_struct("flight_frame_t", "", structs[output_struct], {}, "", False))
         f.write(flight_data_h_end)
-        for telem_struct in telemetry_structs:
+        for telem_struct in telemetry_structs.values():
             f.write(f"void commit_packet({telem_struct} packet);\n")
+        f.write(f"void commit_frame({frame_struct} frame);\n")
         f.write("void update_fh_pos();\n")
 
     with open(output_cpp_fname, 'w+') as f:
         f.write(flight_data_cpp_start)
-        for telem_struct in telemetry_structs:
-            f.write(f"\nvoid commit_packet({telem_struct} packet) {{\n")
-            f.write(gen_expansion("", telem_struct, structs))
+        for struct_name, struct_type in telemetry_structs.items():
+            f.write(f"\nvoid commit_packet({struct_type} packet) {{\n")
+            f.write(gen_expansion(struct_name, "", struct_type, structs))
             f.write(f"}};\n")
+        f.write(f"\nvoid commit_frame({frame_struct} frame) {{\n")
+        for struct_name in telemetry_structs:
+            f.write(f"  commit_packet(frame.{struct_name});\n")
+        f.write(f"}};\n")
         f.write(flight_data_cpp_end)
 
 if __name__ == '__main__':

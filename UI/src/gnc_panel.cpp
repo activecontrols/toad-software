@@ -30,7 +30,7 @@ void imu_accel_panel() {
   imu_acc.y_max = 15;
   imu_acc.y_min = -5;
 
-  scrolling_line_chart(imu_acc, FlightHistory.accel_x, FlightHistory.accel_y, FlightHistory.accel_z);
+  scrolling_line_chart(imu_acc, FlightHistory.gnc.accel_x, FlightHistory.gnc.accel_y, FlightHistory.gnc.accel_z);
 
   ImGui::End();
 }
@@ -47,7 +47,7 @@ void imu_gyro_panel() {
   imu_gyro.y_max = 0.5;
   imu_gyro.y_min = -0.5;
 
-  scrolling_line_chart(imu_gyro, FlightHistory.gyro_yaw, FlightHistory.gyro_pitch, FlightHistory.gyro_roll);
+  scrolling_line_chart(imu_gyro, FlightHistory.gnc.gyro_yaw, FlightHistory.gnc.gyro_pitch, FlightHistory.gnc.gyro_roll);
 
   ImGui::End();
 }
@@ -63,7 +63,7 @@ void mag_panel() {
   mag.y3_label = "z";
   mag.y_max = 1.5;
   mag.y_min = -1.5;
-  scrolling_line_chart(mag, FlightHistory.mag_x, FlightHistory.mag_y, FlightHistory.mag_z);
+  scrolling_line_chart(mag, FlightHistory.gnc.mag_x, FlightHistory.gnc.mag_y, FlightHistory.gnc.mag_z);
 
   ImGui::End();
 }
@@ -79,7 +79,8 @@ void gyro_bias_panel() {
   mag.y3_label = "bias roll";
   mag.y_max = 0.1;
   mag.y_min = -0.1;
-  scrolling_line_chart(mag, FlightHistory.gyro_bias_pitch, FlightHistory.gyro_bias_yaw, FlightHistory.gyro_bias_roll);
+  scrolling_line_chart(mag, FlightHistory.gnc.gyro_bias_pitch, FlightHistory.gnc.gyro_bias_yaw,
+                       FlightHistory.gnc.gyro_bias_roll);
 
   ImGui::End();
 }
@@ -95,7 +96,8 @@ void accel_bias_panel() {
   mag.y3_label = "bias z";
   mag.y_max = 0.1;
   mag.y_min = -0.1;
-  scrolling_line_chart(mag, FlightHistory.accel_bias_x, FlightHistory.accel_bias_y, FlightHistory.accel_bias_z);
+  scrolling_line_chart(mag, FlightHistory.gnc.accel_bias_x, FlightHistory.gnc.accel_bias_y,
+                       FlightHistory.gnc.accel_bias_z);
 
   ImGui::End();
 }
@@ -111,7 +113,7 @@ void mag_bias_panel() {
   mag.y3_label = "bias z";
   mag.y_max = 0.5;
   mag.y_min = -0.5;
-  scrolling_line_chart(mag, FlightHistory.mag_bias_x, FlightHistory.mag_bias_y, FlightHistory.mag_bias_z);
+  scrolling_line_chart(mag, FlightHistory.gnc.mag_bias_x, FlightHistory.gnc.mag_bias_y, FlightHistory.gnc.mag_bias_z);
 
   ImGui::End();
 }
@@ -119,10 +121,10 @@ void mag_bias_panel() {
 void gps_pos_panel() {
   ImGui::Begin(GPS_POS_PANEL);
 
-  float state_x = -fh_now(FlightHistory.gps_pos_west);
-  float state_y = fh_now(FlightHistory.gps_pos_north);
-  float target_x = -fh_now(FlightHistory.target_pos_west);
-  float target_y = fh_now(FlightHistory.target_pos_north);
+  float state_x = -fh_now(FlightHistory.gnc.gps_pos_west);
+  float state_y = fh_now(FlightHistory.gnc.gps_pos_north);
+  float target_x = -fh_now(FlightHistory.gnc.target_pos_west);
+  float target_y = fh_now(FlightHistory.gnc.target_pos_north);
 
   centered_text("GPS Position");
   if (ImPlot::BeginPlot("##GPS Position", ImVec2(-1, 200), ImPlotFlags_NoLegend)) {
@@ -135,7 +137,7 @@ void gps_pos_panel() {
     double xs[N];
     double ys[N];
 
-    double r = fh_now(FlightHistory.gps_hor_prec);
+    double r = fh_now(FlightHistory.gnc.gps_hor_prec);
 
     for (int i = 0; i < N; ++i) {
       double theta = 2.0 * 3.1415 * i / (N - 1);
@@ -160,8 +162,8 @@ void gps_vel_panel() {
     ImPlot::SetupAxes("East (m/s)", "North (m/s)");
     ImPlot::SetupAxesLimits(-5, 5, -5, 5);
 
-    double gps_x[2] = {0, -fh_now(FlightHistory.gps_vel_west)};
-    double gps_y[2] = {0, fh_now(FlightHistory.gps_vel_north)};
+    double gps_x[2] = {0, -fh_now(FlightHistory.gnc.gps_vel_west)};
+    double gps_y[2] = {0, fh_now(FlightHistory.gnc.gps_vel_north)};
     ImPlotSpec spec;
     spec.LineWeight = 4;
     ImPlot::PlotLine("##GPS Velocity", gps_x, gps_y, 2, spec);
@@ -176,11 +178,11 @@ void gps_vert_panel() {
   ImGui::Begin(GPS_VERT_PANEL);
 
   centered_text("Altitude");
-  ImGui::Text("     GPS: %5.2f m", fh_now(FlightHistory.gps_pos_up));
-  ImGui::Text("  Target: %5.2f m", fh_now(FlightHistory.target_pos_up));
+  ImGui::Text("     GPS: %5.2f m", fh_now(FlightHistory.gnc.gps_pos_up));
+  ImGui::Text("  Target: %5.2f m", fh_now(FlightHistory.gnc.target_pos_up));
   ImGui::Dummy(ImVec2(0, 50)); // Add vertical spacing
   centered_text("Vert Velocity");
-  ImGui::Text("     GPS: %5.2f m/s", fh_now(FlightHistory.gps_vel_up));
+  ImGui::Text("     GPS: %5.2f m/s", fh_now(FlightHistory.gnc.gps_vel_up));
 
   ImGui::End();
 }
@@ -190,13 +192,13 @@ void estimated_pos_panel() {
 
   centered_text("Estimated Pos");
   if (ImPlot3D::BeginPlot("##Estimated Pos", ImVec2(-1, 500))) {
-    double cs_x[2] = {-fh_now(FlightHistory.state_pos_west), -fh_now(FlightHistory.state_pos_west)};
-    double cs_y[2] = {fh_now(FlightHistory.state_pos_north), fh_now(FlightHistory.state_pos_north)};
-    double cs_z[2] = {0, fh_now(FlightHistory.state_pos_up)};
+    double cs_x[2] = {-fh_now(FlightHistory.gnc.state_pos_west), -fh_now(FlightHistory.gnc.state_pos_west)};
+    double cs_y[2] = {fh_now(FlightHistory.gnc.state_pos_north), fh_now(FlightHistory.gnc.state_pos_north)};
+    double cs_z[2] = {0, fh_now(FlightHistory.gnc.state_pos_up)};
 
-    double target_x[2] = {-fh_now(FlightHistory.target_pos_west), -fh_now(FlightHistory.target_pos_west)};
-    double target_y[2] = {fh_now(FlightHistory.target_pos_north), fh_now(FlightHistory.target_pos_north)};
-    double target_z[2] = {0, fh_now(FlightHistory.target_pos_up)};
+    double target_x[2] = {-fh_now(FlightHistory.gnc.target_pos_west), -fh_now(FlightHistory.gnc.target_pos_west)};
+    double target_y[2] = {fh_now(FlightHistory.gnc.target_pos_north), fh_now(FlightHistory.gnc.target_pos_north)};
+    double target_z[2] = {0, fh_now(FlightHistory.gnc.target_pos_up)};
 
     ImPlot3D::SetupAxes("East (m)", "North (m)", "Up (m)");
     ImPlot3D::SetupAxisLimits(ImAxis3D_Z, 0, 2.5);
@@ -234,10 +236,10 @@ void estimated_orientation_panel() {
 
   centered_text("Orientation");
   ImVec4 q;
-  q.x = fh_now(FlightHistory.state_q_vec_0);
-  q.y = fh_now(FlightHistory.state_q_vec_1);
-  q.z = fh_now(FlightHistory.state_q_vec_2);
-  q.w = fh_now(FlightHistory.state_q_vec_new);
+  q.x = fh_now(FlightHistory.gnc.state_q_vec_0);
+  q.y = fh_now(FlightHistory.gnc.state_q_vec_1);
+  q.z = fh_now(FlightHistory.gnc.state_q_vec_2);
+  q.w = fh_now(FlightHistory.gnc.state_q_vec_new);
   rotatable_cube_plot(q);
 
   ImGui::End();
@@ -247,32 +249,32 @@ void controller_output_panel() {
   ImGui::Begin(CONTROLLER_OUTPUT_PANEL);
 
   centered_text("Controller Output");
-  ImGui::Text("  Target Thrust: %5.2f N", fh_now(FlightHistory.thrust_N));
-  ImGui::Text("    Target Roll: %5.2f rad/s^2", fh_now(FlightHistory.roll_rad_sec_squared));
-  ImGui::Text("         Thrust: %5.2f %%", fh_now(FlightHistory.thrust_perc));
+  ImGui::Text("  Target Thrust: %5.2f N", fh_now(FlightHistory.gnc.thrust_N));
+  ImGui::Text("    Target Roll: %5.2f rad/s^2", fh_now(FlightHistory.gnc.roll_rad_sec_squared));
+  ImGui::Text("         Thrust: %5.2f %%", fh_now(FlightHistory.gnc.thrust_perc));
 
   ImGui::Dummy(ImVec2(0, 100));
 
-  ImGui::Text("Elasped Time: %5.2f s", fh_now(FlightHistory.elapsed_time));
-  status_flag("    GND Flag", fh_now(FlightHistory.GND_flag), "##gnd_flag");
+  ImGui::Text("Elasped Time: %5.2f s", fh_now(FlightHistory.gnc.elapsed_time));
+  status_flag("    GND Flag", fh_now(FlightHistory.gnc.GND_flag), "##gnd_flag");
   ImGui::TableSetColumnIndex(1);
-  if (fh_now(FlightHistory.flight_armed)) {
-    status_flag("       Armed", !fh_now(FlightHistory.flight_armed), "##armed_flag");
+  if (fh_now(FlightHistory.gnc.flight_armed)) {
+    status_flag("       Armed", !fh_now(FlightHistory.gnc.flight_armed), "##armed_flag");
   } else {
-    status_flag("     Not Armed", !fh_now(FlightHistory.flight_armed), "##armed_flag");
+    status_flag("     Not Armed", !fh_now(FlightHistory.gnc.flight_armed), "##armed_flag");
   }
 
-  if (fh_now(FlightHistory.rtk_status) == 0) {
+  if (fh_now(FlightHistory.gnc.rtk_status) == 0) {
     status_flag("     NO RTK", 0, "##rtk_flag");
-  } else if (fh_now(FlightHistory.rtk_status) == 1) {
+  } else if (fh_now(FlightHistory.gnc.rtk_status) == 1) {
     status_flag(" RTK FLOAT", 0, "##rtk_flag");
-  } else if (fh_now(FlightHistory.rtk_status) == 2) {
+  } else if (fh_now(FlightHistory.gnc.rtk_status) == 2) {
     status_flag(" RTK FIX", 1, "##rtk_flag");
   }
 
-  ImGui::Text("GPS Horizontal Precision: %5.2f cm", fh_now(FlightHistory.gps_hor_prec) * 100);
-  ImGui::Text("GPS Vertical Precision: %5.2f cm", fh_now(FlightHistory.gps_ver_prec) * 100);
-  ImGui::Text("GPS Sat Count: %d", fh_now(FlightHistory.gps_sat_count));
+  ImGui::Text("GPS Horizontal Precision: %5.2f cm", fh_now(FlightHistory.gnc.gps_hor_prec) * 100);
+  ImGui::Text("GPS Vertical Precision: %5.2f cm", fh_now(FlightHistory.gnc.gps_ver_prec) * 100);
+  ImGui::Text("GPS Sat Count: %d", fh_now(FlightHistory.gnc.gps_sat_count));
 
   ImGui::End();
 }
@@ -280,8 +282,8 @@ void controller_output_panel() {
 void gimbal_output_panel() {
   ImGui::Begin(GIMBAL_OUTPUT_PANEL);
 
-  float x = fh_now(FlightHistory.gimbal_yaw_raw);
-  float y = fh_now(FlightHistory.gimbal_pitch_raw);
+  float x = fh_now(FlightHistory.gnc.gimbal_yaw_raw);
+  float y = fh_now(FlightHistory.gnc.gimbal_pitch_raw);
 
   centered_text("Gimbal Command");
   if (ImPlot::BeginPlot("##Gimbal Command", ImVec2(-1, 250), ImPlotFlags_NoLegend)) {
