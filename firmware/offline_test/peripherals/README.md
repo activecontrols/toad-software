@@ -41,21 +41,56 @@ An abstract interface enabling developers to plug custom models (motors, sensors
 - `name()`: Identifier for debug/snooping.
 - `on_receive_bytes(buffer, size)`: Called when firmware transmits to the device while its `SEL` pin is `HIGH`.
 - `transmit_to_bus(buffer, size)`: Convenience method for peripheral models to reply onto the bus.
+- `start(priority)` / `stop()` / `join()`: Pattern 2 fiber lifecycle methods.
+
+#### Dual-Mode Execution (Synchronous or Pattern 2 Fiber):
+- **Synchronous Mode (Default)**: If `start()` is not called, packets are processed immediately on `on_receive_bytes()`.
+- **Pattern 2 Fiber Mode**: Calling `start(PRIO_SENSORS)` creates an internal `boost::fibers::buffered_channel<std::vector<uint8_t>>` message queue and launches an independent background fiber. Firmware packets are pushed to the queue and processed asynchronously by the peripheral fiber.
 
 #### Rapid Substitution with `FunctionalRS485Device`:
-Team members can substitute any peripheral model (e.g. custom motor, actuator, valve) in 3 lines without subclassing:
+Team members can substitute any peripheral model in 3 lines, with optional fiber execution:
 ```cpp
 auto custom_motor = std::make_shared<FunctionalRS485Device>("MyCustomMotor",
     [](const uint8_t* data, size_t len, IRS485Device& dev) {
         // Parse incoming firmware packet
         if (len >= 1 && data[0] == 0x01) {
-            // Reply back to firmware
+            VirtualClock::instance().sleep_for(50); // Simulate processing latency
             dev.transmit_to_bus("MOTOR_OK\n");
         }
     });
 
+// Option A: Run on independent background fiber with message queue (Pattern 2)
+custom_motor->start(PRIO_ACTUATOR_PHYSICS);
+
 // Plug directly into RS485Mux on its select pin
 mux->register_device(PIN_TVC_PITCH_SEL, custom_motor);
+```
+
+---
+
+### `ISPIDevice` & `FunctionalSPIDevice`
+Header: [`ISPIDevice.h`](ISPIDevice.h)
+
+An abstract interface enabling developers to model hardware ICs, sensors, and flash memory on an SPI bus:
+- `name()`: Identifier for debug and transaction logging.
+- `on_cs_asserted()`: Called when the device's Chip Select (`CS`) line is asserted (`LOW`).
+- `on_cs_deasserted()`: Called when the device's Chip Select (`CS`) line is deasserted (`HIGH`).
+- `transfer_byte(mosi)`: Full-duplex single byte transfer (returns MISO byte).
+- `transfer_buffer(tx_buf, rx_buf, count)`: Full-duplex buffer transfer (defaults to sequentially invoking `transfer_byte`).
+
+#### Rapid Substitution with `FunctionalSPIDevice`:
+Team members can substitute any SPI peripheral model (e.g. ADC, thermocouple amplifier, framing test mock) in 3 lines using lambdas without writing a full class:
+```cpp
+auto adc_mock = std::make_shared<FunctionalSPIDevice>("ADS131M02_Mock",
+    [](uint8_t mosi, FunctionalSPIDevice& dev) -> uint8_t {
+        // Return synthetic ADC output byte on MISO
+        return 0xA5;
+    },
+    /*on_assert=*/[](FunctionalSPIDevice& dev) { /* reset frame index */ },
+    /*on_deassert=*/[](FunctionalSPIDevice& dev) { /* commit frame */ });
+
+// Plug directly into SPIBus on its CS pin
+spi_bus->register_device(PIN_PT_TC_CS_CHAMBER, adc_mock);
 ```
 
 ---
@@ -64,6 +99,11 @@ mux->register_device(PIN_TVC_PITCH_SEL, custom_motor);
 Header: [`AMT242AV_Sim.h`](AMT242AV_Sim.h) | Implementation: [`AMT242AV_Sim.cpp`](AMT242AV_Sim.cpp)
 
 Behavioral model of the Broadcom/CUI AMT242AV 12-bit modular absolute rotary shaft encoder over RS-485:
+- **Pattern 2 Fiber Queue**:
+  - `start(priority)` launches an independent background fiber (default `PRIO_SENSORS = 5`) consuming from an internal `boost::fibers::buffered_channel<std::vector<uint8_t>>`.
+  - Simulates physical response latency (`set_response_delay_us(70)` defaults to 70 us, matching hardware datasheet).
+  - Simulates controller reboot delay (`set_reset_delay_us(5000)` defaults to 5 ms).
+  - `stop()` and `join()` for clean fiber teardown.
 - **Command Handling**:
   - `ID` (e.g. `0x00`): Read Position. Transmits 2 bytes containing 12-bit angular position formatted across bits 2..13 and 2-bit odd parity checksum across bits 14..15.
   - `ID | 0x02`: Set zero position reference (zeroes output position).
@@ -71,6 +111,7 @@ Behavioral model of the Broadcom/CUI AMT242AV 12-bit modular absolute rotary sha
 - **Test Controls**:
   - `set_position_fraction(0.5f)`: Sets shaft angle as normalized 0.0 - 1.0 fraction.
   - `set_raw_position(pos12)`: Sets explicit 12-bit raw tick value (0..4095).
+  - `set_response_delay_us(us)`: Configures command processing latency (default 70 us).
   - `set_reset_delay_us(us)`: Configures reboot delay duration (default 5000 us = 5 ms).
   - `reset_count()`: Inspects number of controller resets performed.
   - `calculate_checksum(pos12)`: Computes hardware 2-bit odd parity.

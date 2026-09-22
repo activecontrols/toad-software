@@ -82,6 +82,32 @@ Validates GPIO state tracking, RS-485 multiplexing, bus collision detection, plu
    Validates 12-bit position formatting, 2-bit odd parity checksum calculation, and zero/reset command execution for the `AMT242AV_Sim` model.
 7. **`test_firmware_uart_class_integration()`**:
    Executes the exact firmware sequence from `AMT242AV::_read_pos()` via the `Uart` class and verifies reading 12-bit position back into firmware.
+8. **`test_amt242av_fiber_channel_concurrency()`**:
+   Executes the **actual production firmware driver** (`firmware/lib/throttle_valves/AMT242AV.cpp`) on `PRIO_FIRMWARE` (10) against `AMT242AV_Sim` running on an independent background fiber on `PRIO_SENSORS` (5) via `boost::fibers::buffered_channel`. Validates `driver.read_pos()`, `driver.zero()`, and `driver.reset()` across the fiber boundary with microsecond virtual timing.
+9. **`test_functional_device_fiber_channel()`**:
+   Validates Pattern 2 asynchronous fiber queue execution with `FunctionalRS485Device::start()`, verifying inter-fiber request/response passing through `rx_channel_`.
+
+### `test_spi_bus.cpp`
+Source: [`test_spi_bus.cpp`](test_spi_bus.cpp)
+
+Validates the full SPI communication stack, full-duplex bus fabric, multi-device routing, clock timing, contention detection, copy semantics, and transaction snooping:
+
+1. **`test_spi_device_cs_callbacks()`**:
+   Validates that `on_cs_asserted()` and `on_cs_deasserted()` callbacks trigger synchronously when CS pins are driven `LOW` and `HIGH` via `digitalWrite()`.
+2. **`test_spi_single_device_full_duplex()`**:
+   Validates synchronous full-duplex byte transfers (`transfer(tx_byte) -> rx_byte`) through Layer 1 `SPIClass` down to Layer 2 `SPIBus`.
+3. **`test_spi_buffer_and_transfer16()`**:
+   Validates multi-byte buffer transfers (`transfer(buf, count)`) and 16-bit word transfers (`transfer16()`).
+4. **`test_spi_multiple_devices_cs_isolation()`**:
+   Registers multiple devices on separate CS pins (`PIN_PT_TC_CS_CHAMBER` and `PIN_PT_TC_CS_MANIFOLD`). Validates that transactions route exclusively to the asserted device, and verifies that bus pull-up (`0xFF`) is returned when no device CS is asserted.
+5. **`test_spi_bus_contention_detection()`**:
+   Asserts multiple CS lines `LOW` simultaneously. Verifies that `has_bus_contention()` triggers, bus contention count increments, data is corrupted to `0xFF`, and normal communication resumes once contention resolves.
+6. **`test_spi_clock_timing_with_virtual_clock()`**:
+   Configures `SPISettings` (e.g., 1 MHz clock) and transmits 1,000 bytes. Validates that the virtual clock advances by exactly 8,000 microseconds ($1000 \times 8 \times 1\,\mu\text{s}$) without spinning the host CPU.
+7. **`test_spi_class_copy_semantics()`**:
+   Validates that `SPIClass` copy construction and copy assignment retain shared access to the same backend `SPIBus` fabric (vital for `ADS131M02` which stores `SPIClass` by value).
+8. **`test_spi_transaction_history_and_snooper()`**:
+   Validates `ISpiObservable` / `ISpiObserver` transaction history logging, verifying recorded timestamps, CS pins, and MOSI/MISO byte sequences.
 
 ---
 

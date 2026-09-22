@@ -169,9 +169,42 @@ toad::sim::BusRegistry::instance().register_uart(PIN_RS485_6_RX, PIN_RS485_6_TX,
 
 ---
 
+### `SPIBus`
+Header: [`SPIBus.h`](SPIBus.h) | Implementation: [`SPIBus.cpp`](SPIBus.cpp)
+
+Simulates full-duplex synchronous SPI bus fabrics with multiple slave devices controlled via dedicated Chip Select (`CS`) lines.
+
+#### Key Capabilities:
+- **`CS` Pin Multiplexing & Decoding**: Peripherals register with their respective `cs_pin` via `register_device(cs_pin, device, active_low = true)`.
+- **Automatic GPIO Listener Wiring**: Hooks into `toad::sim::SimulatedGPIO::instance()` to monitor CS transitions. Asserts `dev->on_cs_asserted()` when CS is driven active and `dev->on_cs_deasserted()` when CS is driven inactive.
+- **Hardware Bus Contention Detection**: If multiple CS lines are asserted active simultaneously, the bus flags contention (`has_bus_contention() == true`), increments `contention_count()`, and returns `0xFF` collision bytes.
+- **Clock Timing Simulation**: Accurately simulates clock wire delay based on `SPISettings::getClockFreq()` in `VirtualClock` when `zero_latency` is disabled.
+- **Full-Duplex Transfers**: Supports `transfer(uint8_t)`, `transfer16(uint16_t)` (MSBFIRST/LSBFIRST), and in-place `transfer(void* buf, size_t count)`.
+- **Transaction Observability**: Implements `ISpiObservable`, logging complete `SpiTransaction` records with microsecond timestamps, CS pin, device name, and full MOSI/MISO byte streams.
+
+```cpp
+#include "bus/SPIBus.h"
+#include "peripherals/ISPIDevice.h"
+#include "hardware_mapping/ec_pins.h"
+
+// 1. Create SPI bus fabric
+auto spi_bus = std::make_shared<toad::sim::SPIBus>("PT_TC_SPI_1", PIN_PT_TC_SPI_1_MOSI, PIN_PT_TC_SPI_1_MISO, PIN_PT_TC_SPI_1_SCK);
+
+// 2. Attach simulated ADC to PIN_PT_BOARD_1_2_CS
+auto mock_adc = std::make_shared<toad::sim::FunctionalSPIDevice>("ADS131M02",
+    [](uint8_t mosi, toad::sim::FunctionalSPIDevice&) -> uint8_t {
+        return 0x42; // Simulated ADC byte
+    });
+spi_bus->register_device(PIN_PT_BOARD_1_2_CS, mock_adc);
+
+// 3. Register to BusRegistry for firmware SPIClass
+toad::sim::BusRegistry::instance().register_spi(PIN_PT_TC_SPI_1_MOSI, PIN_PT_TC_SPI_1_MISO, PIN_PT_TC_SPI_1_SCK, spi_bus);
+```
+
+---
+
 ## 4. Other Bus Fabrics (Future Milestones)
 
-- **`SPIBus`**: Simulates synchronous master-slave clocking, chip select (`CS`) line decoding, and full-duplex transfers.
 - **`CANBus`**: Simulates CAN 2.0B / CAN FD arbitrated multi-drop buses with message ID filtering and priority resolution.
 
 

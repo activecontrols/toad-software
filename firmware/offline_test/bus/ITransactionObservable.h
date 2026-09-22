@@ -39,4 +39,25 @@ public:
     virtual void remove_observer(std::shared_ptr<IUartObserver> observer) = 0;
 };
 
+struct SpiTransaction {
+    uint64_t timestamp_us{0};
+    uint32_t cs_pin{0};
+    std::string device_name;
+    std::vector<uint8_t> mosi_data;
+    std::vector<uint8_t> miso_data;
+};
+
+class ISpiObserver {
+public:
+    virtual ~ISpiObserver() = default;
+    virtual void on_spi_transaction(const SpiTransaction& tx) = 0;
+};
+
+class ISpiObservable {
+public:
+    virtual ~ISpiObservable() = default;
+    virtual void add_observer(std::shared_ptr<ISpiObserver> observer) = 0;
+    virtual void remove_observer(std::shared_ptr<ISpiObserver> observer) = 0;
+};
+
 } // namespace toad::sim

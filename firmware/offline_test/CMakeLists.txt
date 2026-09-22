@@ -67,9 +67,11 @@ add_library(toad_sim_core STATIC
     core/SimulatedGPIO.cpp
     hal_mock/Arduino.cpp
     hal_mock/HardwareSerial.cpp
+    hal_mock/SPI.cpp
     bus/UartBus.cpp
     bus/UartSnooper.cpp
     bus/RS485Mux.cpp
+    bus/SPIBus.cpp
     peripherals/AMT242AV_Sim.cpp
     runner/UartTerminalHarness.cpp
     ${arduino_core_api_SOURCE_DIR}/api/Print.cpp
@@ -102,9 +104,17 @@ add_test(NAME test_uart_bus COMMAND test_uart_bus)
 # Milestone: RS485 Muxing & Pluggable Peripherals test
 add_executable(test_rs485_mux
     tests/test_rs485_mux.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/throttle_valves/AMT242AV.cpp
 )
 target_link_libraries(test_rs485_mux PRIVATE toad_sim_core)
 add_test(NAME test_rs485_mux COMMAND test_rs485_mux)
+
+# Milestone: SPI Emulation & Pluggable Devices test
+add_executable(test_spi_bus
+    tests/test_spi_bus.cpp
+)
+target_link_libraries(test_spi_bus PRIVATE toad_sim_core)
+add_test(NAME test_spi_bus COMMAND test_spi_bus)
 
 # Standalone Terminal Interactive Harness
 add_executable(uart_terminal_harness

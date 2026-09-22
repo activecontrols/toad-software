@@ -49,10 +49,14 @@ Provides board pin definitions matching the TOAD_H7 microcontroller layout (`PA0
 
 ---
 
-### 3. `SPI.h`
-Header: [`SPI.h`](SPI.h)
+### 3. `SPI.h` & `SPI.cpp`
+Header: [`SPI.h`](SPI.h) | Implementation: [`SPI.cpp`](SPI.cpp)
 
-Provides `SPIClass` mapped to `arduino::HardwareSPI` from ArduinoCore-API, satisfying board mapping headers like `hardware_mapping/ec_pins.h`.
+Defines the concrete `SPIClass` implementing `arduino::HardwareSPI`:
+- **Full Arduino Compatibility**: Implements `begin()`, `end()`, `beginTransaction(SPISettings)`, `endTransaction()`, `transfer(uint8_t)`, `transfer16(uint16_t)`, and `transfer(void*, size_t)`.
+- **Copy-by-Value Semantics**: Stores a `std::shared_ptr<toad::sim::SPIBus>` backend, allowing `SPIClass` to be passed by value (as in `ADS131M02(SPIClass spi_bus, ...)`) while ensuring all instances share the same virtual bus fabric.
+- **Pre-defined Instances**: Defines weak default instances for `PT_TC_SPI_1` and `PT_TC_SPI_3` matching `hardware_mapping/ec_pins.h`, allowing test binaries to link without `ec_main.cpp`.
+- **Lazy Resolution**: Resolves backend bus automatically via `BusRegistry::instance().get_or_create_spi(mosi, miso, sck)`.
 
 ---
 

@@ -8,17 +8,17 @@ namespace arduino {
     using ::PinStatus;
     using ::PinMode;
 
-    constexpr PinStatus LOW = ::LOW;
-    constexpr PinStatus HIGH = ::HIGH;
-    constexpr PinStatus CHANGE = ::CHANGE;
-    constexpr PinStatus FALLING = ::FALLING;
-    constexpr PinStatus RISING = ::RISING;
+    using ::LOW;
+    using ::HIGH;
+    using ::CHANGE;
+    using ::FALLING;
+    using ::RISING;
 
-    constexpr PinMode INPUT = ::INPUT;
-    constexpr PinMode OUTPUT = ::OUTPUT;
-    constexpr PinMode INPUT_PULLUP = ::INPUT_PULLUP;
-    constexpr PinMode INPUT_PULLDOWN = ::INPUT_PULLDOWN;
-    constexpr PinMode OUTPUT_OPENDRAIN = ::OUTPUT_OPENDRAIN;
+    using ::INPUT;
+    using ::OUTPUT;
+    using ::INPUT_PULLUP;
+    using ::INPUT_PULLDOWN;
+    using ::OUTPUT_OPENDRAIN;
 }
 #endif
 

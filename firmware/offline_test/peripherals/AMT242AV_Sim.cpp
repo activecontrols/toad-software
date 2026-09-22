@@ -5,8 +5,38 @@
 
 namespace toad::sim {
 
-AMT242AV_Sim::AMT242AV_Sim(uint8_t id, std::string name)
-    : name_(std::move(name)), id_(id) {}
+AMT242AV_Sim::AMT242AV_Sim(uint8_t id, std::string name, size_t queue_capacity)
+    : name_(std::move(name)), id_(id), queue_capacity_(queue_capacity) {}
+
+AMT242AV_Sim::~AMT242AV_Sim() {
+    stop();
+}
+
+void AMT242AV_Sim::start(int priority) {
+    if (running_) return;
+    running_ = true;
+    rx_channel_ = std::make_unique<boost::fibers::buffered_channel<std::vector<uint8_t>>>(queue_capacity_);
+    fiber_ = launch_fiber_with_priority(priority, [this]() {
+        this->fiber_loop();
+    });
+}
+
+void AMT242AV_Sim::stop() {
+    if (!running_) return;
+    running_ = false;
+    if (rx_channel_) {
+        rx_channel_->close();
+    }
+    if (fiber_.joinable()) {
+        fiber_.join();
+    }
+}
+
+void AMT242AV_Sim::join() {
+    if (fiber_.joinable()) {
+        fiber_.join();
+    }
+}
 
 void AMT242AV_Sim::set_position_fraction(float fraction) {
     fraction = std::max(0.0f, std::min(1.0f, fraction));
@@ -32,6 +62,33 @@ uint8_t AMT242AV_Sim::calculate_checksum(uint16_t pos12) {
 }
 
 void AMT242AV_Sim::on_receive_bytes(const uint8_t* buffer, size_t size) {
+    if (!buffer || size == 0) return;
+
+    if (running_ && rx_channel_) {
+        rx_channel_->push(std::vector<uint8_t>(buffer, buffer + size));
+    } else {
+        process_packet(buffer, size);
+    }
+}
+
+void AMT242AV_Sim::fiber_loop() {
+    while (running_) {
+        std::vector<uint8_t> packet;
+        boost::fibers::channel_op_status status = rx_channel_->pop(packet);
+        if (status == boost::fibers::channel_op_status::closed || !running_) {
+            break;
+        }
+        if (packet.empty()) continue;
+
+        if (response_delay_us_ > 0) {
+            VirtualClock::instance().sleep_for(response_delay_us_);
+        }
+
+        process_packet(packet.data(), packet.size());
+    }
+}
+
+void AMT242AV_Sim::process_packet(const uint8_t* buffer, size_t size) {
     if (!buffer || size == 0) return;
 
     uint8_t cmd = buffer[0];

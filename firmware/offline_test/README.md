@@ -786,6 +786,7 @@ Or execute individual test targets directly:
 ./build/test_virtual_clock
 ./build/test_uart_bus
 ./build/test_rs485_mux
+./build/test_spi_bus
 ```
 
 ---
@@ -805,21 +806,26 @@ Or execute individual test targets directly:
    - Implement `UartTerminalHarness` (`runner/UartTerminalHarness.h/.cpp`) and CLI tool (`runner/uart_terminal_harness.cpp`) supporting live console interaction and POSIX pseudo-terminals (`--pty`).
    - Verified 100% via `test_uart_bus`.
 
-3. **Milestone 3: Simulated GPIO, RS-485 Muxing & Pluggable Peripherals** [COMPLETE]:
+3. **Milestone 3: Simulated GPIO, RS-485 Muxing & Pluggable Peripherals (with Pattern 2 Fiber Queues)** [COMPLETE]:
    - Implement `SimulatedGPIO` (`core/SimulatedGPIO.h/.cpp`) providing microsecond pin tracking, digital/analog state management, and edge listener dispatch.
    - Implement `RS485Mux` (`bus/RS485Mux.h/.cpp`) specializing `UartBus` with `SimulatedGPIO` callbacks on Select (`SEL`) lines.
    - Implement abstract `IRS485Device` and lambda-based `FunctionalRS485Device` in `peripherals/IRS485Device.h`, enabling instant 3-line substitution of custom peripheral and motor models.
    - Implement behavioral model `AMT242AV_Sim` (`peripherals/AMT242AV_Sim.h/.cpp`) modeling 12-bit position reporting, zero/reset commands, and hardware 2-bit odd parity calculation.
+   - Implement Pattern 2 asynchronous request/response inter-fiber messaging via `boost::fibers::buffered_channel` for `AMT242AV_Sim` and `FunctionalRS485Device`.
    - Implement bus collision/contention detection when multiple `SEL` pins are driven `HIGH` simultaneously (`has_bus_contention()`, `contention_count()`).
-   - Verified 100% via `test_rs485_mux` (all 7 test cases passing).
+   - Verified 100% via `test_rs485_mux` (all 9 test cases passing, including real production driver `firmware/lib/throttle_valves/AMT242AV.cpp` operating concurrently across the fiber boundary).
 
 4. **Milestone 4: UART Transaction Snooping & Dedicated Terminal Output (Deferred)**:
    - Implement independent terminal output sink support (POSIX pseudo-terminal `/dev/pts/N` or named FIFO) allowing each enabled bus to stream live traffic into its own dedicated terminal window.
 
-5. **Milestone 5: SPI Bus & Pressure/Temperature Sensor Emulation**:
-   - Implement Layer 1 `SPIClass` (`hal_mock/SPI.h`) and Layer 2 `SPIBus` (`bus/SPIBus.h/.cpp`) with CS-based queue routing.
-   - Link [`lib/pressure_sensors/PressureSensors.cpp`](../lib/pressure_sensors/PressureSensors.cpp) and [`lib/temperature_sensors/TemperatureSensors.cpp`](../lib/temperature_sensors/TemperatureSensors.cpp).
-   - Verify `PressureSensors::begin()` and `TemperatureSensors::begin()` initialize simulated `ADS131M02` and `MAX31856` models via `PT_TC_SPI_1` and `PT_TC_SPI_3`.
+5. **Milestone 5: SPI Bus & Pluggable Device Emulation** [COMPLETE]:
+   - Implement Layer 1 `SPIClass` (`hal_mock/SPI.h/.cpp`) implementing `arduino::HardwareSPI` with copy-by-value shared bus semantics.
+   - Implement Layer 2 `SPIBus` (`bus/SPIBus.h/.cpp`) with synchronous full-duplex transfers, `SimulatedGPIO` CS tracking, bus collision detection on multiple active CS lines, and `SPISettings` clock timing in `VirtualClock`.
+   - Implement abstract `ISPIDevice` and lambda-based `FunctionalSPIDevice` in `peripherals/ISPIDevice.h` for 3-line sensor mock substitution.
+   - Implement `BusRegistry` (`core/BusRegistry.h/.cpp`) SPI pin mapping and lazy resolution (`(mosi, miso, sck)` and named buses).
+   - Implement `ISpiObservable` / `ISpiObserver` transaction history logging (`bus/ITransactionObservable.h`).
+   - Verified 100% via `test_spi_bus` (all 8 test cases passing).
+   - Sensor driver integration with simulated `ADS131M02` and `MAX31856` models will follow.
 
 6. **Milestone 6: Virtual CAN & Actuator Emulation**:
    - Implement Layer 1 `CAN` (`hal_mock/MockCAN.h`) and Layer 2 `CANBus` (`bus/CANBus.h/.cpp`) multi-drop broadcast fabric.
