@@ -14,7 +14,7 @@ Data Formats:
 
 Telemetry from the vehicle is transmitted as a (nested) struct of various flight properties:
 
-See: [toad_telemetry.h](/firmware/lib/can_bus/toad_telemetry.h)
+See: [toad_telemetry.h](/firmware/lib/telemetry/toad_telemetry.h)
 
 ```cpp
 struct gnc_telemetry_t {

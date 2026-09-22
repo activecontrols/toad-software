@@ -5,7 +5,7 @@
       "includePath": [
         "${workspaceFolder}/**",
         "${workspaceFolder}/../firmware/lib/hardware_mapping",
-        "${workspaceFolder}/../firmware/lib/can_bus"
+        "${workspaceFolder}/../firmware/lib/telemetry"
       ],
       "defines": [],
       "compilerPath": "g++",

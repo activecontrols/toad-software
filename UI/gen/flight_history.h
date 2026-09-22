@@ -16,21 +16,29 @@
 
 struct flight_history_t {
   struct {
-    float accel_x[FLIGHT_HISTORY_LENGTH * 2];
-    float accel_y[FLIGHT_HISTORY_LENGTH * 2];
-    float accel_z[FLIGHT_HISTORY_LENGTH * 2];
+    struct {
+      float x[FLIGHT_HISTORY_LENGTH * 2];
+      float y[FLIGHT_HISTORY_LENGTH * 2];
+      float z[FLIGHT_HISTORY_LENGTH * 2];
+    } accel;
     float gyro_yaw[FLIGHT_HISTORY_LENGTH * 2];
     float gyro_pitch[FLIGHT_HISTORY_LENGTH * 2];
     float gyro_roll[FLIGHT_HISTORY_LENGTH * 2];
-    float mag_x[FLIGHT_HISTORY_LENGTH * 2];
-    float mag_y[FLIGHT_HISTORY_LENGTH * 2];
-    float mag_z[FLIGHT_HISTORY_LENGTH * 2];
-    float gps_pos_north[FLIGHT_HISTORY_LENGTH * 2];
-    float gps_pos_west[FLIGHT_HISTORY_LENGTH * 2];
-    float gps_pos_up[FLIGHT_HISTORY_LENGTH * 2];
-    float gps_vel_north[FLIGHT_HISTORY_LENGTH * 2];
-    float gps_vel_west[FLIGHT_HISTORY_LENGTH * 2];
-    float gps_vel_up[FLIGHT_HISTORY_LENGTH * 2];
+    struct {
+      float x[FLIGHT_HISTORY_LENGTH * 2];
+      float y[FLIGHT_HISTORY_LENGTH * 2];
+      float z[FLIGHT_HISTORY_LENGTH * 2];
+    } mag;
+    struct {
+      float north[FLIGHT_HISTORY_LENGTH * 2];
+      float west[FLIGHT_HISTORY_LENGTH * 2];
+      float up[FLIGHT_HISTORY_LENGTH * 2];
+    } gps_pos;
+    struct {
+      float north[FLIGHT_HISTORY_LENGTH * 2];
+      float west[FLIGHT_HISTORY_LENGTH * 2];
+      float up[FLIGHT_HISTORY_LENGTH * 2];
+    } gps_vel;
     float state_q_vec_new[FLIGHT_HISTORY_LENGTH * 2];
     float state_q_vec_0[FLIGHT_HISTORY_LENGTH * 2];
     float state_q_vec_1[FLIGHT_HISTORY_LENGTH * 2];
@@ -54,9 +62,11 @@ struct flight_history_t {
     float gimbal_pitch_raw[FLIGHT_HISTORY_LENGTH * 2];
     float thrust_N[FLIGHT_HISTORY_LENGTH * 2];
     float roll_rad_sec_squared[FLIGHT_HISTORY_LENGTH * 2];
-    float target_pos_north[FLIGHT_HISTORY_LENGTH * 2];
-    float target_pos_west[FLIGHT_HISTORY_LENGTH * 2];
-    float target_pos_up[FLIGHT_HISTORY_LENGTH * 2];
+    struct {
+      float north[FLIGHT_HISTORY_LENGTH * 2];
+      float west[FLIGHT_HISTORY_LENGTH * 2];
+      float up[FLIGHT_HISTORY_LENGTH * 2];
+    } target_pos;
     float elapsed_time[FLIGHT_HISTORY_LENGTH * 2];
     bool GND_flag[FLIGHT_HISTORY_LENGTH * 2];
     bool flight_armed[FLIGHT_HISTORY_LENGTH * 2];
