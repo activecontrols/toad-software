@@ -1,0 +1,22 @@
+# Build directories
+build/
+bin/
+lib/
+cmake-build-*/
+compile_commands.json
+
+# vcpkg local package installations (manifest mode)
+vcpkg_installed/
+
+# Logs and test outputs
+logs/
+*.log
+
+# Editor & Tooling
+.vscode/
+.idea/
+.cache/
+*.swp
+*~
+.DS_Store
+

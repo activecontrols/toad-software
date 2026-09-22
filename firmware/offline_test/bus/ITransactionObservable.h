@@ -1,0 +1,42 @@
+#pragma once
+
+#include <cstdint>
+#include <vector>
+#include <memory>
+#include <string>
+
+namespace toad::sim {
+
+enum class BusDirection {
+    FW_TO_BUS, // Transmitted by firmware into the bus
+    BUS_TO_FW  // Transmitted by peripheral/harness into firmware
+};
+
+inline const char* to_string(BusDirection dir) {
+    switch (dir) {
+        case BusDirection::FW_TO_BUS: return "FW -> BUS";
+        case BusDirection::BUS_TO_FW: return "BUS -> FW";
+        default: return "UNKNOWN";
+    }
+}
+
+struct UartTransaction {
+    uint64_t timestamp_us{0};
+    BusDirection direction{BusDirection::FW_TO_BUS};
+    std::vector<uint8_t> data;
+};
+
+class IUartObserver {
+public:
+    virtual ~IUartObserver() = default;
+    virtual void on_uart_transaction(const UartTransaction& tx) = 0;
+};
+
+class IUartObservable {
+public:
+    virtual ~IUartObservable() = default;
+    virtual void add_observer(std::shared_ptr<IUartObserver> observer) = 0;
+    virtual void remove_observer(std::shared_ptr<IUartObserver> observer) = 0;
+};
+
+} // namespace toad::sim
