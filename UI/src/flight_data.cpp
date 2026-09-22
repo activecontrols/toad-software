@@ -45,10 +45,7 @@ void flight_data_periodic() {
   struct sockaddr_in sender;
   int sender_len = sizeof(sender);
 
-  struct {
-    gnc_telemetry_t gnc;
-    ec_telemetry_t ec;
-  } combined_telem;
+  flight_frame_t combined_telem;
 
   int bytes =
       recvfrom(sock, (char *)&combined_telem, sizeof(combined_telem), 0, (struct sockaddr *)&sender, &sender_len);
@@ -62,8 +59,7 @@ void flight_data_periodic() {
   if (bytes == sizeof(combined_telem)) {
     // TODO - add support for partial packets
     // TODO - add support for load/save from file
-    commit_packet(combined_telem.ec);
-    commit_packet(combined_telem.gnc);
+    commit_frame(combined_telem);
     update_fh_pos();
   } else if (bytes >= 0) {
     printf("rcv size error - update the matlab code: %d %d\n", bytes, sizeof(combined_telem));
