@@ -30,7 +30,7 @@ void imu_accel_panel() {
   imu_acc.y_max = 15;
   imu_acc.y_min = -5;
 
-  scrolling_line_chart(imu_acc, FlightHistory.gnc.accel_x, FlightHistory.gnc.accel_y, FlightHistory.gnc.accel_z);
+  scrolling_line_chart(imu_acc, FlightHistory.gnc.accel.x, FlightHistory.gnc.accel.y, FlightHistory.gnc.accel.z);
 
   ImGui::End();
 }
@@ -63,7 +63,7 @@ void mag_panel() {
   mag.y3_label = "z";
   mag.y_max = 1.5;
   mag.y_min = -1.5;
-  scrolling_line_chart(mag, FlightHistory.gnc.mag_x, FlightHistory.gnc.mag_y, FlightHistory.gnc.mag_z);
+  scrolling_line_chart(mag, FlightHistory.gnc.mag.x, FlightHistory.gnc.mag.y, FlightHistory.gnc.mag.z);
 
   ImGui::End();
 }
@@ -121,10 +121,10 @@ void mag_bias_panel() {
 void gps_pos_panel() {
   ImGui::Begin(GPS_POS_PANEL);
 
-  float state_x = -fh_now(FlightHistory.gnc.gps_pos_west);
-  float state_y = fh_now(FlightHistory.gnc.gps_pos_north);
-  float target_x = -fh_now(FlightHistory.gnc.target_pos_west);
-  float target_y = fh_now(FlightHistory.gnc.target_pos_north);
+  float state_x = -fh_now(FlightHistory.gnc.gps_pos.west);
+  float state_y = fh_now(FlightHistory.gnc.gps_pos.north);
+  float target_x = -fh_now(FlightHistory.gnc.target_pos.west);
+  float target_y = fh_now(FlightHistory.gnc.target_pos.north);
 
   centered_text("GPS Position");
   if (ImPlot::BeginPlot("##GPS Position", ImVec2(-1, 200), ImPlotFlags_NoLegend)) {
@@ -162,8 +162,8 @@ void gps_vel_panel() {
     ImPlot::SetupAxes("East (m/s)", "North (m/s)");
     ImPlot::SetupAxesLimits(-5, 5, -5, 5);
 
-    double gps_x[2] = {0, -fh_now(FlightHistory.gnc.gps_vel_west)};
-    double gps_y[2] = {0, fh_now(FlightHistory.gnc.gps_vel_north)};
+    double gps_x[2] = {0, -fh_now(FlightHistory.gnc.gps_vel.west)};
+    double gps_y[2] = {0, fh_now(FlightHistory.gnc.gps_vel.north)};
     ImPlotSpec spec;
     spec.LineWeight = 4;
     ImPlot::PlotLine("##GPS Velocity", gps_x, gps_y, 2, spec);
@@ -178,11 +178,11 @@ void gps_vert_panel() {
   ImGui::Begin(GPS_VERT_PANEL);
 
   centered_text("Altitude");
-  ImGui::Text("     GPS: %5.2f m", fh_now(FlightHistory.gnc.gps_pos_up));
-  ImGui::Text("  Target: %5.2f m", fh_now(FlightHistory.gnc.target_pos_up));
+  ImGui::Text("     GPS: %5.2f m", fh_now(FlightHistory.gnc.gps_pos.up));
+  ImGui::Text("  Target: %5.2f m", fh_now(FlightHistory.gnc.target_pos.up));
   ImGui::Dummy(ImVec2(0, 50)); // Add vertical spacing
   centered_text("Vert Velocity");
-  ImGui::Text("     GPS: %5.2f m/s", fh_now(FlightHistory.gnc.gps_vel_up));
+  ImGui::Text("     GPS: %5.2f m/s", fh_now(FlightHistory.gnc.gps_vel.up));
 
   ImGui::End();
 }
@@ -196,9 +196,9 @@ void estimated_pos_panel() {
     double cs_y[2] = {fh_now(FlightHistory.gnc.state_pos_north), fh_now(FlightHistory.gnc.state_pos_north)};
     double cs_z[2] = {0, fh_now(FlightHistory.gnc.state_pos_up)};
 
-    double target_x[2] = {-fh_now(FlightHistory.gnc.target_pos_west), -fh_now(FlightHistory.gnc.target_pos_west)};
-    double target_y[2] = {fh_now(FlightHistory.gnc.target_pos_north), fh_now(FlightHistory.gnc.target_pos_north)};
-    double target_z[2] = {0, fh_now(FlightHistory.gnc.target_pos_up)};
+    double target_x[2] = {-fh_now(FlightHistory.gnc.target_pos.west), -fh_now(FlightHistory.gnc.target_pos.west)};
+    double target_y[2] = {fh_now(FlightHistory.gnc.target_pos.north), fh_now(FlightHistory.gnc.target_pos.north)};
+    double target_z[2] = {0, fh_now(FlightHistory.gnc.target_pos.up)};
 
     ImPlot3D::SetupAxes("East (m)", "North (m)", "Up (m)");
     ImPlot3D::SetupAxisLimits(ImAxis3D_Z, 0, 2.5);

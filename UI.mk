@@ -1,5 +1,5 @@
 CXX      := g++
-CXXFLAGS := -IUI/imgui -IUI/imgui/backends -IUI/implot -IUI/implot3d -IUI/include -IUI/gen -Ifirmware/lib/hardware_mapping -Ifirmware/lib/can_bus -MMD -MP
+CXXFLAGS := -IUI/imgui -IUI/imgui/backends -IUI/implot -IUI/implot3d -IUI/include -IUI/gen -Ifirmware/lib/hardware_mapping -Ifirmware/lib/telemetry -MMD -MP
 
 # the majority of this is just windows libraries
 # the -static is because we were pulling in the wrong C++ .dlls (from the RUST ESP32 project), resulting in crazy crashes
@@ -39,7 +39,7 @@ $(GEN_DIR)/pid_diagram.cpp: $(GEN_DIR)/gen_pid_diagram.py UI/src/toad_flight.pid
 	python $(word 1,$^) $(word 2,$^) $@
 
 FLIGHT_HISTORY_DEPS := \
-	firmware/lib/can_bus/toad_telemetry.h \
+	firmware/lib/telemetry/toad_telemetry.h \
 	firmware/lib/hardware_mapping/ec_sensors.h
 
 $(GEN_DIR)/flight_history.cpp $(GEN_DIR)/flight_history.h &: $(GEN_DIR)/gen_flight_history.py $(FLIGHT_HISTORY_DEPS)

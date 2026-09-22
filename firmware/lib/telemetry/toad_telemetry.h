@@ -3,22 +3,33 @@
 #include "ec_sensors.h"
 #include "ec_valves.h"
 
+struct BodyVec3 {
+  float x;
+  float y;
+  float z;
+};
+
+// tag this struct so that position and velocities can't accidentally be interchanged
+template <typename Tag> struct WorldVec3 {
+  float north;
+  float west;
+  float up;
+};
+
+struct PositionTag {};
+struct VelocityTag {};
+
+using WorldPos = WorldVec3<PositionTag>;
+using WorldVel = WorldVec3<VelocityTag>;
+
 struct gnc_telemetry_t {
-  float accel_x;
-  float accel_y;
-  float accel_z;
+  BodyVec3 accel;
   float gyro_yaw;
   float gyro_pitch;
   float gyro_roll;
-  float mag_x;
-  float mag_y;
-  float mag_z;
-  float gps_pos_north;
-  float gps_pos_west;
-  float gps_pos_up;
-  float gps_vel_north;
-  float gps_vel_west;
-  float gps_vel_up;
+  BodyVec3 mag;
+  WorldPos gps_pos;
+  WorldVel gps_vel;
 
   float state_q_vec_new;
   float state_q_vec_0;
@@ -45,9 +56,7 @@ struct gnc_telemetry_t {
   float thrust_N;
   float roll_rad_sec_squared;
 
-  float target_pos_north;
-  float target_pos_west;
-  float target_pos_up;
+  WorldPos target_pos;
 
   float elapsed_time;
   bool GND_flag;
