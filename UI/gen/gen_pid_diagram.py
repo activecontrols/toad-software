@@ -107,7 +107,7 @@ void init_diagram() {
             if valve_type != "Throttle":
                 f.write(f"""  pid_diagram.valves[{valve_name_map[name.replace('-', '_')]}] = {{Valve_Type::{valve_type}, "{name}", {valve_name_map[name.replace('-', '_')] + '_default'}, ImVec2({x}, {y}), '{hv}', ImVec2({lx}, {ly})}};\n""")
             else:
-                angle = f"&FlightHistory.{'ox' if 'OX' in name else 'fu'}_valve_angle"
+                angle = f"&FlightHistory.ec.{'ox' if 'OX' in name else 'fu'}_valve_angle"
                 f.write(f"""  pid_diagram.throttle_valves[{1 if 'FU' in name else 0}] = {{"{name}", {angle}, ImVec2({x}, {y}), '{hv}', ImVec2({lx}, {ly})}};\n""")
 
             if hv == 'V':
@@ -184,7 +184,7 @@ void init_diagram() {
 
             item_type, name, loc, attach, attach_dir = (x.strip() for x in line.split(','))
             item_type = item_type.replace(' ', '_')
-            reading = f"&FlightHistory.{item_type.lower()}s.{sensor_name_map[name.replace('-', '_')]}"
+            reading = f"&FlightHistory.ec.{item_type.lower()}s.{sensor_name_map[name.replace('-', '_')]}"
             x, y, _ = get_location(loc, item_location_db)
             ax, ay, _ = get_location(attach, item_location_db)
             f.write(f"""  pid_diagram.instruments[{instrument_counter}] = {{Instrument_Type::{item_type}, "{name}", {reading}, ImVec2({x}, {y}), ImVec2({ax}, {ay}), '{attach_dir}'}};\n""")

@@ -17,7 +17,7 @@ void fluids_panel() {
   // Update valves from the telemetry stream (when enabled, clicking on valves won't work)
   for (int i = 0; i < NUM_SV_BV_VALVES; i++) {
     // see SolenoidValves.cpp
-    pid_diagram.valves[i].state = fh_now(FlightHistory.valve_states) & (1 << i) ? VALVE_OPEN : VALVE_CLOSE;
+    pid_diagram.valves[i].state = fh_now(FlightHistory.ec.valve_states) & (1 << i) ? VALVE_OPEN : VALVE_CLOSE;
   }
 
   ImGui::PushFont(NULL, 24);
@@ -137,15 +137,15 @@ void fluids_panel() {
       float fill_level;
       if (pitem.orientation == 'O') {
         col = PID_COLOR_O2;
-        fill_level = fh_now(FlightHistory.ox_fill_level);
+        fill_level = fh_now(FlightHistory.ec.ox_fill_level);
       }
       if (pitem.orientation == 'F') {
         col = PID_COLOR_FU;
-        fill_level = fh_now(FlightHistory.fu_fill_level);
+        fill_level = fh_now(FlightHistory.ec.fu_fill_level);
       }
       if (pitem.orientation == 'N') {
         col = PID_COLOR_N2;
-        fill_level = fh_now(FlightHistory.n2_fill_level);
+        fill_level = fh_now(FlightHistory.ec.n2_fill_level);
       }
 
       // temporary for now to make tanks look nice when UI boots up
