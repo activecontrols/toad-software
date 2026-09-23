@@ -818,14 +818,15 @@ Or execute individual test targets directly:
 4. **Milestone 4: UART Transaction Snooping & Dedicated Terminal Output (Deferred)**:
    - Implement independent terminal output sink support (POSIX pseudo-terminal `/dev/pts/N` or named FIFO) allowing each enabled bus to stream live traffic into its own dedicated terminal window.
 
-5. **Milestone 5: SPI Bus & Pluggable Device Emulation** [COMPLETE]:
+5. **Milestone 5: SPI Bus, Pluggable Device Emulation & ADS131M02 Model** [COMPLETE]:
    - Implement Layer 1 `SPIClass` (`hal_mock/SPI.h/.cpp`) implementing `arduino::HardwareSPI` with copy-by-value shared bus semantics.
    - Implement Layer 2 `SPIBus` (`bus/SPIBus.h/.cpp`) with synchronous full-duplex transfers, `SimulatedGPIO` CS tracking, bus collision detection on multiple active CS lines, and `SPISettings` clock timing in `VirtualClock`.
-   - Implement abstract `ISPIDevice` and lambda-based `FunctionalSPIDevice` in `peripherals/ISPIDevice.h` for 3-line sensor mock substitution.
+   - Implement abstract `ISPIDevice` and lambda-based `FunctionalSPIDevice` in `peripherals/ISPIDevice.h` with `start()`, `stop()`, `join()` fiber lifecycle for concurrent background workers.
+   - Implement `ADS131M02_Sim` (`peripherals/ADS131M02_Sim.h/.cpp`) modeling 24-bit simultaneous sampling ADC with background conversion fiber on `PRIO_SENSORS` (5), hardware CCITT-CRC16, and DRDY pin pulsing.
    - Implement `BusRegistry` (`core/BusRegistry.h/.cpp`) SPI pin mapping and lazy resolution (`(mosi, miso, sck)` and named buses).
    - Implement `ISpiObservable` / `ISpiObserver` transaction history logging (`bus/ITransactionObservable.h`).
-   - Verified 100% via `test_spi_bus` (all 8 test cases passing).
-   - Sensor driver integration with simulated `ADS131M02` and `MAX31856` models will follow.
+   - Verified 100% via `test_spi_bus` (all 10 test cases passing, including production driver `firmware/lib/pressure_sensors/ADS131M02.cpp` operating concurrently across the fiber boundary).
+
 
 6. **Milestone 6: Virtual CAN & Actuator Emulation**:
    - Implement Layer 1 `CAN` (`hal_mock/MockCAN.h`) and Layer 2 `CANBus` (`bus/CANBus.h/.cpp`) multi-drop broadcast fabric.

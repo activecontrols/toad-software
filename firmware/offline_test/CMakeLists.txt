@@ -73,6 +73,7 @@ add_library(toad_sim_core STATIC
     bus/RS485Mux.cpp
     bus/SPIBus.cpp
     peripherals/AMT242AV_Sim.cpp
+    peripherals/ADS131M02_Sim.cpp
     runner/UartTerminalHarness.cpp
     ${arduino_core_api_SOURCE_DIR}/api/Print.cpp
     ${arduino_core_api_SOURCE_DIR}/api/Stream.cpp
@@ -112,6 +113,7 @@ add_test(NAME test_rs485_mux COMMAND test_rs485_mux)
 # Milestone: SPI Emulation & Pluggable Devices test
 add_executable(test_spi_bus
     tests/test_spi_bus.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/pressure_sensors/ADS131M02.cpp
 )
 target_link_libraries(test_spi_bus PRIVATE toad_sim_core)
 add_test(NAME test_spi_bus COMMAND test_spi_bus)

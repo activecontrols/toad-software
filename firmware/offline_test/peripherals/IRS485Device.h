@@ -9,6 +9,7 @@
 #include <boost/fiber/fiber.hpp>
 #include <boost/fiber/buffered_channel.hpp>
 #include "core/FiberScheduler.h"
+#include "core/VirtualClock.h"
 
 namespace toad::sim {
 
@@ -109,6 +110,7 @@ public:
     void stop() override {
         if (!running_) return;
         running_ = false;
+        VirtualClock::instance().wake_all();
         if (rx_channel_) {
             rx_channel_->close();
         }
@@ -116,6 +118,7 @@ public:
             fiber_.join();
         }
     }
+
 
     void join() override {
         if (fiber_.joinable()) {

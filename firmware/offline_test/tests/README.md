@@ -108,6 +108,10 @@ Validates the full SPI communication stack, full-duplex bus fabric, multi-device
    Validates that `SPIClass` copy construction and copy assignment retain shared access to the same backend `SPIBus` fabric (vital for `ADS131M02` which stores `SPIClass` by value).
 8. **`test_spi_transaction_history_and_snooper()`**:
    Validates `ISpiObservable` / `ISpiObserver` transaction history logging, verifying recorded timestamps, CS pins, and MOSI/MISO byte sequences.
+9. **`test_ads131m02_fiber_concurrency_with_production_driver()`**:
+   Executes the **actual production firmware driver** (`firmware/lib/pressure_sensors/ADS131M02.cpp`) on `PRIO_FIRMWARE` (10) against `ADS131M02_Sim` running on an independent background conversion fiber on `PRIO_SENSORS` (5). Validates 24-bit signed conversion counts, hardware CCITT-CRC16 validation, dynamic plant updates, and clean `VirtualClock::wake_all()` fiber lifecycle shutdown.
+10. **`test_functional_spi_device_fiber_channel()`**:
+    Validates concurrent SPI background worker execution using `FunctionalSPIDevice::set_worker()` and `FunctionalSPIDevice::start()`, verifying asynchronous data generation and state sharing across fiber boundaries.
 
 ---
 

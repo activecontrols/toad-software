@@ -12,7 +12,9 @@
 #include "hal_mock/SPI.h"
 #include "bus/SPIBus.h"
 #include "peripherals/ISPIDevice.h"
+#include "peripherals/ADS131M02_Sim.h"
 #include "hardware_mapping/ec_pins.h"
+#include "pressure_sensors/ADS131M02.h"
 
 using namespace toad::sim;
 
@@ -339,6 +341,144 @@ void test_spi_transaction_observer_snooper() {
     std::cout << "  -> PASSED" << std::endl;
 }
 
+void test_ads131m02_fiber_concurrency_with_production_driver() {
+    std::cout << "[Test 9] Testing Pattern 1 ADS131M02 fiber concurrency with production driver..." << std::endl;
+    VirtualClock::instance().reset(0);
+    SimulatedGPIO::instance().reset();
+    BusRegistry::instance().reset();
+
+    // 1. Setup SPI bus and register into BusRegistry
+    auto bus = std::make_shared<SPIBus>("PT_TC_SPI_1", PIN_PT_TC_SPI_1_MOSI, PIN_PT_TC_SPI_1_MISO, PIN_PT_TC_SPI_1_SCK);
+    bus->set_zero_latency(true);
+    BusRegistry::instance().register_spi(PIN_PT_TC_SPI_1_MOSI, PIN_PT_TC_SPI_1_MISO, PIN_PT_TC_SPI_1_SCK, bus);
+    BusRegistry::instance().register_named_spi("PT_TC_SPI_1", bus);
+
+    // 2. Setup ADS131M02_Sim with DRDY pin (using PIN_PT_SYNC)
+    auto adc_sim = std::make_shared<ADS131M02_Sim>("ChamberPressureADC", PIN_PT_SYNC);
+    adc_sim->set_sample_period_us(1000); // 1 ms conversion period
+    adc_sim->set_ch0_raw(500000);        // 500,000 counts
+    adc_sim->set_ch1_raw(-250000);       // -250,000 counts (testing negative sign extension)
+    bus->register_device(PIN_PT_BOARD_1_2_CS, adc_sim);
+
+    // Start ADC simulation background fiber (Priority 5)
+    adc_sim->start(PRIO_SENSORS);
+    assert(adc_sim->is_running());
+
+    // 3. Firmware fiber using actual production driver ADS131M02
+    SPIClass spi_bus(PIN_PT_TC_SPI_1_MOSI, PIN_PT_TC_SPI_1_MISO, PIN_PT_TC_SPI_1_SCK);
+    spi_bus.begin();
+
+    bool test_passed = false;
+    adc_reading_t initial_reading{};
+    adc_reading_t dynamic_reading{};
+
+    auto f_fw = launch_fiber_with_priority(PRIO_FIRMWARE, [&]() {
+        // Instantiate the REAL production driver from firmware/lib/pressure_sensors/ADS131M02.h
+        ADS131M02 driver(spi_bus, PIN_PT_BOARD_1_2_CS);
+        driver.begin();
+
+        // 3a. Read initial ADC values
+        initial_reading = driver.read_adc();
+        assert(initial_reading.crc_ok);
+        assert(initial_reading.ch0 == 500000);
+        assert(initial_reading.ch1 == -250000);
+
+        // 3b. Wait for virtual clock time to pass (3000 us = 3 ADC conversion cycles)
+        delay(3); // 3000 us
+
+        // Dynamically update the sensor values from the physical model / plant
+        adc_sim->set_ch0_raw(1234567);
+        adc_sim->set_ch1_raw(7654321);
+
+        // Allow one conversion period for the background fiber to latch the new frame
+        delay(2);
+
+        // 3c. Read dynamically updated ADC values
+        dynamic_reading = driver.read_adc();
+        assert(dynamic_reading.crc_ok);
+        assert(dynamic_reading.ch0 == 1234567);
+        assert(dynamic_reading.ch1 == 7654321);
+
+        test_passed = true;
+    });
+
+    VirtualClock::instance().run_until(20000);
+    f_fw.join();
+
+    adc_sim->stop();
+    assert(!adc_sim->is_running());
+
+    assert(test_passed);
+    std::cout << "  CH0: " << initial_reading.ch0 << ", CH1: " << initial_reading.ch1
+              << " (CRC OK: " << (initial_reading.crc_ok ? "true" : "false") << ")" << std::endl;
+    std::cout << "  Dynamically updated CH0: " << dynamic_reading.ch0 << ", CH1: " << dynamic_reading.ch1 << std::endl;
+    std::cout << "  -> PASSED" << std::endl;
+}
+
+void test_functional_spi_device_fiber_channel() {
+    std::cout << "[Test 10] Testing FunctionalSPIDevice with independent background fiber..." << std::endl;
+    VirtualClock::instance().reset(0);
+    SimulatedGPIO::instance().reset();
+
+    auto bus = std::make_shared<SPIBus>("ASYNC_SPI");
+    bus->set_zero_latency(true);
+
+    int background_ticks = 0;
+    uint8_t synthetic_val = 0;
+
+    auto dev = std::make_shared<FunctionalSPIDevice>("AsyncSensorMock",
+        [&](uint8_t mosi, FunctionalSPIDevice&) -> uint8_t {
+            return synthetic_val;
+        });
+
+    // Provide a background worker that updates synthetic_val every 500 us
+    dev->set_worker([&](FunctionalSPIDevice& d) {
+        while (d.is_running()) {
+            VirtualClock::instance().sleep_for(500);
+            synthetic_val += 10;
+            background_ticks++;
+        }
+    });
+
+    digitalWrite(PIN_PT_BOARD_1_2_CS, arduino::HIGH);
+    bus->register_device(PIN_PT_BOARD_1_2_CS, dev);
+
+    dev->start(PRIO_SENSORS);
+    assert(dev->is_running());
+
+    bool fw_completed = false;
+    uint8_t read1 = 0;
+    uint8_t read2 = 0;
+
+    auto f_fw = launch_fiber_with_priority(PRIO_FIRMWARE, [&]() {
+        // Initially synthetic_val is 0
+        digitalWrite(PIN_PT_BOARD_1_2_CS, arduino::LOW);
+        read1 = bus->transfer(0x00);
+        digitalWrite(PIN_PT_BOARD_1_2_CS, arduino::HIGH);
+
+        // Sleep 2000 us (triggers background increments of 10)
+        delay(2);
+
+        digitalWrite(PIN_PT_BOARD_1_2_CS, arduino::LOW);
+        read2 = bus->transfer(0x00);
+        digitalWrite(PIN_PT_BOARD_1_2_CS, arduino::HIGH);
+
+        fw_completed = true;
+    });
+
+    VirtualClock::instance().run_until(5000);
+    f_fw.join();
+    dev->stop();
+    assert(!dev->is_running());
+
+    assert(fw_completed);
+    assert(read1 == 0);
+    assert(read2 >= 30); // At least 3 increments of 10
+    assert(background_ticks >= 3);
+    std::cout << "  Read 1: " << int(read1) << ", Read 2: " << int(read2) << " across fiber boundary." << std::endl;
+    std::cout << "  -> PASSED" << std::endl;
+}
+
 int main() {
     std::cout << "=== Running SPIBus & Pluggable Peripherals Tests ===" << std::endl;
     install_fiber_scheduler();
@@ -351,6 +491,8 @@ int main() {
     test_spi_settings_clock_timing();
     test_spi_class_arduino_api_and_copy_semantics();
     test_spi_transaction_observer_snooper();
+    test_ads131m02_fiber_concurrency_with_production_driver();
+    test_functional_spi_device_fiber_channel();
 
     std::cout << "=== All SPIBus & Pluggable Peripherals Tests Passed Successfully! ===" << std::endl;
     return 0;

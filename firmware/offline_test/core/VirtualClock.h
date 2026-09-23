@@ -30,6 +30,9 @@ public:
     // Convenience stepper: runs until all timers/fibers complete or max_us reached
     void run_until(uint64_t max_us);
 
+    // Wakes all currently sleeping fibers immediately (used during teardown/stop)
+    void wake_all();
+
 private:
     VirtualClock() = default;
     ~VirtualClock() = default;

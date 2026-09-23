@@ -24,6 +24,7 @@ void AMT242AV_Sim::start(int priority) {
 void AMT242AV_Sim::stop() {
     if (!running_) return;
     running_ = false;
+    VirtualClock::instance().wake_all();
     if (rx_channel_) {
         rx_channel_->close();
     }
@@ -31,6 +32,7 @@ void AMT242AV_Sim::stop() {
         fiber_.join();
     }
 }
+
 
 void AMT242AV_Sim::join() {
     if (fiber_.joinable()) {

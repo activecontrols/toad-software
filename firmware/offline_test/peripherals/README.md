@@ -77,21 +77,45 @@ An abstract interface enabling developers to model hardware ICs, sensors, and fl
 - `on_cs_deasserted()`: Called when the device's Chip Select (`CS`) line is deasserted (`HIGH`).
 - `transfer_byte(mosi)`: Full-duplex single byte transfer (returns MISO byte).
 - `transfer_buffer(tx_buf, rx_buf, count)`: Full-duplex buffer transfer (defaults to sequentially invoking `transfer_byte`).
+- `start(priority)` / `stop()` / `join()`: Fiber lifecycle methods for concurrent background execution.
 
 #### Rapid Substitution with `FunctionalSPIDevice`:
-Team members can substitute any SPI peripheral model (e.g. ADC, thermocouple amplifier, framing test mock) in 3 lines using lambdas without writing a full class:
+Team members can substitute any SPI peripheral model in 3 lines using lambdas, with optional background fiber execution:
 ```cpp
 auto adc_mock = std::make_shared<FunctionalSPIDevice>("ADS131M02_Mock",
     [](uint8_t mosi, FunctionalSPIDevice& dev) -> uint8_t {
         // Return synthetic ADC output byte on MISO
         return 0xA5;
-    },
-    /*on_assert=*/[](FunctionalSPIDevice& dev) { /* reset frame index */ },
-    /*on_deassert=*/[](FunctionalSPIDevice& dev) { /* commit frame */ });
+    });
+
+// Optional: run an independent background fiber worker
+adc_mock->set_worker([](FunctionalSPIDevice& dev) {
+    while (dev.is_running()) {
+        VirtualClock::instance().sleep_for(1000);
+        // update sensor state...
+    }
+});
+adc_mock->start(PRIO_SENSORS);
 
 // Plug directly into SPIBus on its CS pin
-spi_bus->register_device(PIN_PT_TC_CS_CHAMBER, adc_mock);
+spi_bus->register_device(PIN_PT_BOARD_1_2_CS, adc_mock);
 ```
+
+---
+
+### `ADS131M02_Sim`
+Header: [`ADS131M02_Sim.h`](ADS131M02_Sim.h) | Implementation: [`ADS131M02_Sim.cpp`](ADS131M02_Sim.cpp)
+
+Behavioral model of the Texas Instruments ADS131M02 24-bit simultaneous-sampling dual-channel ADC used for Chamber and Manifold pressure sensing:
+- **Concurrent Conversion Fiber**:
+  - `start(priority)` launches an independent background fiber running at `PRIO_SENSORS = 5` (default 1000 us = 1 kHz conversion rate).
+  - Generates 4-word (12-byte) SPI frames matching hardware datasheet (Status Word, Channel 0 24-bit reading, Channel 1 24-bit reading, and CCITT-CRC16).
+  - Toggles `drdy_pin` via `SimulatedGPIO` on conversion complete to notify MCU interrupt routines.
+- **Controls & Testing**:
+  - `set_ch0_raw(counts)` / `set_ch1_raw(counts)`: Sets 24-bit signed ADC conversion counts (-8,388,608 to 8,388,607).
+  - `set_sample_period_us(us)`: Configures conversion rate (default 1000 us).
+  - `set_drdy_pin(pin)`: Configures data-ready interrupt pin.
+  - `calculate_crc(data, len)`: Hardware-accurate CCITT-CRC16 generator.
 
 ---
 
@@ -122,7 +146,6 @@ Behavioral model of the Broadcom/CUI AMT242AV 12-bit modular absolute rotary sha
 
 | Device | Type | Interface | Description |
 |---|---|---|---|
-| **`ADS131M02_Sim`** | Sensor | SPI | 24-bit dual-channel simultaneous-sampling ADC for Chamber & Manifold Pressure. Simulates data-ready (`DRDY`) interrupts. |
 | **`MAX31856_Sim`** | Sensor | SPI | Precision thermocouple amplifier with cold-junction compensation for exhaust/plumbing temperatures. |
 | **`MksServo57D_Sim`** | Actuator | RS-485 (UART) | Closed-loop stepper motor controller modeling position commands and valve angle physics. |
 | **`Solenoid_Sim`** | Actuator | GPIO | Digital output solenoid valves for igniter, purge, and pressurization valves. |

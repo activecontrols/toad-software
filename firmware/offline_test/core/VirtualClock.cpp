@@ -129,3 +129,32 @@ void VirtualClock::run_until(uint64_t max_us) {
     advance_time_to(max_us);
 }
 
+void VirtualClock::wake_all() {
+    struct WakeEntry {
+        std::shared_ptr<boost::fibers::condition_variable> cv;
+        std::shared_ptr<boost::fibers::mutex> mtx;
+        std::shared_ptr<bool> expired;
+    };
+    std::vector<WakeEntry> wake_list;
+
+    {
+        std::unique_lock<boost::fibers::mutex> lk(clock_mtx_);
+        while (!timers_.empty()) {
+            auto top = timers_.top();
+            timers_.pop();
+            wake_list.push_back({top.cv, top.mtx, top.expired});
+        }
+    }
+
+    for (auto& item : wake_list) {
+        {
+            std::unique_lock<boost::fibers::mutex> lk(*item.mtx);
+            *item.expired = true;
+        }
+        item.cv->notify_all();
+    }
+
+    boost::this_fiber::yield();
+}
+
+
