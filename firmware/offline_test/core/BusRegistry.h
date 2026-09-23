@@ -11,6 +11,7 @@ namespace toad::sim {
 
 class UartBus;
 class SPIBus;
+class CANBus;
 
 class BusRegistry {
 public:
@@ -34,6 +35,16 @@ public:
     void register_named_spi(const std::string& name, std::shared_ptr<SPIBus> bus);
     std::shared_ptr<SPIBus> get_named_spi(const std::string& name) const;
 
+    // CAN Pin-pair registration (rx, tx)
+    void register_can(uint32_t rx, uint32_t tx, std::shared_ptr<CANBus> bus);
+    std::shared_ptr<CANBus> get_can(uint32_t rx, uint32_t tx) const;
+    std::shared_ptr<CANBus> get_or_create_can(uint32_t rx, uint32_t tx, uint32_t bitrate = 500000);
+
+    // CAN Named bus registration (e.g. "CAN_TVC", "CAN_FC")
+    void register_named_can(const std::string& name, std::shared_ptr<CANBus> bus);
+    std::shared_ptr<CANBus> get_named_can(const std::string& name) const;
+    std::shared_ptr<CANBus> get_or_create_named_can(const std::string& name, uint32_t bitrate = 500000);
+
     // Reset all registrations
     void reset();
 
@@ -52,6 +63,10 @@ private:
 
     std::map<SpiPinTriplet, std::shared_ptr<SPIBus>> spi_buses_;
     std::map<std::string, std::shared_ptr<SPIBus>> named_spi_buses_;
+
+    std::map<PinPair, std::shared_ptr<CANBus>> can_buses_;
+    std::map<std::string, std::shared_ptr<CANBus>> named_can_buses_;
 };
+
 
 } // namespace toad::sim

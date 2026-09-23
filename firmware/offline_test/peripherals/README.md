@@ -142,12 +142,65 @@ Behavioral model of the Broadcom/CUI AMT242AV 12-bit modular absolute rotary sha
 
 ---
 
+### `ICANDevice` & `FunctionalCANDevice`
+Header: [`ICANDevice.h`](ICANDevice.h)
+
+An abstract interface enabling developers to model hardware nodes, actuators, and controllers on a multi-drop CAN bus:
+- `name()`: Node identifier.
+- `can_id()`: Configured CAN node identifier (e.g. `0x003`).
+- `can_mask()`: Acceptance mask (default `0x7FF` for 11-bit standard frames).
+- `enqueue_frame(frame)`: Delivers broadcast frame to the node's private queue.
+- `start(priority)` / `stop()` / `join()`: Fiber lifecycle methods for concurrent background execution.
+
+#### Rapid Substitution with `FunctionalCANDevice`:
+```cpp
+auto mock_node = std::make_shared<FunctionalCANDevice>("MockNode", 0x120,
+    [](const CanFrame& frame, FunctionalCANDevice& dev) {
+        // Handle incoming frame...
+    });
+mock_node->start(PRIO_ACTUATOR_PHYSICS);
+can_bus->subscribe(mock_node);
+```
+
+---
+
+### `MksServo57D_Sim`
+Header: [`MksServo57D_Sim.h`](MksServo57D_Sim.h) | Implementation: [`MksServo57D_Sim.cpp`](MksServo57D_Sim.cpp)
+
+Behavioral model of the Makerbase MKS SERVO42D / 57D closed-loop stepper motor controller:
+- **Concurrent Physics Integration Fiber**:
+  - `start(priority)` runs a background fiber on `PRIO_ACTUATOR_PHYSICS = 0` with a 1 ms (1000 µs) timestep.
+  - Velocity ramping smoothed by `acceleration_`.
+  - Continuous angular position integration (`current_angle_deg_`).
+- **Hardware Protocols**:
+  - Validates hardware checksum: `crc = can_id + sum(bytes)`. Rejects invalid checksum frames (`crc_error_count()`).
+  - Decodes Speed & Acceleration commands (`0xF6`, signed speed, acceleration).
+  - Handles status queries (`0x30`, `0x36`) and replies with telemetry frames (`0x31`, speed, angle, checksum).
+- **Safe Teardown**:
+  - Calls `VirtualClock::instance().wake_all()` in `stop()`, preventing deadlocks during fiber joins.
+
+---
+
+### `TVCActuator_Sim`
+Header: [`TVCActuator_Sim.h`](TVCActuator_Sim.h) | Implementation: [`TVCActuator_Sim.cpp`](TVCActuator_Sim.cpp)
+
+Behavioral model of the Thrust Vector Control (TVC) pitch/yaw linear actuator:
+- **Concurrent Dynamics Fiber**:
+  - `start(priority)` runs on `PRIO_ACTUATOR_PHYSICS = 0`.
+  - Simulates linear stroke length (0.0 to 100.0 mm) moving towards setpoint at 25 mm/s.
+- **Commands & Telemetry**:
+  - Set Position (`0x20`, length in 0.1 mm units).
+  - Status Query (`0x21`) and Status Reply (`0x22`).
+- **Safe Teardown**:
+  - Calls `VirtualClock::instance().wake_all()` in `stop()`.
+
+---
+
 ## 3. Planned Peripherals
 
 | Device | Type | Interface | Description |
 |---|---|---|---|
 | **`MAX31856_Sim`** | Sensor | SPI | Precision thermocouple amplifier with cold-junction compensation for exhaust/plumbing temperatures. |
-| **`MksServo57D_Sim`** | Actuator | RS-485 (UART) | Closed-loop stepper motor controller modeling position commands and valve angle physics. |
 | **`Solenoid_Sim`** | Actuator | GPIO | Digital output solenoid valves for igniter, purge, and pressurization valves. |
 
 ---

@@ -113,7 +113,36 @@ Validates the full SPI communication stack, full-duplex bus fabric, multi-device
 10. **`test_functional_spi_device_fiber_channel()`**:
     Validates concurrent SPI background worker execution using `FunctionalSPIDevice::set_worker()` and `FunctionalSPIDevice::start()`, verifying asynchronous data generation and state sharing across fiber boundaries.
 
+### `test_can_bus.cpp`
+Source: [`test_can_bus.cpp`](test_can_bus.cpp)
+
+Validates the full CAN 2.0 / CAN-FD communication stack, multi-drop broadcast routing, hardware ID filtering, virtual bitrate timing, transaction observability, and concurrent actuator models (`MksServo57D_Sim` and `TVCActuator_Sim`):
+
+1. **`test_can_frame_data_structures()`**:
+   Validates `CanFrame` constructors, equality operators, standard/extended ID representations, and 64-byte payload handling.
+2. **`test_firmware_to_bus_transmit()`**:
+   Validates firmware `CANClass` `write()` and `read()` API and lazy `BusRegistry` binding to `CANBus`.
+3. **`test_multi_drop_broadcast_delivery()`**:
+   Validates multi-node broadcast where transmitted frames are delivered to all subscribed peripheral queues and MCU RX queue without echo loops.
+4. **`test_hardware_id_acceptance_filtering()`**:
+   Validates CAN acceptance masks (`can_mask`) ensuring peripheral nodes only process intended packets (e.g. `CAN_ID_TVC_PITCH` vs `CAN_ID_TVC_YAW`).
+5. **`test_can_virtual_clock_timing()`**:
+   Validates that 8-byte frame transmission at 500 kbps takes ~254 virtual microseconds in `VirtualClock` based on bit count and stuffing overhead.
+6. **`test_can_transaction_observable()`**:
+   Validates `ICanObservable` / `ICanObserver` transaction history logging with timestamps, sender identification, and payload bytes.
+7. **`test_functional_can_device_concurrency()`**:
+   Validates `FunctionalCANDevice` running on an independent background fiber on `PRIO_ACTUATOR_PHYSICS` (0), receiving and responding across fiber boundaries.
+8. **`test_mks_servo_57d_sim_physics_concurrency()`**:
+   Validates `MksServo57D_Sim` executing on `PRIO_ACTUATOR_PHYSICS` (0), decoding `0xF6` speed commands, verifying hardware checksums (`crc = can_id + sum(bytes)`), integrating velocity into shaft position, rejecting bad CRC frames, and responding to telemetry queries (`0x30`).
+9. **`test_tvc_actuator_sim_concurrency()`**:
+   Validates `TVCActuator_Sim` executing on `PRIO_ACTUATOR_PHYSICS` (0), decoding linear stroke setpoints (`0x20`), simulating smooth linear dynamics at 25 mm/s, and reporting status.
+10. **`test_toad_can_bus_decoder_integration()`**:
+    Validates integration with production `lib/can_bus/toad_can_bus.h` `CAN_Msg_Decoder`, successfully decoding messages across the boundary.
+11. **`test_multiple_concurrent_actuators_teardown()`**:
+    Validates 4 concurrent peripheral fibers running simultaneously on the bus, and verifies instant, deadlock-free teardown via `VirtualClock::wake_all()`.
+
 ---
+
 
 ## 3. Writing a New Test
 

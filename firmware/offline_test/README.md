@@ -828,10 +828,15 @@ Or execute individual test targets directly:
    - Verified 100% via `test_spi_bus` (all 10 test cases passing, including production driver `firmware/lib/pressure_sensors/ADS131M02.cpp` operating concurrently across the fiber boundary).
 
 
-6. **Milestone 6: Virtual CAN & Actuator Emulation**:
-   - Implement Layer 1 `CAN` (`hal_mock/MockCAN.h`) and Layer 2 `CANBus` (`bus/CANBus.h/.cpp`) multi-drop broadcast fabric.
-   - Link [`lib/throttle_valves/ThrottleValves.cpp`](../lib/throttle_valves/ThrottleValves.cpp).
-   - Verify motor positioning commands broadcast across `CANBus` to simulated `MksServo57D` and `TVCActuator` models.
+6. **Milestone 6: Virtual CAN & Actuator Emulation** [COMPLETE]:
+   - Implement Layer 1 `CANClass` (`hal_mock/CAN.h/.cpp`, `MockCAN.h`) with Arduino-style API and named buses (`CAN_TVC`, `CAN_FC`).
+   - Implement Layer 2 `CANBus` (`bus/CANBus.h/.cpp`) multi-drop broadcast fabric with subscriber queues, priority arbitration, virtual bit timing, and `ITransactionObservable` / `ICanObservable`.
+   - Implement `SystemCAN` (`bus/SystemCAN.h/.cpp`) SocketCAN placeholder for future cross-process vehicle bridges.
+   - Implement `ICANDevice` and `FunctionalCANDevice` (`peripherals/ICANDevice.h`) with independent background fiber execution and `boost::fibers::buffered_channel<CanFrame>`.
+   - Implement `MksServo57D_Sim` (`peripherals/MksServo57D_Sim.h/.cpp`) closed-loop stepper motor simulation model running on `PRIO_ACTUATOR_PHYSICS` (0) with hardware checksum validation and velocity/angle physics integration.
+   - Implement `TVCActuator_Sim` (`peripherals/TVCActuator_Sim.h/.cpp`) TVC pitch/yaw linear actuator model on `PRIO_ACTUATOR_PHYSICS` (0) with stroke dynamics.
+   - Verified 100% via `test_can_bus` (all 11 test cases passing, zero firmware modifications, deadlock-free fiber teardown via `VirtualClock::wake_all()`).
+
 
 7. **Milestone 7: Full EC Loop Run**:
    - Execute [`src/ec_main.cpp`](../src/ec_main.cpp) `setup()` and `loop()`, confirming all modules pass `begin()` checks in simulation.

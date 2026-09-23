@@ -1,6 +1,7 @@
 #include "BusRegistry.h"
 #include "bus/UartBus.h"
 #include "bus/SPIBus.h"
+#include "bus/CANBus.h"
 
 namespace toad::sim {
 
@@ -92,12 +93,68 @@ std::shared_ptr<SPIBus> BusRegistry::get_named_spi(const std::string& name) cons
     return nullptr;
 }
 
+void BusRegistry::register_can(uint32_t rx, uint32_t tx, std::shared_ptr<CANBus> bus) {
+    std::lock_guard<std::mutex> lock(mtx_);
+    can_buses_[{rx, tx}] = bus;
+}
+
+std::shared_ptr<CANBus> BusRegistry::get_can(uint32_t rx, uint32_t tx) const {
+    std::lock_guard<std::mutex> lock(mtx_);
+    auto it = can_buses_.find({rx, tx});
+    if (it != can_buses_.end()) {
+        return it->second;
+    }
+    return nullptr;
+}
+
+std::shared_ptr<CANBus> BusRegistry::get_or_create_can(uint32_t rx, uint32_t tx, uint32_t bitrate) {
+    std::lock_guard<std::mutex> lock(mtx_);
+    auto it = can_buses_.find({rx, tx});
+    if (it != can_buses_.end()) {
+        return it->second;
+    }
+
+    std::string name = "CAN_RX" + std::to_string(rx) + "_TX" + std::to_string(tx);
+    auto new_bus = std::make_shared<CANBus>(name, bitrate);
+    can_buses_[{rx, tx}] = new_bus;
+    return new_bus;
+}
+
+void BusRegistry::register_named_can(const std::string& name, std::shared_ptr<CANBus> bus) {
+    std::lock_guard<std::mutex> lock(mtx_);
+    named_can_buses_[name] = bus;
+}
+
+std::shared_ptr<CANBus> BusRegistry::get_named_can(const std::string& name) const {
+    std::lock_guard<std::mutex> lock(mtx_);
+    auto it = named_can_buses_.find(name);
+    if (it != named_can_buses_.end()) {
+        return it->second;
+    }
+    return nullptr;
+}
+
+std::shared_ptr<CANBus> BusRegistry::get_or_create_named_can(const std::string& name, uint32_t bitrate) {
+    std::lock_guard<std::mutex> lock(mtx_);
+    auto it = named_can_buses_.find(name);
+    if (it != named_can_buses_.end()) {
+        return it->second;
+    }
+
+    auto new_bus = std::make_shared<CANBus>(name, bitrate);
+    named_can_buses_[name] = new_bus;
+    return new_bus;
+}
+
 void BusRegistry::reset() {
     std::lock_guard<std::mutex> lock(mtx_);
     uart_buses_.clear();
     named_uart_buses_.clear();
     spi_buses_.clear();
     named_spi_buses_.clear();
+    can_buses_.clear();
+    named_can_buses_.clear();
 }
 
 } // namespace toad::sim
+

@@ -203,8 +203,40 @@ toad::sim::BusRegistry::instance().register_spi(PIN_PT_TC_SPI_1_MOSI, PIN_PT_TC_
 
 ---
 
-## 4. Other Bus Fabrics (Future Milestones)
+### `CANBus`
+Header: [`CANBus.h`](CANBus.h) | Implementation: [`CANBus.cpp`](CANBus.cpp)
 
-- **`CANBus`**: Simulates CAN 2.0B / CAN FD arbitrated multi-drop buses with message ID filtering and priority resolution.
+Simulates multi-drop broadcast CAN 2.0 / CAN-FD bus networks with subscriber queues, priority arbitration, virtual transmission delays, and transaction observability.
+
+#### Key Capabilities:
+- **Multi-Drop Broadcast**: Peripherals subscribe via `subscribe(dev)`. When any node (firmware or peripheral) calls `broadcast(frame)`, a copy is pushed to every subscribed node's private queue (`ICANDevice::enqueue_frame()`).
+- **MCU Firmware Interface**: Provides `transmit_from_firmware()`, `read_to_firmware()`, and `firmware_available()`, allowing firmware `CANClass` to interact naturally without knowing about simulation queues.
+- **Virtual Bitrate Timing**: Computes physical frame wire transmission time based on bitrate and payload size (including standard bit stuffing overhead) and advances `VirtualClock`.
+- **Transaction Observability**: Implements `ICanObservable`, logging all broadcast transactions (`timestamp_us`, `can_id`, `extended`, `rtr`, `sender_name`, `data`) and notifying registered `ICanObserver` monitors.
+
+```cpp
+#include "bus/CANBus.h"
+#include "peripherals/MksServo57D_Sim.h"
+#include "core/BusRegistry.h"
+
+// 1. Create CAN bus fabric
+auto can_bus = std::make_shared<toad::sim::CANBus>("CAN_TVC", 500000);
+
+// 2. Attach simulated motor model
+auto motor = std::make_shared<toad::sim::MksServo57D_Sim>("StepperOX", CAN_ID_STEPPER_OX);
+can_bus->subscribe(motor);
+motor->start(toad::sim::PRIO_ACTUATOR_PHYSICS);
+
+// 3. Register to BusRegistry for firmware CANClass("CAN_TVC")
+toad::sim::BusRegistry::instance().register_named_can("CAN_TVC", can_bus);
+```
+
+---
+
+### `SystemCAN`
+Header: [`SystemCAN.h`](SystemCAN.h) | Implementation: [`SystemCAN.cpp`](SystemCAN.cpp)
+
+Placeholder interface for cross-process SocketCAN bridging in future phases (e.g. connecting to Linux `vcan0` for multi-process Flight Controller testing). In Phase 1, wraps an in-process `CANBus` loopback fabric.
+
 
 

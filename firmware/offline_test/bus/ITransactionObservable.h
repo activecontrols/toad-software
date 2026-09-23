@@ -60,4 +60,35 @@ public:
     virtual void remove_observer(std::shared_ptr<ISpiObserver> observer) = 0;
 };
 
+struct CanTransaction {
+    uint64_t timestamp_us{0};
+    uint32_t can_id{0};
+    bool extended{false};
+    bool rtr{false};
+    std::string sender_name;
+    std::vector<uint8_t> data;
+};
+
+class ICanObserver {
+public:
+    virtual ~ICanObserver() = default;
+    virtual void on_can_transaction(const CanTransaction& tx) = 0;
+};
+
+class ICanObservable {
+public:
+    virtual ~ICanObservable() = default;
+    virtual void add_observer(std::shared_ptr<ICanObserver> observer) = 0;
+    virtual void remove_observer(std::shared_ptr<ICanObserver> observer) = 0;
+};
+
+struct BusTransaction {
+    uint64_t timestamp_us{0};
+    std::vector<uint8_t> tx_data;
+    std::vector<uint8_t> rx_data;
+    uint32_t channel_or_id{0};
+    std::string channel_name;
+};
+
 } // namespace toad::sim
+

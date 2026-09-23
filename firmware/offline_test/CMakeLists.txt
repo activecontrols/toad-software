@@ -68,13 +68,19 @@ add_library(toad_sim_core STATIC
     hal_mock/Arduino.cpp
     hal_mock/HardwareSerial.cpp
     hal_mock/SPI.cpp
+    hal_mock/CAN.cpp
     bus/UartBus.cpp
     bus/UartSnooper.cpp
     bus/RS485Mux.cpp
     bus/SPIBus.cpp
+    bus/CANBus.cpp
+    bus/SystemCAN.cpp
     peripherals/AMT242AV_Sim.cpp
     peripherals/ADS131M02_Sim.cpp
+    peripherals/MksServo57D_Sim.cpp
+    peripherals/TVCActuator_Sim.cpp
     runner/UartTerminalHarness.cpp
+
     ${arduino_core_api_SOURCE_DIR}/api/Print.cpp
     ${arduino_core_api_SOURCE_DIR}/api/Stream.cpp
     ${arduino_core_api_SOURCE_DIR}/api/String.cpp
@@ -118,8 +124,17 @@ add_executable(test_spi_bus
 target_link_libraries(test_spi_bus PRIVATE toad_sim_core)
 add_test(NAME test_spi_bus COMMAND test_spi_bus)
 
+# Milestone 6: CAN Emulation & Actuator Simulation test
+add_executable(test_can_bus
+    tests/test_can_bus.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/throttle_valves/MksServo57D.cpp
+)
+target_link_libraries(test_can_bus PRIVATE toad_sim_core)
+add_test(NAME test_can_bus COMMAND test_can_bus)
+
 # Standalone Terminal Interactive Harness
 add_executable(uart_terminal_harness
     runner/uart_terminal_harness.cpp
 )
 target_link_libraries(uart_terminal_harness PRIVATE toad_sim_core)
+
