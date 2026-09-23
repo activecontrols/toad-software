@@ -1,6 +1,8 @@
 #include "ThrottleValves.h"
 #include "ec_pins.h"
 #include "toad_can_bus.h"
+#include "CommsSerial.h"
+#include "CommandRouter.h"
 
 void ThrottleValve::begin() {
   motor.begin();
@@ -31,10 +33,27 @@ namespace ThrottleValves {
 ThrottleValve ox_valve(CAN_ID_STEPPER_OX, ENC_OX_RS485_BUS, PIN_ENC_OX_SEL, 0);
 ThrottleValve fu_valve(CAN_ID_STEPPER_FU, ENC_FU_RS485_BUS, PIN_ENC_FU_SEL, 0);
 
+void print_angle(void)
+{
+  float out = 0.0f;
+  if (ox_valve.encoder.read_pos(&out))
+  {
+    CommsSerial.printf("angle: %.2f\r\n", out * 360.0f);
+  }
+  else
+  {
+    CommsSerial.println("Angle read failed\r\n");
+  }
+
+  return;
+}
+
 // TODO - don't just return true here!
 bool begin() {
   ox_valve.begin();
   fu_valve.begin();
+
+  CommandRouter::add(print_angle, "print_angle");
 
   return true;
 }

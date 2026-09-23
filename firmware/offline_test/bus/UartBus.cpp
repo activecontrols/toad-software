@@ -1,4 +1,5 @@
 #include "UartBus.h"
+#include "UartSnooper.h"
 #include "core/VirtualClock.h"
 #include <algorithm>
 
@@ -143,8 +144,18 @@ void UartBus::clear_history() {
 }
 
 void UartBus::add_observer(std::shared_ptr<IUartObserver> observer) {
-    std::lock_guard<std::mutex> lock(mtx_);
-    observers_.push_back(observer);
+    if (!observer) return;
+    {
+        std::lock_guard<std::mutex> lock(mtx_);
+        observers_.push_back(observer);
+    }
+    try {
+        if (auto snooper = std::dynamic_pointer_cast<UartSnooper>(observer)) {
+            snooper->attach_bus(shared_from_this());
+        }
+    } catch (const std::bad_weak_ptr&) {
+        // Not managed by shared_ptr
+    }
 }
 
 void UartBus::remove_observer(std::shared_ptr<IUartObserver> observer) {

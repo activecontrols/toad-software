@@ -191,7 +191,95 @@ void test_terminal_harness_injection() {
     std::cout << "  -> PASSED" << std::endl;
 }
 
+#include <fcntl.h>
+#include <unistd.h>
+#include <chrono>
+#include <thread>
+
+void test_uart_snooper_bidirectional_input() {
+    std::cout << "[Test 7] Testing UartSnooper bidirectional PTY input relay..." << std::endl;
+    VirtualClock::instance().reset(0);
+    BusRegistry::instance().reset();
+
+    auto bus = std::make_shared<UartBus>(115200, "INTERACTIVE_BUS");
+    bus->set_zero_latency(true);
+
+    // Create snooper with enable_input = true and spawn_terminal = false
+    auto snooper = std::make_shared<UartSnooper>(
+        "TEST_INTERACTIVE", SnoopFormat::FORMAT_ASCII, nullptr, false, /*enable_input=*/true
+    );
+    bus->add_observer(snooper);
+
+    assert(snooper->enable_input() == true);
+    assert(snooper->bus() == bus);
+
+    // Write to the PTY slave device
+    int sfd = open(snooper->pty_slave_path().c_str(), O_WRONLY);
+    assert(sfd >= 0);
+    ssize_t written = write(sfd, "ping\n", 5);
+    assert(written == 5);
+    close(sfd);
+
+    // Give the background input reader thread time to read and inject
+    for (int i = 0; i < 50 && bus->available_for_firmware() < 5; ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    assert(bus->available_for_firmware() >= 5);
+    std::string received;
+    while (bus->available_for_firmware() > 0) {
+        received += static_cast<char>(bus->read_for_firmware());
+    }
+    assert(received.find("ping") != std::string::npos);
+    std::cout << "  Input received on bus from PTY: " << received;
+    std::cout << "  -> PASSED" << std::endl;
+}
+
+void test_uart_snooper_input_toggle() {
+    std::cout << "[Test 8] Testing UartSnooper enable_input toggle..." << std::endl;
+    VirtualClock::instance().reset(0);
+    BusRegistry::instance().reset();
+
+    auto bus = std::make_shared<UartBus>(115200, "TOGGLE_BUS");
+    bus->set_zero_latency(true);
+
+    // Input disabled initially
+    auto snooper = std::make_shared<UartSnooper>(
+        "TEST_TOGGLE", SnoopFormat::FORMAT_ASCII, nullptr, false, /*enable_input=*/false
+    );
+    bus->add_observer(snooper);
+    assert(snooper->enable_input() == false);
+
+    int sfd = open(snooper->pty_slave_path().c_str(), O_WRONLY);
+    assert(sfd >= 0);
+    write(sfd, "ignored\n", 8);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(70));
+    assert(bus->available_for_firmware() == 0);
+
+    // Now enable input
+    snooper->set_enable_input(true);
+    assert(snooper->enable_input() == true);
+
+    write(sfd, "accepted\n", 9);
+    close(sfd);
+
+    for (int i = 0; i < 50 && bus->available_for_firmware() < 9; ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    assert(bus->available_for_firmware() >= 9);
+    std::string received;
+    while (bus->available_for_firmware() > 0) {
+        received += static_cast<char>(bus->read_for_firmware());
+    }
+    assert(received.find("accepted") != std::string::npos);
+    std::cout << "  Toggled input received on bus: " << received;
+    std::cout << "  -> PASSED" << std::endl;
+}
+
 int main() {
+    setenv("TOAD_SNOOPER_NO_GUI", "1", 1);
     std::cout << "=== Running Uart, UartBus & Snooper Verification Tests ===" << std::endl;
     install_fiber_scheduler();
 
@@ -201,6 +289,8 @@ int main() {
     test_baud_rate_timing();
     test_snooper_formatting();
     test_terminal_harness_injection();
+    test_uart_snooper_bidirectional_input();
+    test_uart_snooper_input_toggle();
 
     std::cout << "=== All Milestone 2 Tests Passed Successfully! ===" << std::endl;
     return 0;

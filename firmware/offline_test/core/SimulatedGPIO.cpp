@@ -1,4 +1,5 @@
 #include "SimulatedGPIO.h"
+#include <stdio.h>
 
 namespace toad::sim {
 
@@ -41,6 +42,8 @@ void SimulatedGPIO::write_pin(uint32_t pin, arduino::PinStatus status) {
         for (const auto& listener : pin_listeners) {
             listener(pin, status, old_status);
         }
+
+        printf("Pin %d state: %d\n", pin, status == arduino::PinStatus::HIGH ? 1 : 0);
     }
 }
 

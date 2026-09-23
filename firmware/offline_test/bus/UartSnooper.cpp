@@ -1,13 +1,52 @@
 #include "UartSnooper.h"
+#include "UartBus.h"
 #include <iomanip>
 #include <sstream>
-#include <unistd.h>
 #include <cctype>
+#include <unistd.h>
 
 namespace toad::sim {
 
-UartSnooper::UartSnooper(std::string bus_name, SnoopFormat format, std::ostream* out_stream)
-    : bus_name_(std::move(bus_name)), format_(format), out_stream_(out_stream) {}
+UartSnooper::UartSnooper(std::string bus_name, SnoopFormat format, std::ostream* out_stream,
+                         bool spawn_terminal, bool enable_input, std::shared_ptr<UartBus> bus)
+    : bus_name_(std::move(bus_name)), format_(format), out_stream_(out_stream), target_bus_(bus) {
+
+    terminal_ = std::make_shared<VirtualTerminal>(
+        "UART: " + bus_name_,
+        spawn_terminal,
+        enable_input,
+        [this](const uint8_t* data, size_t size) {
+            std::shared_ptr<UartBus> b;
+            {
+                std::lock_guard<std::mutex> lock(bus_mtx_);
+                b = target_bus_.lock();
+            }
+            if (b) {
+                b->write_to_firmware(data, size);
+            }
+        }
+    );
+}
+
+void UartSnooper::set_enable_input(bool enable) {
+    if (terminal_) {
+        terminal_->set_enable_input(enable);
+    }
+}
+
+bool UartSnooper::enable_input() const {
+    return terminal_ ? terminal_->enable_input() : false;
+}
+
+void UartSnooper::attach_bus(std::shared_ptr<UartBus> bus) {
+    std::lock_guard<std::mutex> lock(bus_mtx_);
+    target_bus_ = bus;
+}
+
+std::shared_ptr<UartBus> UartSnooper::bus() const {
+    std::lock_guard<std::mutex> lock(bus_mtx_);
+    return target_bus_.lock();
+}
 
 std::string UartSnooper::format_ascii(const UartTransaction& tx, const std::string& name) {
     std::ostringstream oss;
@@ -99,6 +138,12 @@ void UartSnooper::on_uart_transaction(const UartTransaction& tx) {
     std::string formatted = format_transaction(tx);
 
     std::lock_guard<std::mutex> lock(mtx_);
+
+    // Output through VirtualTerminal
+    if (terminal_) {
+        terminal_->write(formatted);
+    }
+
     if (custom_sink_) {
         custom_sink_(formatted);
     }

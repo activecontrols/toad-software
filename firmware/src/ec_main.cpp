@@ -48,7 +48,7 @@ void setup() {
 
   bool all_modules_ok = true;
   all_modules_ok &= PressureSensors::begin();
-  // all_modules_ok &= TemperatureSensors::begin();
+  all_modules_ok &= TemperatureSensors::begin(); // problematic
   all_modules_ok &= ThrottleValves::begin();
   // all_modules_ok &= SolenoidValves::begin();
   // all_modules_ok &= TVC_Actuators::begin();

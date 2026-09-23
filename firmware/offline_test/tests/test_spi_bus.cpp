@@ -479,7 +479,69 @@ void test_functional_spi_device_fiber_channel() {
     std::cout << "  -> PASSED" << std::endl;
 }
 
+#include "bus/SPISnooper.h"
+#include <fcntl.h>
+#include <unistd.h>
+
+void test_spi_snooper_virtual_terminal() {
+    std::cout << "[Test 11] Testing SPISnooper with VirtualTerminal..." << std::endl;
+    SimulatedGPIO::instance().reset();
+
+    auto bus = std::make_shared<SPIBus>("SNOOP_SPI");
+    bus->set_zero_latency(true);
+
+    auto dev = std::make_shared<FunctionalSPIDevice>("Loopback",
+        [](uint8_t mosi, FunctionalSPIDevice&) -> uint8_t {
+            return mosi + 1;
+        }
+    );
+    digitalWrite(PIN_PT_BOARD_1_2_CS, arduino::HIGH);
+    bus->register_device(PIN_PT_BOARD_1_2_CS, dev);
+
+    std::string captured_spi_input;
+    auto snooper = std::make_shared<SPISnooper>(
+        "SNOOP_SPI",
+        SpiSnoopFormat::FORMAT_HEX,
+        nullptr,
+        /*spawn_terminal=*/false,
+        /*enable_input=*/true,
+        [&](const uint8_t* data, size_t size) {
+            captured_spi_input.append(reinterpret_cast<const char*>(data), size);
+        }
+    );
+    bus->add_observer(snooper);
+
+    // Perform an SPI transaction
+    digitalWrite(PIN_PT_BOARD_1_2_CS, arduino::LOW);
+    bus->begin_transaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
+    uint8_t r1 = bus->transfer(0xAA);
+    uint8_t r2 = bus->transfer(0xBB);
+    bus->end_transaction();
+    digitalWrite(PIN_PT_BOARD_1_2_CS, arduino::HIGH);
+
+    assert(r1 == 0xAB);
+    assert(r2 == 0xBC);
+
+    // Verify VirtualTerminal received formatting
+    assert(snooper->terminal() != nullptr);
+    assert(snooper->pty_master_fd() >= 0);
+
+    // Verify interactive input on SPI virtual terminal
+    int sfd = open(snooper->pty_slave_path().c_str(), O_WRONLY);
+    assert(sfd >= 0);
+    write(sfd, "spi_cmd\n", 8);
+    close(sfd);
+
+    for (int i = 0; i < 50 && captured_spi_input.empty(); ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    assert(captured_spi_input.find("spi_cmd") != std::string::npos);
+    std::cout << "  SPISnooper captured user input: " << captured_spi_input;
+    std::cout << "  -> PASSED" << std::endl;
+}
+
 int main() {
+    setenv("TOAD_SNOOPER_NO_GUI", "1", 1);
     std::cout << "=== Running SPIBus & Pluggable Peripherals Tests ===" << std::endl;
     install_fiber_scheduler();
 
@@ -493,6 +555,7 @@ int main() {
     test_spi_transaction_observer_snooper();
     test_ads131m02_fiber_concurrency_with_production_driver();
     test_functional_spi_device_fiber_channel();
+    test_spi_snooper_virtual_terminal();
 
     std::cout << "=== All SPIBus & Pluggable Peripherals Tests Passed Successfully! ===" << std::endl;
     return 0;

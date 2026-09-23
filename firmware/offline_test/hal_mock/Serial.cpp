@@ -1,4 +1,4 @@
-#include "HardwareSerial.h"
+#include "Serial.h"
 #include "core/BusRegistry.h"
 #include "bus/UartBus.h"
 

@@ -82,12 +82,14 @@ add_library(toad_sim_core STATIC
     core/FiberScheduler.cpp
     core/BusRegistry.cpp
     core/SimulatedGPIO.cpp
+    core/VirtualTerminal.cpp
     hal_mock/Arduino.cpp
-    hal_mock/HardwareSerial.cpp
+    hal_mock/Serial.cpp
     hal_mock/SPI.cpp
     hal_mock/CAN.cpp
     bus/UartBus.cpp
     bus/UartSnooper.cpp
+    bus/SPISnooper.cpp
     bus/RS485Mux.cpp
     bus/SPIBus.cpp
     bus/CANBus.cpp
@@ -148,6 +150,12 @@ add_executable(test_can_bus
 )
 target_link_libraries(test_can_bus PRIVATE toad_sim_core)
 add_test(NAME test_can_bus COMMAND test_can_bus)
+# VirtualTerminal standalone unit test
+add_executable(test_virtual_terminal
+    tests/test_virtual_terminal.cpp
+)
+target_link_libraries(test_virtual_terminal PRIVATE toad_sim_core)
+add_test(NAME test_virtual_terminal COMMAND test_virtual_terminal)
 
 # Standalone Terminal Interactive Harness
 add_executable(uart_terminal_harness

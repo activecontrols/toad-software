@@ -11,7 +11,7 @@
 
 namespace toad::sim {
 
-class UartBus : public IUartObservable {
+class UartBus : public IUartObservable, public std::enable_shared_from_this<UartBus> {
 public:
     explicit UartBus(unsigned long baud = 115200, std::string bus_name = "UART_BUS");
     ~UartBus() override = default;

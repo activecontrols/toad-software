@@ -24,6 +24,7 @@
 #include "bus/CANBus.h"
 #include "bus/UartSnooper.h"
 #include "hal_mock/CAN.h"
+#include "bus/SPISnooper.h"
 
 #include "peripherals/ADS131M02_Sim.h"
 #include "peripherals/MAX31856_Sim.h"
@@ -65,7 +66,7 @@ int main(void)
     // RS485_6 (pins PG9, PG14, DE: PG12)
     auto rs485_6_bus = std::make_shared<toad::sim::RS485Mux>(115200, "RS485_6", PIN_RS485_6_DE);
     auto rs485_6_snooper = std::make_shared<toad::sim::UartSnooper>(
-        "RS485_6", toad::sim::SnoopFormat::FORMAT_HEX_DUMP, &std::cout
+        "RS485_6", toad::sim::SnoopFormat::FORMAT_HEX_DUMP
     );
     rs485_6_bus->add_observer(rs485_6_snooper);
     toad::sim::BusRegistry::instance().register_uart(PIN_RS485_6_RX, PIN_RS485_6_TX, rs485_6_bus);
@@ -73,7 +74,7 @@ int main(void)
     // RS485_2 (pins PD6, PD5, DE: PD4)
     auto rs485_2_bus = std::make_shared<toad::sim::RS485Mux>(115200, "RS485_2", PIN_RS485_2_DE);
     auto rs485_2_snooper = std::make_shared<toad::sim::UartSnooper>(
-        "RS485_2", toad::sim::SnoopFormat::FORMAT_HEX_DUMP, &std::cout
+        "RS485_2", toad::sim::SnoopFormat::FORMAT_HEX_DUMP
     );
     rs485_2_bus->add_observer(rs485_2_snooper);
     toad::sim::BusRegistry::instance().register_uart(PIN_RS485_2_RX, PIN_RS485_2_TX, rs485_2_bus);
@@ -81,7 +82,7 @@ int main(void)
     // USB Comms Serial
     auto usb_serial_bus = std::make_shared<toad::sim::UartBus>(115200, "USB");
     auto usb_snooper = std::make_shared<toad::sim::UartSnooper>(
-        "USB", toad::sim::SnoopFormat::FORMAT_ASCII, &std::cout
+        "USB", toad::sim::SnoopFormat::FORMAT_ASCII, nullptr, true, /*enable_input=*/true
     );
     usb_serial_bus->add_observer(usb_snooper);
     toad::sim::BusRegistry::instance().register_uart(0, 0, usb_serial_bus);
@@ -89,7 +90,7 @@ int main(void)
     // Hardware Comms Serial (UART5: PB12/PB13 or PIN_HW_COMM_SERIAL_*)
     auto hw_comms_bus = std::make_shared<toad::sim::UartBus>(115200, "HW Comms");
     auto hw_comms_snooper = std::make_shared<toad::sim::UartSnooper>(
-        "HW Comms", toad::sim::SnoopFormat::FORMAT_ASCII, &std::cout
+        "HW Comms", toad::sim::SnoopFormat::FORMAT_ASCII, nullptr, true, /*enable_input=*/true
     );
     hw_comms_bus->add_observer(hw_comms_snooper);
     toad::sim::BusRegistry::instance().register_uart(PIN_HW_COMM_SERIAL_RX, PIN_HW_COMM_SERIAL_TX, hw_comms_bus);
@@ -97,7 +98,7 @@ int main(void)
     // Hardware Comms Fallback Serial (UART3)
     auto hw_fallback_bus = std::make_shared<toad::sim::UartBus>(115200, "HW Comms Fallback");
     auto hw_fallback_snooper = std::make_shared<toad::sim::UartSnooper>(
-        "HW Comms Fallback", toad::sim::SnoopFormat::FORMAT_ASCII, &std::cout
+        "HW Comms Fallback", toad::sim::SnoopFormat::FORMAT_ASCII
     );
     hw_fallback_bus->add_observer(hw_fallback_snooper);
     toad::sim::BusRegistry::instance().register_uart(PIN_HW_FALLBACK_SERIAL_RX, PIN_HW_FALLBACK_SERIAL_TX, hw_fallback_bus);
@@ -119,6 +120,9 @@ int main(void)
     );
     toad::sim::BusRegistry::instance().register_named_spi("PT_TC_SPI_1", spi1_bus);
 
+    auto spi1_snooper = std::make_shared<toad::sim::SPISnooper>("SPI1");
+    spi1_bus->add_observer(spi1_snooper);
+
     // PT_TC_SPI_3 (MOSI: PC12, MISO: PC11, SCK: PC10)
     auto spi3_bus = std::make_shared<toad::sim::SPIBus>(
         "PT_TC_SPI_3",
@@ -131,6 +135,9 @@ int main(void)
         PIN_PT_TC_SPI_3_MOSI, PIN_PT_TC_SPI_3_MISO, PIN_PT_TC_SPI_3_SCK, spi3_bus
     );
     toad::sim::BusRegistry::instance().register_named_spi("PT_TC_SPI_3", spi3_bus);
+
+    auto spi3_snooper = std::make_shared<toad::sim::SPISnooper>("SPI3");
+    spi3_bus->add_observer(spi3_snooper);
 
     // =========================================================
     // CAN Bus & Actuators
@@ -264,18 +271,6 @@ int main(void)
             );
         }
 
-        // pipe user input to the hw comms without blocking
-        for (;;)
-        {
-            int a = read_char_noblock();
-            if (a == -1) break;
-
-            // pipe a to uart
-            uint8_t in = (uint8_t)a;
-            // printf("Sending %c\n", in);
-            hw_comms_bus->write_to_firmware(in);
-        }
-
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 
@@ -309,6 +304,14 @@ int main(void)
     if (fw_fiber.joinable()) {
         fw_fiber.join();
     }
+
+    rs485_6_snooper.reset();
+    rs485_2_snooper.reset();
+    usb_snooper.reset();
+    hw_comms_snooper.reset();
+    hw_fallback_snooper.reset();
+    spi1_snooper.reset();
+    spi3_snooper.reset();
 
     std::cout << "[Simulation] All fibers joined. Clean exit." << std::endl;
     return 0;
