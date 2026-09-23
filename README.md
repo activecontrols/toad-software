@@ -16,6 +16,8 @@ In order to handle multiple boards, we have defined individual PlatformIO enviro
 
 TOAD uses custom PCBs, these are defined in the [firmware/boards](firmware/boards/) folder and documented at https://purdue-space-program.atlassian.net/wiki/spaces/PAC/pages/2045575171/Configuring+a+custom+board+with+PlatformIO
 
+Note - to flash code, you may need to configure the STLink driver to be WinUSB using https://zadig.akeo.ie/.
+
 #### FC / EC Shared Codebase
 
 The FC and EC projects are built from the same codebase, using a few rules to define the binary for each. First, each has their own `main.cpp`, as [firmware/src/fc_main.cpp](firmware/src/fc_main.cpp) and [firmware/src/ec_main.cpp](firmware/src/ec_main.cpp). These main files pull in the modules each board needs, so having a [firmware/lib/](firmware/lib/) folder that is only used on one project is fine. Additional control is provided through the `TOAD_FLIGHT_CONTROLLER_ONLY` and `TOAD_ENGINE_CONTROLLER_ONLY` flags, which can be used (sparingly) with `#ifdef`. This setup is controlled in [firmware/platformio.ini](firmware/platformio.ini). The active enviroment can be selected from the VSCode lower toolbar, which will say `Default (firwmare)` by default, but can be customized to view the project with the specific compiler flags for the FC or EC.
