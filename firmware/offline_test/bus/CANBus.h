@@ -7,9 +7,10 @@
 #include <deque>
 #include <mutex>
 
-#include "hal_mock/CAN.h"
+#include "bus/CanFrame.h"
 #include "bus/ITransactionObservable.h"
 #include "core/VirtualClock.h"
+
 
 namespace toad::sim {
 
@@ -45,9 +46,12 @@ public:
 
     // MCU Firmware interface
     bool transmit_from_firmware(const CanFrame& frame);
+    bool transmit_from_firmware(const arduino::CanMsg& msg);
     bool read_to_firmware(CanFrame& frame);
+    bool read_to_firmware(arduino::CanMsg& msg);
     int firmware_available() const;
     void clear_firmware_rx();
+
 
     // Timing calculation
     uint64_t calculate_transmission_time_us(const CanFrame& frame) const;

@@ -121,7 +121,7 @@ Validates the full CAN 2.0 / CAN-FD communication stack, multi-drop broadcast ro
 1. **`test_can_frame_data_structures()`**:
    Validates `CanFrame` constructors, equality operators, standard/extended ID representations, and 64-byte payload handling.
 2. **`test_firmware_to_bus_transmit()`**:
-   Validates firmware `CANClass` `write()` and `read()` API and lazy `BusRegistry` binding to `CANBus`.
+   Validates firmware `CAN` `write()` and `read()` API and lazy `BusRegistry` binding to `CANBus`.
 3. **`test_multi_drop_broadcast_delivery()`**:
    Validates multi-node broadcast where transmitted frames are delivered to all subscribed peripheral queues and MCU RX queue without echo loops.
 4. **`test_hardware_id_acceptance_filtering()`**:

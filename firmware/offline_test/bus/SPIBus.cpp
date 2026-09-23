@@ -22,6 +22,11 @@ SPIBus::~SPIBus() {
 void SPIBus::register_device(uint32_t cs_pin, std::shared_ptr<ISPIDevice> device, bool active_low) {
     if (!device) return;
 
+    // Simulate pull-up resistor: default unconfigured pin to inactive state
+    if (active_low && SimulatedGPIO::instance().read_pin(cs_pin) == arduino::LOW) {
+        SimulatedGPIO::instance().write_pin(cs_pin, arduino::HIGH);
+    }
+
     {
         std::lock_guard<std::mutex> lock(bus_mtx_);
         devices_[cs_pin] = {device, active_low};

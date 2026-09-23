@@ -366,8 +366,8 @@ To maintain a strict separation between firmware code, bus transport, and periph
 
 ```
  ┌──────────────────────────────────────────────────────────────┐
- │ Layer 1: Firmware API (hal_mock/MockCAN.h)                   │
- │   - Class CAN implementing arduino::CAN                      │
+ │ Layer 1: Firmware API (hal_mock/CAN.h)                       │
+ │   - Class CAN implementing arduino::HardwareCAN              │
  │   - What ec_main.cpp and MksServo57D call to send/read       │
  └──────────────────────────────┬───────────────────────────────┘
                                 │ forwards frames
@@ -375,7 +375,7 @@ To maintain a strict separation between firmware code, bus transport, and periph
  ┌──────────────────────────────────────────────────────────────┐
  │ Layer 2: Simulation Fabric (bus/CANBus.h)                    │
  │   - Class CANBus (sim-side only)                             │
- │   - Maintains std::vector<Channel<can_frame_t>*> subscribers │
+ │   - Maintains std::vector<Channel<CanFrame>*> subscribers    │
  │   - broadcast(frame): Pushes frame to every queue            │
  │     (automatically waking up their fibers)                   │
  │   - Logs to ITransactionObservable for future UI             │
@@ -391,8 +391,8 @@ To maintain a strict separation between firmware code, bus transport, and periph
  └──────────────────────────────┘└──────────────────────────────┘
 ```
 
-1. **Layer 1: Firmware API (`hal_mock/MockCAN.h`)**:
-   - Implements the standard embedded `arduino::CAN` interface (`begin()`, `write()`, `read()`, `available()`).
+1. **Layer 1: Firmware API (`hal_mock/CAN.h`)**:
+   - Implements the standard embedded `arduino::HardwareCAN` interface (`begin()`, `write()`, `read()`, `available()`).
    - Firmware only interacts with this API and has zero knowledge of simulation queues or threads.
    - When firmware transmits a frame, it forwards it directly down to the Layer 2 `CANBus`.
    - Incoming frames destined for the MCU are popped from an internal RX queue.
@@ -680,7 +680,7 @@ firmware/
     │   ├── SPI.h                # Mock SPIClass (wrapper)
     │   ├── HardwareSerial.h     # Mock Uart (inherits arduino::HardwareSerial)
     │   ├── USBSerial.h          # Mock USBSerial (with console output)
-    │   ├── MockCAN.h            # Mock CAN driver interface
+    │   ├── CAN.h/.cpp           # Mock CAN (inherits arduino::HardwareCAN)
     │   └── stm32h7xx_hal_flash.h# Mock internal NVM/Flash HAL functions
     │
     ├── core/                    # Core simulation infrastructure
@@ -829,7 +829,7 @@ Or execute individual test targets directly:
 
 
 6. **Milestone 6: Virtual CAN & Actuator Emulation** [COMPLETE]:
-   - Implement Layer 1 `CANClass` (`hal_mock/CAN.h/.cpp`, `MockCAN.h`) with Arduino-style API and named buses (`CAN_TVC`, `CAN_FC`).
+   - Implement Layer 1 `CAN` (`hal_mock/CAN.h/.cpp`) inheriting `arduino::HardwareCAN` from `ArduinoCore-API` with named buses (`CAN_TVC`, `CAN_FC`).
    - Implement Layer 2 `CANBus` (`bus/CANBus.h/.cpp`) multi-drop broadcast fabric with subscriber queues, priority arbitration, virtual bit timing, and `ITransactionObservable` / `ICanObservable`.
    - Implement `SystemCAN` (`bus/SystemCAN.h/.cpp`) SocketCAN placeholder for future cross-process vehicle bridges.
    - Implement `ICANDevice` and `FunctionalCANDevice` (`peripherals/ICANDevice.h`) with independent background fiber execution and `boost::fibers::buffered_channel<CanFrame>`.

@@ -6,8 +6,8 @@
 namespace toad::sim {
 
 BusRegistry& BusRegistry::instance() {
-    static BusRegistry instance;
-    return instance;
+    static BusRegistry* instance = new BusRegistry();
+    return *instance;
 }
 
 void BusRegistry::register_uart(uint32_t rx, uint32_t tx, std::shared_ptr<UartBus> bus) {

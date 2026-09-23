@@ -124,8 +124,12 @@ This ensures that the compiler picks up mock headers during SITL builds without 
 
 ---
 
-## Future HAL Mocks
+### 5. `CAN.h` & `CAN.cpp`
+Header: [`CAN.h`](CAN.h) | Implementation: [`CAN.cpp`](CAN.cpp)
 
-- **`MockCAN.h`**: Drop-in for Teensy `FlexCAN_T4`, routing CAN frames to `CANBus` or a host SocketCAN interface.
-
+Defines the `CAN` class implementing `arduino::HardwareCAN` from `ArduinoCore-API`:
+- **HardwareCAN Interface**: Implements `begin(CanBitRate const can_bitrate)`, `end()`, `write(const arduino::CanMsg& msg)`, `available()`, and `read()`.
+- **Hardware Abstraction Separation**: Embedded mock layer remains strictly decoupled from simulation internals. CAN frames use standard `arduino::CanMsg`, and simulation types like `toad::sim::CanFrame` reside strictly within `bus/CanFrame.h`.
+- **Pre-defined Instances**: Defines global instances `CAN_TVC` and `CAN_FC`.
+- **Lazy Bus Binding**: Automatically resolves backend `CANBus` instances via `BusRegistry`.
 

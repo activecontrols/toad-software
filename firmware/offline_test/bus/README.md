@@ -13,7 +13,7 @@ The simulation strictly decouples firmware code from the underlying physical tra
 | Layer 1: Firmware Controller Interface (hal_mock/)                       |
 |   - Uart (HardwareSerial.h)                                              |
 |   - SPIClass (SPI.h)                                                     |
-|   - FlexCAN_T4 (MockCAN.h)                                               |
+|   - CAN (CAN.h / HardwareCAN)                                            |
 +--------------------------------------------------------------------------+
                                     |
                                     v
@@ -210,7 +210,7 @@ Simulates multi-drop broadcast CAN 2.0 / CAN-FD bus networks with subscriber que
 
 #### Key Capabilities:
 - **Multi-Drop Broadcast**: Peripherals subscribe via `subscribe(dev)`. When any node (firmware or peripheral) calls `broadcast(frame)`, a copy is pushed to every subscribed node's private queue (`ICANDevice::enqueue_frame()`).
-- **MCU Firmware Interface**: Provides `transmit_from_firmware()`, `read_to_firmware()`, and `firmware_available()`, allowing firmware `CANClass` to interact naturally without knowing about simulation queues.
+- **MCU Firmware Interface**: Provides `transmit_from_firmware()`, `read_to_firmware()`, and `firmware_available()`, allowing firmware `CAN` to interact naturally without knowing about simulation queues.
 - **Virtual Bitrate Timing**: Computes physical frame wire transmission time based on bitrate and payload size (including standard bit stuffing overhead) and advances `VirtualClock`.
 - **Transaction Observability**: Implements `ICanObservable`, logging all broadcast transactions (`timestamp_us`, `can_id`, `extended`, `rtr`, `sender_name`, `data`) and notifying registered `ICanObserver` monitors.
 
@@ -227,7 +227,7 @@ auto motor = std::make_shared<toad::sim::MksServo57D_Sim>("StepperOX", CAN_ID_ST
 can_bus->subscribe(motor);
 motor->start(toad::sim::PRIO_ACTUATOR_PHYSICS);
 
-// 3. Register to BusRegistry for firmware CANClass("CAN_TVC")
+// 3. Register to BusRegistry for firmware CAN("CAN_TVC")
 toad::sim::BusRegistry::instance().register_named_can("CAN_TVC", can_bus);
 ```
 

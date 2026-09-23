@@ -47,40 +47,43 @@ void test_can_frame_data_structures() {
 }
 
 void test_firmware_to_bus_transmit() {
-    std::cout << "[Test 2] Testing Firmware CANClass transmit and read..." << std::endl;
+    std::cout << "[Test 2] Testing Firmware CAN (HardwareCAN) transmit and read..." << std::endl;
     VirtualClock::instance().reset(0);
     BusRegistry::instance().reset();
 
-    CANClass can_controller("CAN_TVC");
-    can_controller.begin(500000);
+    CAN can_controller("CAN_TVC");
 
-    auto bus = can_controller.backend_bus();
+    // Test HardwareCAN polymorphism and CanBitRate enum
+    arduino::HardwareCAN* hw_can = &can_controller;
+    bool begin_ok = hw_can->begin(arduino::CanBitRate::BR_500k);
+    assert(begin_ok);
+
+    auto bus = can_controller.get_bus();
     assert(bus != nullptr);
     bus->set_zero_latency(true);
 
     uint8_t tx_data[] = {0xAA, 0xBB, 0xCC};
-    bool ok = can_controller.write(0x100, tx_data, sizeof(tx_data));
-    assert(ok);
+    arduino::CanMsg tx_msg(0x100, sizeof(tx_data), tx_data);
+    int write_result = hw_can->write(tx_msg);
+    assert(write_result == 1);
 
     // Since it was sent by firmware without external nodes, nothing in firmware RX yet
-    assert(can_controller.available() == 0);
+    assert(hw_can->available() == 0);
 
     // Now inject frame as if from external bus node
     CanFrame incoming(0x200, tx_data, sizeof(tx_data));
     auto ext_dev = std::make_shared<FunctionalCANDevice>("ExtNode", 0x200);
     bus->broadcast(incoming, ext_dev.get()); // Real node sender = external peripheral
 
-
-    assert(can_controller.available() == 1);
-    CanFrame rcv;
-    bool read_ok = can_controller.read(rcv);
-    assert(read_ok);
-    assert(rcv.id == 0x200);
-    assert(rcv.len == 3);
+    assert(hw_can->available() == 1);
+    arduino::CanMsg rcv = hw_can->read();
+    assert(rcv.getStandardId() == 0x200);
+    assert(rcv.data_length == 3);
     assert(rcv.data[0] == 0xAA && rcv.data[1] == 0xBB && rcv.data[2] == 0xCC);
 
     std::cout << "  -> PASSED" << std::endl;
 }
+
 
 void test_multi_drop_broadcast_delivery() {
     std::cout << "[Test 3] Testing CANBus multi-drop broadcast delivery to multiple nodes..." << std::endl;

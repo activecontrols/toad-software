@@ -116,6 +116,10 @@ bool CANBus::transmit_from_firmware(const CanFrame& frame) {
     return broadcast(frame, nullptr);
 }
 
+bool CANBus::transmit_from_firmware(const arduino::CanMsg& msg) {
+    return broadcast(CanFrame(msg), nullptr);
+}
+
 bool CANBus::read_to_firmware(CanFrame& frame) {
     std::lock_guard<std::mutex> lock(mtx_);
     if (mcu_rx_queue_.empty()) {
@@ -125,6 +129,16 @@ bool CANBus::read_to_firmware(CanFrame& frame) {
     mcu_rx_queue_.pop_front();
     return true;
 }
+
+bool CANBus::read_to_firmware(arduino::CanMsg& msg) {
+    CanFrame frame;
+    if (!read_to_firmware(frame)) {
+        return false;
+    }
+    msg = frame.to_can_msg();
+    return true;
+}
+
 
 int CANBus::firmware_available() const {
     std::lock_guard<std::mutex> lock(mtx_);

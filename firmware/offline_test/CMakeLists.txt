@@ -39,7 +39,15 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(arduino_core_api)
 
 # Host build flags for ArduinoCore-API (skips weak embedded atexit, enables 32-bit pin mode)
-add_compile_definitions(HOST EXTENDED_PIN_MODE)
+add_compile_definitions(
+    HOST
+    EXTENDED_PIN_MODE
+    ARDUINO=10800
+    RADIO_BAUD=57600
+    TOAD_ENGINE_CONTROLLER_ONLY
+    USBCON
+    USBD_USE_CDC
+)
 
 # Include paths:
 # 1. hal_mock/ takes top precedence
@@ -54,9 +62,18 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/peripherals
     ${CMAKE_CURRENT_SOURCE_DIR}/runner
     ${arduino_core_api_SOURCE_DIR}
-    ${arduino_core_api_SOURCE_DIR}/api
     ${CMAKE_CURRENT_SOURCE_DIR}/..
     ${CMAKE_CURRENT_SOURCE_DIR}/../lib
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/serial_comms
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/pressure_sensors
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/temperature_sensors
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/solenoid_valves
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/throttle_valves
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/tvc_actuators
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/valve_controller
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/can_bus
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/hardware_mapping
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src
 )
 
 # Core simulation static library
@@ -138,3 +155,22 @@ add_executable(uart_terminal_harness
 )
 target_link_libraries(uart_terminal_harness PRIVATE toad_sim_core)
 
+add_executable(main
+    main.cpp
+    linux_wrap.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/ec_main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/pressure_sensors/PressureSensors.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/pressure_sensors/ADS131M02.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/temperature_sensors/TemperatureSensors.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/temperature_sensors/Adafruit_MAX31856.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/throttle_valves/ThrottleValves.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/throttle_valves/MksServo57D.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/throttle_valves/AMT242AV.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/solenoid_valves/SolenoidValves.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/solenoid_valves/RCS.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/tvc_actuators/TVC_Actuators.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/tvc_actuators/GimbalKinematics.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/valve_controller/ValveController.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/serial_comms/CommandRouter.cpp
+)
+target_link_libraries(main PRIVATE toad_sim_core)

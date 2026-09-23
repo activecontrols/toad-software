@@ -9,8 +9,9 @@
 #include <boost/fiber/buffered_channel.hpp>
 
 #include "ICANDevice.h"
-#include "hal_mock/CAN.h"
+#include "bus/CanFrame.h"
 #include "core/FiberScheduler.h"
+
 #include "core/VirtualClock.h"
 
 namespace toad::sim {
