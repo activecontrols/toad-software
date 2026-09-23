@@ -48,10 +48,5 @@ bool input_waiting(void) {
 
 int read_char_noblock(void)
 {
-    if (input_waiting())
-    {
-        return getchar();
-    }
-
-    return -1;
+    return input_waiting() ? getchar() : -1;
 }

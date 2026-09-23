@@ -58,7 +58,3 @@ private:
 namespace arduino {
     using ::SPIClass;
 }
-
-// Pre-defined SPI bus instances for TOAD Engine Controller
-extern SPIClass PT_TC_SPI_1;
-extern SPIClass PT_TC_SPI_3;

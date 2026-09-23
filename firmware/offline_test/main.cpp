@@ -118,7 +118,6 @@ int main(void)
         PIN_PT_TC_SPI_1_MOSI, PIN_PT_TC_SPI_1_MISO, PIN_PT_TC_SPI_1_SCK, spi1_bus
     );
     toad::sim::BusRegistry::instance().register_named_spi("PT_TC_SPI_1", spi1_bus);
-    PT_TC_SPI_1.attach_bus(spi1_bus);
 
     // PT_TC_SPI_3 (MOSI: PC12, MISO: PC11, SCK: PC10)
     auto spi3_bus = std::make_shared<toad::sim::SPIBus>(
@@ -132,7 +131,6 @@ int main(void)
         PIN_PT_TC_SPI_3_MOSI, PIN_PT_TC_SPI_3_MISO, PIN_PT_TC_SPI_3_SCK, spi3_bus
     );
     toad::sim::BusRegistry::instance().register_named_spi("PT_TC_SPI_3", spi3_bus);
-    PT_TC_SPI_3.attach_bus(spi3_bus);
 
     // =========================================================
     // CAN Bus & Actuators
@@ -266,8 +264,8 @@ int main(void)
             );
         }
 
-        // check for user-input
-        while (1)
+        // pipe user input to the hw comms without blocking
+        for (;;)
         {
             int a = read_char_noblock();
             if (a == -1) break;
