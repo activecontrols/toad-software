@@ -193,3 +193,25 @@ private:
   const size_t len;
   const state_t state;
 };
+
+// FDCAN DLC to payload size
+constexpr std::array<size_t, 16> FDCAN_DLC_SIZES = {0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48, 64};
+
+struct fdcan_size_t {
+  size_t can_size;     // size of CAN frame needed to represent this struct
+  size_t padding_size; // amount of padding needed (sizeof(T) - can_size)
+  uint8_t dlc;         // data length code for this CAN size
+};
+
+// Returns the FDCAN size information for the provided struct
+template <typename T> constexpr fdcan_size_t fdcan_size_of() {
+  constexpr size_t size = sizeof(T);
+  static_assert(size <= FDCAN_DLC_SIZES.back(), "Type exceeds maximum FDCAN frame payload (64 bytes).");
+  for (size_t dlc = 0; dlc < FDCAN_DLC_SIZES.size(); ++dlc) {
+    if (size <= FDCAN_DLC_SIZES[dlc]) {
+      const size_t can_size = FDCAN_DLC_SIZES[dlc];
+      return {can_size, can_size - size, static_cast<uint8_t>(dlc)};
+    }
+  }
+  return {0, 0, 0}; // will never be reached because of static_assert above
+}
