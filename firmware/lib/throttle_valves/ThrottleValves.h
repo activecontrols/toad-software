@@ -12,7 +12,7 @@ public:
   void stop();
   void set_position(float angle);
 
-// private:
+private:
   MksServo57D motor;
   AMT242AV encoder;
 };
