@@ -15,15 +15,15 @@ CommsSerial_t<USBSerial> USB_CommsSerial;
 CommsSerial_t<Uart> HW_CommsSerial(PIN_HW_COMM_SERIAL_RX, PIN_HW_COMM_SERIAL_TX);
 CommsSerial_t<Uart> HW_FallbackSerial(PIN_HW_FALLBACK_SERIAL_RX, PIN_HW_FALLBACK_SERIAL_TX);
 // TODO - configure DE pin
-Uart RS485_6(PIN_RS485_6_RX, PIN_RS485_6_TX, PIN_RS485_6_DE);
-Uart RS485_2(PIN_RS485_2_RX, PIN_RS485_2_TX, PIN_RS485_2_DE);
+Uart RS485_6(PIN_RS485_6_RX, PIN_RS485_6_TX);
+Uart RS485_2(PIN_RS485_2_RX, PIN_RS485_2_TX);
 
-SPIClass PT_TC_SPI_1(PIN_PT_TC_SPI_1_MOSI, PIN_PT_TC_SPI_1_MISO, PIN_PT_TC_SPI_1_SCK);
-SPIClass PT_TC_SPI_3(PIN_PT_TC_SPI_3_MOSI, PIN_PT_TC_SPI_3_MISO, PIN_PT_TC_SPI_3_SCK);
+// SPIClass PT_TC_SPI_1(PIN_PT_TC_SPI_1_MOSI, PIN_PT_TC_SPI_1_MISO, PIN_PT_TC_SPI_1_SCK);
+// SPIClass PT_TC_SPI_3(PIN_PT_TC_SPI_3_MOSI, PIN_PT_TC_SPI_3_MISO, PIN_PT_TC_SPI_3_SCK);
 
-bool kill_flag;
-bool arm_flag;
-void flight_loop();
+// bool kill_flag;
+// bool arm_flag;
+// void flight_loop();
 
 void setup() {
   // All shared interfaces are begun here.
@@ -36,86 +36,94 @@ void setup() {
   RS485_6.begin(9600); // TODO - what baud?
   RS485_2.begin(9600);
 
-  PT_TC_SPI_1.begin();
-  PT_TC_SPI_3.begin();
+  // PT_TC_SPI_1.begin();
+  // PT_TC_SPI_3.begin();
 
-  delay(3000);
+  // delay(3000);
 
-  CommsSerial.println("Engine Controller Started!");
-  HW_FallbackSerial.println("Enginer Controller Started! [Fallback Serial]");
+  // CommsSerial.println("Engine Controller Started!");
+  // HW_FallbackSerial.println("Enginer Controller Started! [Fallback Serial]");
 
-  CommandRouter::begin();
+  // CommandRouter::begin();
 
-  bool all_modules_ok = true;
-  all_modules_ok &= PressureSensors::begin();
-  all_modules_ok &= TemperatureSensors::begin();
-  all_modules_ok &= ThrottleValves::begin();
-  all_modules_ok &= SolenoidValves::begin();
-  all_modules_ok &= TVC_Actuators::begin();
-  all_modules_ok &= ValveController::begin();
+  // bool all_modules_ok = true;
+  // all_modules_ok &= PressureSensors::begin();
+  // all_modules_ok &= TemperatureSensors::begin();
+  // all_modules_ok &= ThrottleValves::begin();
+  // all_modules_ok &= SolenoidValves::begin();
+  // all_modules_ok &= TVC_Actuators::begin();
+  // all_modules_ok &= ValveController::begin();
 
-  if (!all_modules_ok) {
-    while (true) {
-      CommsSerial.println("At least one module failed to begin(), see errors above.");
-      HW_FallbackSerial.println("At least one module failed to begin(), see errors above. [Fallback Serial]");
-      delay(5000);
-    }
-  }
+  // if (!all_modules_ok) {
+  //   while (true) {
+  //     CommsSerial.println("At least one module failed to begin(), see errors above.");
+  //     HW_FallbackSerial.println("At least one module failed to begin(), see errors above. [Fallback Serial]");
+  //     delay(5000);
+  //   }
+  // }
 
-  CommandRouter::add(flight_loop, "start_flight_loop");
-  CommandRouter::add_flag(&kill_flag, "k", "terminate the flight loop early");
-  CommandRouter::add_flag(&arm_flag, "arm", "start following a trajectory");
+  // CommandRouter::add(flight_loop, "start_flight_loop");
+  // CommandRouter::add_flag(&kill_flag, "k", "terminate the flight loop early");
+  // CommandRouter::add_flag(&arm_flag, "arm", "start following a trajectory");
+  pinMode(LED_BUILTIN, OUTPUT);
 }
 
 void loop() {
-  while (CommsSerial.available()) {
-    CommandRouter::receive_byte(CommsSerial.read());
-  }
+  // while (CommsSerial.available()) {
+  //   CommandRouter::receive_byte(CommsSerial.read());
+  // }
+  digitalWrite(LED_BUILTIN, HIGH);
+  delay(500);
+  digitalWrite(LED_BUILTIN, LOW);
+  delay(500);
+
+  USB_CommsSerial.println("HELLO USB!");
+  HW_CommsSerial.println("HELLO HARDWARE!");
 }
 
-// TODO - these?
-#define STARTING_VALVE_ANGLE_OX 30
-#define STARTING_VALVE_ANGLE_FU 30
+// // TODO - these?
+// #define STARTING_VALVE_ANGLE_OX 30
+// #define STARTING_VALVE_ANGLE_FU 30
 
-void flight_loop() {
-  kill_flag = false;
-  arm_flag = false;
+// void flight_loop() {
+//   kill_flag = false;
+//   arm_flag = false;
 
-  // TODO - preflight checks
+//   // TODO - preflight checks
 
-  // TODO - reset sensors and outputs
-  ThrottleValves::set_angles_ox_fu(STARTING_VALVE_ANGLE_OX, STARTING_VALVE_ANGLE_FU);
-  TVC_Actuators::set_angles_pitch_yaw(0.0, 0.0);
-  RCS::close();
+//   // TODO - reset sensors and outputs
+//   ThrottleValves::set_angles_ox_fu(STARTING_VALVE_ANGLE_OX, STARTING_VALVE_ANGLE_FU);
+//   TVC_Actuators::set_angles_pitch_yaw(0.0, 0.0);
+//   RCS::close();
 
-  while (true) {
-    while (CommsSerial.available()) {
-      CommandRouter::receive_byte(CommsSerial.read());
-    }
+//   while (true) {
+//     while (CommsSerial.available()) {
+//       CommandRouter::receive_byte(CommsSerial.read());
+//     }
 
-    if (kill_flag) {
-      break;
-    }
+//     if (kill_flag) {
+//       break;
+//     }
 
-    // INPUT
-    pressure_readings_t pt_readings = PressureSensors::read_pts();
-    temperature_readings_t tc_readings = TemperatureSensors::read_tcs();
+//     // INPUT
+//     pressure_readings_t pt_readings = PressureSensors::read_pts();
+//     temperature_readings_t tc_readings = TemperatureSensors::read_tcs();
 
-    // RUN CONTROLLER
-    valve_controller_output_t vco = ValveController::get_controller_output(pt_readings, tc_readings);
-    float tvc_pitch = 0.0; // TODO - these come from the FC over CAN
-    float tvc_yaw = 0.0;
-    float rcs_force = 0.0;
+//     // RUN CONTROLLER
+//     valve_controller_output_t vco = ValveController::get_controller_output(pt_readings, tc_readings);
+//     float tvc_pitch = 0.0; // TODO - these come from the FC over CAN
+//     float tvc_yaw = 0.0;
+//     float rcs_force = 0.0;
 
-    // OUTPUT - only if armed
-    if (arm_flag) {
-      ThrottleValves::set_angles_ox_fu(vco.ox_angle, vco.fu_angle);
-      TVC_Actuators::set_angles_pitch_yaw(tvc_pitch, tvc_yaw);
-      RCS::update_rcs_valves(rcs_force);
-    }
-  }
+//     // OUTPUT - only if armed
+//     if (arm_flag) {
+//       ThrottleValves::set_angles_ox_fu(vco.ox_angle, vco.fu_angle);
+//       TVC_Actuators::set_angles_pitch_yaw(tvc_pitch, tvc_yaw);
+//       RCS::update_rcs_valves(rcs_force);
+//     }
+//   }
 
-  // TODO - safe remaining valves
-  ThrottleValves::stop();
-  RCS::close();
-}
+//   // TODO - safe remaining valves
+//   ThrottleValves::stop();
+//   RCS::close();
+// }
