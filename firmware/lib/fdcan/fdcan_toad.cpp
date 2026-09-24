@@ -8,68 +8,8 @@
 
 using namespace arduino;
 
-
-// IMPORTANT TODO: make sure to change the SystemClock_Config() in variant_TOAD_H7.cpp for 120MHz FDCAN peripheral clock !!!!
-
-/*
-jhillman notes:
-So far the goal is to get one FDCAN interface working in normal CAN mode for interfacing with the actuators
-
-- time quanta (tq): derived from the kernel clock, the discrete unit of time the CAN core operates on
-- minimum time quanta (mtq): one period of the kernel clock (fdcan_tq_ck) [RM p2621]
-- two clock domains, APB and kernel (peripheral) clock
-  - make sure to run kernel clock at a frequency no greater than APB
-  - CAN core and calibration unit operates using kernel clock, the rest of the module operates on APB clock [RM p2614]
-- there's configurable ram for holding id filters and tx/rx fifos or buffers [RM p2627]
-  - supported filters: range, dedicated ID, or bit mask filter [AN5348 p12]
-  - each filter can be configured for acceptance or rejection
-  - buffer can only store up to 1 element [AN5348 p16], fifo can store many [AN5348 p14]
-  - make sure to align ram elements to words (32 bits) - HAL probably does this automatically [RM p2626]
-  - if filters are disabled, all messages are accepted (we likely want this one) [RM p2629]
-- 11 and 29 bit identifiers supported [RM p2617]
-- tx event fifo (optional, probably don't use) [AN5348 p17]
-  - tells CPU transmission order, time of transmission
-- tx buffers, tx queues, tx FIFO [AN5348 p18] (see table 7 for comparison)
-  - cannot use both queues and FIFO in the same application
-  - buffer: stores a single message until it is sent
-  - fifo: transmission order depends on the order in which messages are placed in the fifo, not their priorities [AN5348 p20]
-  - queue: transmission order depends on priority of the message, not the order they are placed in the queue [AN5348 p20]
-- delay compensation [AN5348 p26] (optional feature, not needed for normal CAN operation)
-  - loop delay is the delay inherent in the connected between and in the transceiver such that there is a delay between an edge being transmitted on FDCAN_TX and being received on FDCAN_RX [RM p2620]
-  - typically the loop delay between CAN controller and transceiver places an upper limit on the bitrate [AN5348 p28]
-    - using delay compensation feature inserts a second sample point (SSP) used instead of the usual sample point to get around this upper limit by allowing the sent bit to be detected after the CAN controller sends the next bit
-  - delay compensation is disabled during arbitration phase [AN5348 p27]
-  - the CAN controller measures the delay compensation during the arbitration phase and uses this to define the position of the SSP during the data phase [AN5348 p27] [RM p2621]
-- bit timing [RM p2638]
-  - SYNC_SEG (synchronization segment) is fixed to 1 tq; a bit change is expected in this segment
-  - bit segment 1 (BS1) controls when the sample point occurs; (sample occurs at (SYNC_SEG + BS1) tq)
-  - bit segment 2 (BS2) controls when the transmit point occurs w.r.t. the sample point
-  - baudrate = 1 / (bit time) = 1 / (SYNC_SEG + BS1 + BS2) for normal CAN mode [RM p2639]
-  - !!! BS1 and BS2 are automatically adjusted by the FDCAN after initialization to account for drift; the synchronization jump width defines the maximum amount by which these may change; the RM says this is limited to four or less, online sources indicate otherwise (limit is much higher) [RM p2639]
-- FDCAN1 has an application watchdog that must either be frequently served or can be disabled [RM 2625]
-
-- FDCAN_InitTypeDef [UM p495] for intialization
-- FDCAN_FilterTypeDef [UM p497] for defining id filters
-- FDCAN_TxHeaderTypeDef [UM p498]
-- FDCAN_RxHeaderTypeDef [UM p499]
-- FDCAN_HpMsgStatusTypeDef [UM p501]
-- FDCAN_ProtocolStatusTypeDef [UM p501]
-- FDCAN_ErrorCountersTypeDef [UM p502]
-- FDCAN_MsgRamAddressTypeDef [UM p506]
-- __FDCAN_HandleTypeDef (FDCAN_HandleTypeDef) [UM p507]
-
-references:
-AN5348 Rev 6 (Introduction to FDCAN peripherals for STM32 MCUs)
-RM0399 (RM) Rev 4 (STM32H745/755 and STM32H747/757 advanced Arm-based 32-bit MCUs)
-UM2217 (UM) Rev 6 (Description of STM32H7 HAL and low-layer drivers)
-
-
-for actuator CAN: likely configuration is to store all incoming messages in rx FIFO 0, no filtering
-*/
-
 static CAN* can1 = nullptr;
 static CAN* can2 = nullptr;
-
 
 /* enable GPIO clock and configure pin (must pass a bit mask for which pin(s) to configure on the specific port) */
 static void CAN_init_gpio_dynamic(uint32_t pin, const PinMap pin_map[])
@@ -80,11 +20,6 @@ static void CAN_init_gpio_dynamic(uint32_t pin, const PinMap pin_map[])
   // jhillman: I confirmed this enables GPIO clock in the RCC, also sets GPIO speed to very high
   pin_function(pin_name, pinmap_function(pin_name, pin_map));
 }
-
-
-// adapted from https://github.com/STMicroelectronics/STM32CubeH7/blob/master/Projects/STM32H743I-EVAL/Examples/FDCAN/FDCAN_Classic_Frame_Networking/Src/stm32h7xx_hal_msp.c
-// this is called by STM32 HAL during HAL_FDCAN_Init()
-
 
 extern "C" 
 {
