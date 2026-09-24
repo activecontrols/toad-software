@@ -21,8 +21,8 @@ Uart RS485_2(PIN_RS485_2_RX, PIN_RS485_2_TX);
 // SPIClass PT_TC_SPI_1(PIN_PT_TC_SPI_1_MOSI, PIN_PT_TC_SPI_1_MISO, PIN_PT_TC_SPI_1_SCK);
 // SPIClass PT_TC_SPI_3(PIN_PT_TC_SPI_3_MOSI, PIN_PT_TC_SPI_3_MISO, PIN_PT_TC_SPI_3_SCK);
 
-// bool kill_flag;
-// bool arm_flag;
+bool kill_flag;
+bool arm_flag;
 // void flight_loop();
 
 void setup() {
@@ -39,12 +39,12 @@ void setup() {
   // PT_TC_SPI_1.begin();
   // PT_TC_SPI_3.begin();
 
-  // delay(3000);
+  delay(3000);
 
-  // CommsSerial.println("Engine Controller Started!");
-  // HW_FallbackSerial.println("Enginer Controller Started! [Fallback Serial]");
+  CommsSerial.println("Engine Controller Started!");
+  HW_FallbackSerial.println("Enginer Controller Started! [Fallback Serial]");
 
-  // CommandRouter::begin();
+  CommandRouter::begin();
 
   // bool all_modules_ok = true;
   // all_modules_ok &= PressureSensors::begin();
@@ -63,15 +63,15 @@ void setup() {
   // }
 
   // CommandRouter::add(flight_loop, "start_flight_loop");
-  // CommandRouter::add_flag(&kill_flag, "k", "terminate the flight loop early");
-  // CommandRouter::add_flag(&arm_flag, "arm", "start following a trajectory");
+  CommandRouter::add_flag(&kill_flag, "k", "terminate the flight loop early");
+  CommandRouter::add_flag(&arm_flag, "arm", "start following a trajectory");
   pinMode(LED_BUILTIN, OUTPUT);
 }
 
 void loop() {
-  // while (CommsSerial.available()) {
-  //   CommandRouter::receive_byte(CommsSerial.read());
-  // }
+  while (CommsSerial.available()) {
+    CommandRouter::receive_byte(CommsSerial.read());
+  }
   digitalWrite(LED_BUILTIN, HIGH);
   delay(500);
   digitalWrite(LED_BUILTIN, LOW);
@@ -79,7 +79,7 @@ void loop() {
 
   // USB_CommsSerial.println("HELLO USB!");
   HW_CommsSerial.println("HELLO HARDWARE!");
-  HW_FallbackSerial.println("HELLO FALLBACK!");
+  // HW_FallbackSerial.println("HELLO FALLBACK!");
 }
 
 // // TODO - these?
