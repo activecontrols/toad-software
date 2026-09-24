@@ -143,6 +143,38 @@ flash_error_t read_page(uint32_t addr, uint8_t *data_out) {
   return FLASH_SUCCESS;
 }
 
+flash_error_t read_spare(uint32_t addr, uint8_t *data_out, size_t len) {
+  if (len > NAND_SPARE_PAGE_SIZE) {
+    return FLASH_FAIL;
+  }
+
+  // load page into cache
+  QSPI_CommandTypeDef cmd;
+  build_cmd(&cmd, {.opcode = CMD_NAND_PAGE_READ, .addr = addr, .addr_size = QSPI_ADDRESS_24_BITS});
+  if (HAL_QSPI_Command(&hqspi, &cmd, HAL_TIMEOUT) != HAL_OK) {
+    return FLASH_FAIL;
+  }
+
+  // wait for page to arrive in cache
+  flash_error_t err = wait_until_ready(60);
+  if (err != FLASH_SUCCESS) {
+    return err;
+  }
+
+  // tell cache to send data, starting at the spare area's column offset
+  build_cmd(&cmd, {.opcode = CMD_NAND_READ_FROM_CACHE_QUAD, .addr = NAND_PAGE_SIZE, .addr_size = QSPI_ADDRESS_16_BITS, .data_size = static_cast<uint32_t>(len), .dummy_cycles = 8, .data_lines = QSPI_DATA_4_LINES});
+  if (HAL_QSPI_Command(&hqspi, &cmd, HAL_TIMEOUT) != HAL_OK) {
+    return FLASH_FAIL;
+  }
+
+  // receive spare bytes from cache across spi
+  if (HAL_QSPI_Receive(&hqspi, data_out, HAL_TIMEOUT) != HAL_OK) {
+    return FLASH_FAIL;
+  }
+
+  return FLASH_SUCCESS;
+}
+
 flash_error_t write_to_cache(uint32_t col_addr, uint8_t *data, size_t len) {
   // does cache page have enough space?
   if (col_addr + len > NAND_PAGE_SIZE) {
