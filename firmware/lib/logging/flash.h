@@ -1,5 +1,5 @@
 /**
- * @file flash.h
+ * @file flash.hpp
  * @brief NAND flash header for GD5F1GQ5UEYIGR chip
  *
  * @author Daniel Proano (dproano@purdue.edu)
@@ -36,6 +36,8 @@ namespace Flash {
 bool begin();
 
 flash_error_t read_page(uint32_t addr, uint8_t *out);
+
+flash_error_t read_spare(uint32_t addr, uint8_t *out, size_t len);
 
 flash_error_t write_to_cache(uint32_t col_addr, uint8_t *data, size_t len);
 
