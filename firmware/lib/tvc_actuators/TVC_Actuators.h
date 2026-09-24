@@ -1,8 +1,5 @@
 #pragma once
 
-// Destination in repo: firmware/lib/tvc_actuators/TVC_Actuators.h
-// (adds poll() - everything else unchanged from the existing file)
-
 namespace TVC_Actuators {
 
 bool begin();

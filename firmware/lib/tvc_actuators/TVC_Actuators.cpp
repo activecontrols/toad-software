@@ -15,9 +15,8 @@ namespace TVC_Actuators {
 
 CAN actuators_can(PIN_CAN_TVC_TX, PIN_CAN_TVC_RX);
 
-// TODO - PLACEHOLDER. 500 kbit/s is a common CAN default, not a confirmed
-// value - needs to match whatever the Ultramotion actuators are configured
-constexpr uint32_t ACTUATORS_CAN_BIT_RATE = 500000;
+constexpr uint32_t ACTUATORS_CAN_BIT_RATE = 1000000;
+bool tvc_debug_mode = false;
 
 // TODO - PLACEHOLDER scaling. Assumes a straight linear map from physical
 // actuator length (mm) to the actuator's raw target_pos range (0-65535).
@@ -34,8 +33,9 @@ uint16_t length_to_target_pos(float length_mm) {
 
 bool begin() {
   float actual_rate = actuators_can.begin(ACTUATORS_CAN_BIT_RATE);
-  reset_status_state(); // from UltramotionActuator.hpp - clears "what's new" status tracking
-  return actual_rate > 0.0f;
+  if (actual_rate <= 0.0f) {
+    return false;
+  }
 }
 
 void set_angles_pitch_yaw(float pitch, float yaw) {
@@ -55,17 +55,17 @@ void poll() {
     uint32_t id = msg.isStandardId() ? msg.getStandardId() : msg.getExtendedId();
 
     if (id == CAN_ID_TVC_PITCH || id == CAN_ID_TVC_YAW) {
-      // TODO - confirm this 6-byte [status_word][position] decode_str
-      // against the actuator's actual configured telemetry layout - still
-      // an open team decision, not a confirmed spec.
-      char decode_str[] = {'A', 'B', 'C', 'D', 'G', 'H'};
-      telem frame;
-      parse_CAN_frame(msg.data, msg.data_length, decode_str, sizeof(decode_str), &frame);
+      // Fixed-format decode for exactly what flight code acts on - no
+      // letter-code dispatch, no unused fields.
+      tvc_actuator_telemetry_t telem = parse_tvc_telemetry(msg.data);
 
-      // TODO - act on frame.status_word here, e.g.:
-      //   constexpr uint32_t FOLLOWING_ERROR_BIT = 1u << 11;
-      //   if (frame.status_word & FOLLOWING_ERROR_BIT) { kill_flag = true; }
-      (void)frame;
+      if (tvc_debug_mode) {
+        // Full generic decode/print, bench debugging only - never feeds a
+        // flight decision. Matches "KLMGHEFY", the factory-default txData.
+        char decode_str[] = {'K', 'L', 'M', 'G', 'H', 'E', 'F', 'Y'};
+        struct telem full_frame;
+        parse_CAN_frame(msg.data, msg.data_length, decode_str, sizeof(decode_str), &full_frame);
+      }
     }
     // CAN_ID_STEPPER_OX / CAN_ID_STEPPER_FU frames also arrive on this same
     // bus - dispatch to ThrottleValves here too once it reads feedback this way.

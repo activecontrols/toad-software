@@ -3,7 +3,6 @@
 #ifndef UltramotionActuator_H
 #define UltramotionActuator_H
 
-// Destination in repo: firmware/lib/tvc_actuators/UltramotionActuator.hpp
 //
 // Forward declare rather than #include "fdcan_toad.h" here - a reference is
 // all this header needs, and fdcan_toad.h drags in the STM32 HAL headers,
@@ -55,5 +54,12 @@ void send_target_pos(CAN &bus, uint16_t id, uint16_t target_pos);
 
 // Sends a CAN frame commanding the actuator at `id` to target_pos with a max_torque limit - data fmt '<>()'
 void send_target_pos(CAN &bus, uint16_t id, uint16_t target_pos, uint16_t max_torque);
+
+struct tvc_actuator_telemetry_t {
+  uint32_t status_word; // latched-high status word, bits 0-23 only (byte 3/N not included by default)
+  uint16_t position;    // absolute servo cylinder position
+};
+
+tvc_actuator_telemetry_t parse_tvc_telemetry(const uint8_t data[8]);
 
 #endif
