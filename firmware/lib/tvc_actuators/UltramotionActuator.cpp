@@ -1,4 +1,5 @@
 #include "UltramotionActuator.hpp"
+#include "CommsSerial.h"
 #include "fdcan_toad.h"
 
 // Changes from the previous version: sends now go through the real fdcan_toad
@@ -55,31 +56,31 @@ void reset_status_state() {
 void print_new_status_codes(uint32_t new_status, uint32_t old_status) {
   uint32_t status_dif = new_status ^ old_status;
 
-  Serial.println("  New Status Messages: ");
+  CommsSerial.println("  New Status Messages: ");
   uint32_t current_status_shift = new_status;
   uint32_t status_dif_shift = status_dif;
   for (int i = 0; i < STATUS_CODE_COUNT; i++) {
     if (status_dif_shift & 0x1 && current_status_shift & 0x1) { // select bits, check if message is NEW and ACTIVE
-      Serial.print("    ");
-      Serial.println(status_codes[i]);
+      CommsSerial.print("    ");
+      CommsSerial.println(status_codes[i]);
     };
     status_dif_shift = status_dif_shift >> 1;
     current_status_shift = current_status_shift >> 1;
   }
-  Serial.println("  END");
+  CommsSerial.println("  END");
 
-  Serial.println("\n  Cleared Status: ");
+  CommsSerial.println("\n  Cleared Status: ");
   current_status_shift = new_status;
   status_dif_shift = status_dif;
   for (int i = 0; i < STATUS_CODE_COUNT; i++) {
     if (status_dif_shift & 0x1 && !(current_status_shift & 0x1)) { // select bits, check if message is NEW and INACTIVE
-      Serial.print("    ");
-      Serial.println(status_codes[i]);
+      CommsSerial.print("    ");
+      CommsSerial.println(status_codes[i]);
     };
     status_dif_shift = status_dif_shift >> 1;
     current_status_shift = current_status_shift >> 1;
   }
-  Serial.println("  END");
+  CommsSerial.println("  END");
 }
 
 void parse_CAN_byte(uint8_t can_msg, char decode_str, telem *current_telem_frame) {
@@ -155,8 +156,8 @@ void parse_CAN_byte(uint8_t can_msg, char decode_str, telem *current_telem_frame
   } else if (decode_str == 'u') {
     current_telem_frame->target_pos += can_msg_16bit << 8;
   } else {
-    Serial.print("FATAL ERROR - CAN frame contained non-decodable char: ");
-    Serial.println(decode_str);
+    CommsSerial.print("FATAL ERROR - CAN frame contained non-decodable char: ");
+    CommsSerial.println(decode_str);
   }
 }
 
@@ -167,7 +168,7 @@ void print_can_data(char decode_str, telem *current_telem_frame) {
   case 'C':
   case 'D':
     if (!current_telem_frame->has_printed_status) {
-      Serial.println("Status: ");
+      CommsSerial.println("Status: ");
       print_new_status_codes(current_telem_frame->status_word, current_status);
       current_status = current_telem_frame->status_word;
     }
@@ -180,23 +181,23 @@ void print_can_data(char decode_str, telem *current_telem_frame) {
   case 't':
     break;
   case 'F': // and E
-    Serial.print("Average motor current over telemetry interval: ");
-    Serial.println(current_telem_frame->avg_motor_current);
+    CommsSerial.print("Average motor current over telemetry interval: ");
+    CommsSerial.println(current_telem_frame->avg_motor_current);
     break;
   case 'H': // and G
-    Serial.print("Servo Cylinder position, absolute encoder value: ");
-    Serial.println(current_telem_frame->abs_servo_cylinder_pos);
+    CommsSerial.print("Servo Cylinder position, absolute encoder value: ");
+    CommsSerial.println(current_telem_frame->abs_servo_cylinder_pos);
     break;
   case 'J': // and I
-    Serial.print("Position converted to input range (pMin to pMax): ");
-    Serial.println(current_telem_frame->rel_servo_cylinder_pos);
+    CommsSerial.print("Position converted to input range (pMin to pMax): ");
+    CommsSerial.println(current_telem_frame->rel_servo_cylinder_pos);
     break;
   case 'K':
   case 'L':
   case 'M':
   case 'N':
     if (!current_telem_frame->has_printed_high_status) {
-      Serial.println("Status (Latched High): ");
+      CommsSerial.println("Status (Latched High): ");
       print_new_status_codes(current_telem_frame->latch_high_status_word, current_status_latched_high);
       current_status_latched_high = current_telem_frame->latch_high_status_word;
     }
@@ -207,72 +208,72 @@ void print_can_data(char decode_str, telem *current_telem_frame) {
   case 'Q':
   case 'R':
     if (!current_telem_frame->has_printed_low_status) {
-      Serial.println("Status (Latched Low): ");
+      CommsSerial.println("Status (Latched Low): ");
       print_new_status_codes(current_telem_frame->latch_low_status_word, current_status_latched_low);
       current_status_latched_low = current_telem_frame->latch_low_status_word;
     }
     current_telem_frame->has_printed_low_status = true;
     break;
   case 'S':
-    Serial.print("8-bit position between physical stops (rPos to ePos): ");
-    Serial.println(current_telem_frame->phys_stop_pos);
+    CommsSerial.print("8-bit position between physical stops (rPos to ePos): ");
+    CommsSerial.println(current_telem_frame->phys_stop_pos);
     break;
   case 'T':
-    Serial.print("8-bit motor current 16-sample average of last 16 ms: ");
-    Serial.println(current_telem_frame->motor_current_avg_16);
+    CommsSerial.print("8-bit motor current 16-sample average of last 16 ms: ");
+    CommsSerial.println(current_telem_frame->motor_current_avg_16);
     break;
   case 'U': {
-    Serial.print("8-bit bus voltage 0 VDC to +50 VDC: ");
+    CommsSerial.print("8-bit bus voltage 0 VDC to +50 VDC: ");
     float voltage = current_telem_frame->bus_voltage;
-    Serial.print(voltage * 50 / 255);
-    Serial.println(" VDC");
+    CommsSerial.print(voltage * 50 / 255);
+    CommsSerial.println(" VDC");
     break;
   }
   case 'V':
-    Serial.print("8-bit average motor current over telemetry interval: ");
-    Serial.println(current_telem_frame->motor_current_avg);
+    CommsSerial.print("8-bit average motor current over telemetry interval: ");
+    CommsSerial.println(current_telem_frame->motor_current_avg);
     break;
   case 'W':
-    Serial.print("8-bit max motor current over telemetry interval: ");
-    Serial.println(current_telem_frame->max_motor_current_8_bit);
+    CommsSerial.print("8-bit max motor current over telemetry interval: ");
+    CommsSerial.println(current_telem_frame->max_motor_current_8_bit);
     break;
   case 'X':
-    Serial.print("8-bit signed integer PCB temp sensor C (-50 to +127): ");
-    Serial.println(current_telem_frame->signed_PCB_temp_sensor);
+    CommsSerial.print("8-bit signed integer PCB temp sensor C (-50 to +127): ");
+    CommsSerial.println(current_telem_frame->signed_PCB_temp_sensor);
     break;
   case 'Y': {
-    Serial.print("8-bit unsigned PCB temp sensor: ");
+    CommsSerial.print("8-bit unsigned PCB temp sensor: ");
     int pcb_temp = current_telem_frame->unsigned_PCB_temp_sensor;
-    Serial.print(pcb_temp - 50);
-    Serial.println(" deg C");
+    CommsSerial.print(pcb_temp - 50);
+    CommsSerial.println(" deg C");
     break;
   }
   case 'Z':
-    Serial.print("8-bit PCB relative humidity: ");
-    Serial.print(current_telem_frame->PCB_relative_humidity);
-    Serial.println("%");
+    CommsSerial.print("8-bit PCB relative humidity: ");
+    CommsSerial.print(current_telem_frame->PCB_relative_humidity);
+    CommsSerial.println("%");
     break;
   case 'c': // and m
-    Serial.print("Max motor current over telemetry interval: ");
-    Serial.println(current_telem_frame->max_motor_current_16_bit);
+    CommsSerial.print("Max motor current over telemetry interval: ");
+    CommsSerial.println(current_telem_frame->max_motor_current_16_bit);
     break;
   case 'p':
   case 'q':
   case 'r':
   case 's':
     if (!current_telem_frame->has_printed_ID) {
-      Serial.print("ID: 0x");
-      Serial.println(current_telem_frame->unitID, HEX);
+      CommsSerial.print("ID: 0x");
+      CommsSerial.println(current_telem_frame->unitID, HEX);
     }
     current_telem_frame->has_printed_ID = true;
     break;
   case 'u': // and t
-    Serial.print("Target position, absolute encoder value: ");
-    Serial.println(current_telem_frame->target_pos);
+    CommsSerial.print("Target position, absolute encoder value: ");
+    CommsSerial.println(current_telem_frame->target_pos);
     break;
   default:
-    Serial.print("FATAL ERROR - CAN frame contained non-decodable char: ");
-    Serial.println(decode_str);
+    CommsSerial.print("FATAL ERROR - CAN frame contained non-decodable char: ");
+    CommsSerial.println(decode_str);
     break;
   }
 }
@@ -280,11 +281,11 @@ void print_can_data(char decode_str, telem *current_telem_frame) {
 void parse_CAN_frame(const uint8_t can_msg[], uint8_t msg_length, char decode_str[], uint8_t decode_length,
                      telem *out) {
   if (msg_length != decode_length) {
-    Serial.println("FATAL ERROR - CAN frame and decode code lengths do not match!");
+    CommsSerial.println("FATAL ERROR - CAN frame and decode code lengths do not match!");
   }
 
   if (msg_length > 8) {
-    Serial.println("FATAL ERROR - CAN frame longer than max!");
+    CommsSerial.println("FATAL ERROR - CAN frame longer than max!");
   }
 
   telem current_telem_frame; // values are all set to 0
@@ -293,15 +294,22 @@ void parse_CAN_frame(const uint8_t can_msg[], uint8_t msg_length, char decode_st
     parse_CAN_byte(can_msg[i], decode_str[i], &current_telem_frame);
   }
 
-  Serial.println("CAN FRAME START ++++++++++++++++++++++++++");
+  CommsSerial.println("CAN FRAME START ++++++++++++++++++++++++++");
   for (uint8_t i = 0; i < msg_length; i++) {
     print_can_data(decode_str[i], &current_telem_frame);
   }
-  Serial.println("CAN FRAME END  ---------------------------\n");
+  CommsSerial.println("CAN FRAME END  ---------------------------\n");
 
   if (out != nullptr) {
     *out = current_telem_frame;
   }
+}
+
+tvc_actuator_telemetry_t parse_tvc_telemetry(const uint8_t data[8]) {
+  tvc_actuator_telemetry_t out;
+  out.status_word = (uint32_t)data[0] | ((uint32_t)data[1] << 8) | ((uint32_t)data[2] << 16); // K,L,M
+  out.position = (uint16_t)data[3] | ((uint16_t)data[4] << 8);                                // G,H
+  return out;
 }
 
 void send_target_pos(CAN &bus, uint16_t id, uint16_t target_pos) {
