@@ -11,7 +11,7 @@
 #include "ValveController.h"
 
 // shared interfaces
-// CommsSerial_t<USBSerial> USB_CommsSerial;
+CommsSerial_t<USBSerial> USB_CommsSerial;
 CommsSerial_t<Uart> HW_CommsSerial(PIN_HW_COMM_SERIAL_RX, PIN_HW_COMM_SERIAL_TX);
 CommsSerial_t<Uart> HW_FallbackSerial(PIN_HW_FALLBACK_SERIAL_RX, PIN_HW_FALLBACK_SERIAL_TX);
 // TODO - configure DE pin
@@ -73,13 +73,13 @@ void loop() {
     CommandRouter::receive_byte(CommsSerial.read());
   }
   digitalWrite(LED_BUILTIN, HIGH);
-  delay(500);
+  delay(200);
   digitalWrite(LED_BUILTIN, LOW);
-  delay(500);
+  delay(200);
 
-  // USB_CommsSerial.println("HELLO USB!");
+  USB_CommsSerial.println("HELLO USB!");
   HW_CommsSerial.println("HELLO HARDWARE!");
-  // HW_FallbackSerial.println("HELLO FALLBACK!");
+  HW_FallbackSerial.println("HELLO FALLBACK!");
 }
 
 // // TODO - these?
