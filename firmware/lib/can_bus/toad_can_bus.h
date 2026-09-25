@@ -39,19 +39,19 @@ constexpr uint16_t CAN_ID_POWER_BOARD = 0x016;
 
 // Heartbeat / Status Messages (ID range 0b0000_XXXX)
 struct can_msg_heartbeat_t {
-  uint8_t cmd_id = 0x00;
+  static constexpr uint8_t cmd_id = 0x00;
 };
 
 // Sent as an error reply when device receives a command with an invalid ID,
 // or that command is not supported on this device.
 struct can_msg_invalid_cmd_t {
-  uint8_t cmd_id = 0x01;
+  static constexpr uint8_t cmd_id = 0x01;
   uint8_t rcv_cmd_id; // The command that was received.
 };
 
 // Sent as an error reply when device receives a command with a payload that did not match the expected length.
 struct can_msg_incorrect_len_t {
-  uint8_t cmd_id = 0x02;
+  static constexpr uint8_t cmd_id = 0x02;
   uint8_t rcv_cmd_id;   // The command that was received.
   uint8_t len;          // Payload length of received command.
   uint8_t expected_len; // Expected payload length of command with received command's id.
@@ -59,7 +59,7 @@ struct can_msg_incorrect_len_t {
 
 // Sent as an error reply when device receives a command that is not valid in its current state machine state.
 struct can_msg_unexpected_state_t {
-  uint8_t cmd_id = 0x03;
+  static constexpr uint8_t cmd_id = 0x03;
   uint8_t rcv_cmd_id;     // The command that was received.
   uint8_t state;          // State machine state when cmd was received.
   uint8_t expected_state; // State machine state required for cmd.
@@ -67,48 +67,48 @@ struct can_msg_unexpected_state_t {
 
 // Telemetry Messages (ID range 0b0001_XXXX)
 struct can_msg_fc_telemetry {
-  uint8_t cmd_id = 0x10;
+  static constexpr uint8_t cmd_id = 0x10;
 };
 
 struct can_msg_ec_telemetry {
-  uint8_t cmd_id = 0x11;
+  static constexpr uint8_t cmd_id = 0x11;
 };
 
 // Flight Commands (ID range 0b0010_XXXX)
 
 // Flash Control (ID range 0b0011_XXXX)
 struct can_msg_reset_controller_t {
-  uint8_t cmd_id = 0x30;
+  static constexpr uint8_t cmd_id = 0x30;
 };
 
 struct can_msg_enter_bootloader_t {
-  uint8_t cmd_id = 0x31;
+  static constexpr uint8_t cmd_id = 0x31;
 };
 
 struct can_msg_erase_flash_t {
-  uint8_t cmd_id = 0x32;
+  static constexpr uint8_t cmd_id = 0x32;
 };
 
 struct can_msg_select_page_t {
-  uint8_t cmd_id = 0x33;
+  static constexpr uint8_t cmd_id = 0x33;
   uint16_t page_addr;
 };
 
 struct can_msg_mem_packet_t {
-  uint8_t cmd_id = 0x34;
+  static constexpr uint8_t cmd_id = 0x34;
   uint8_t chunk_addr;
   uint16_t page_addr;
   uint8_t flash_bytes[32];
 };
 
 struct can_msg_request_mem_packet_t {
-  uint8_t cmd_id = 0x35;
+  static constexpr uint8_t cmd_id = 0x35;
   uint8_t chunk_addr;
   uint16_t page_addr;
 };
 
 struct can_msg_write_flash_t {
-  uint8_t cmd_id = 0x36;
+  static constexpr uint8_t cmd_id = 0x36;
 };
 
 // RESERVED for Extended Command Format (ID range 0b0111_XXXX)
@@ -205,7 +205,7 @@ struct fdcan_size_t {
 
 // Returns the FDCAN size information for the provided struct
 template <typename T> constexpr fdcan_size_t fdcan_size_of() {
-  constexpr size_t size = sizeof(T);
+  constexpr size_t size = std::is_empty_v<T> ? 0 : sizeof(T);
   static_assert(size <= FDCAN_DLC_SIZES.back(), "Type exceeds maximum FDCAN frame payload (64 bytes).");
   for (size_t dlc = 0; dlc < FDCAN_DLC_SIZES.size(); ++dlc) {
     if (size <= FDCAN_DLC_SIZES[dlc]) {
