@@ -1,10 +1,14 @@
 #include <Arduino.h>
 
 #include "CommsSerial.h"
+#include "api/CanMsg.h"
 #include "prog_pins.h"
 #include "toad_can_bus.h"
 
-// Based on https://www.st.com/resource/en/application_note/an4286-how-to-use-spi-protocol-in-bootloader-on-stm32-mcus-stmicroelectronics.pdf
+using arduino::CanMsg;
+
+// Based on
+// https://www.st.com/resource/en/application_note/an4286-how-to-use-spi-protocol-in-bootloader-on-stm32-mcus-stmicroelectronics.pdf
 // Citations commented as [pg#]
 
 CommsSerial_t<USBSerial> USB_CommsSerial;
@@ -172,37 +176,50 @@ void loop() {
   uint8_t *raw_bytes;
   size_t raw_msg_len;
 
-  CAN_Msg_Decoder<prog_state_t> raw_msg(raw_bytes, raw_msg_len, prog_state);
+  CanMsg raw_msg;
 
-  if (const auto msg = raw_msg.decode<can_msg_heartbeat_t>()) {
-    // TODO - this
+#define if_msg_is_valid(_msg, _msg_type, ...)                          \
+  do {                                                                 \
+    if ((_msg).id == _msg_type::cmd_id) {                              \
+      if ((_msg).data_length == fdcan_size_of<_msg_type>().can_size) { \
+        _msg_type msg;                                                 \
+        memcpy(&msg, raw_msg.data, sizeof(raw_msg));                   \
+        __VA_ARGS__                                                    \
+      } else {                                                         \
+      }                                                                \
+    } else {                                                           \
+      Error_Handler();                                                 \
+    }                                                                  \
+  } while (0)
 
-  } else if (const auto msg = raw_msg.decode<can_msg_reset_controller_t>()) {
-    // TODO - enforce state
-    reset_h7();
-
-  } else if (const auto msg = raw_msg.decode_and_enforce_state<can_msg_enter_bootloader_t>(STATE_IDLE)) {
+  if_msg_is_valid(raw_msg, can_msg_heartbeat_t,
+                  {
+                      // TODO - this
+                  });
+  if_msg_is_valid(raw_msg, can_msg_reset_controller_t, { reset_h7(); });
+  if_msg_is_valid(raw_msg, can_msg_enter_bootloader_t, {
     if (enter_bootloader()) {
       prog_state = STATE_PRE_ERASE;
     } else {
       // TODO - handle error
     }
-
-  } else if (const auto msg = raw_msg.decode_and_enforce_state<can_msg_erase_flash_t>(STATE_PRE_ERASE)) {
+  });
+  if_msg_is_valid(raw_msg, can_msg_erase_flash_t, {
     if (erase_memory()) {
       prog_state = STATE_READY;
     } else {
       // TODO - handle error
     }
-
-  } else if (const auto msg = raw_msg.decode_and_enforce_state<can_msg_select_page_t>(STATE_READY)) {
+  });
+  if_msg_is_valid(raw_msg, can_msg_select_page_t, {
     prog_state = STATE_PAGE_SELECTED;
-    active_pg_addr = msg->page_addr;
+    active_pg_addr = msg.page_addr;
     for (size_t i = 0; i < NUM_CAN_CHUNKS_PER_PAGE; i++) {
       chunk_rcv[i] = false;
     }
+  });
 
-  } else if (const auto msg = raw_msg.decode_and_enforce_state<can_msg_mem_packet_t>(STATE_PAGE_SELECTED)) {
+  if (const auto msg = raw_msg.decode_and_enforce_state<can_msg_mem_packet_t>(STATE_PAGE_SELECTED)) {
     if (msg->page_addr == active_pg_addr) {
       static_assert(sizeof(msg->flash_bytes) == CAN_CHUNK_SIZE);
       memcpy(&page_cache[msg->chunk_addr * CAN_CHUNK_SIZE], msg->flash_bytes, CAN_CHUNK_SIZE);
@@ -226,12 +243,13 @@ void loop() {
     if (all_chunk_rcv) {
       for (size_t i = 0; i < NUM_WRITE_CHUNKS_PER_PAGE; i++) {
         static_assert(WRITE_CHUNK_SIZE <= 256);
-        write_memory(active_pg_addr * PAGE_CACHE_SIZE + WRITE_CHUNK_SIZE * i, &page_cache[WRITE_CHUNK_SIZE * i], WRITE_CHUNK_SIZE);
+        write_memory(active_pg_addr * PAGE_CACHE_SIZE + WRITE_CHUNK_SIZE * i, &page_cache[WRITE_CHUNK_SIZE * i],
+                     WRITE_CHUNK_SIZE);
         // TODO - send ok
       }
       prog_state = STATE_READY;
     }
   }
 
-  raw_msg.send_error_if_not_decoded();
+  // TODO - send error if not decoded
 }
