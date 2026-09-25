@@ -1,0 +1,48 @@
+/**
+ * @file flash.hpp
+ * @brief NAND flash header for GD5F1GQ5UEYIGR chip
+ *
+ * @author Daniel Proano (dproano@purdue.edu)
+ */
+#pragma once
+
+#include <stddef.h>
+#include <stdint.h>
+
+typedef enum { 
+  FLASH_SUCCESS, 
+  FLASH_FAIL, 
+  FLASH_TIMED_OUT 
+} flash_error_t;
+
+typedef struct __attribute__((packed)) {
+  uint8_t OIP : 1;
+  uint8_t WEL : 1;
+  uint8_t E_FAIL : 1;
+  uint8_t P_FAIL : 1;
+  uint8_t ECCS : 2;
+  uint8_t RESERVED1 : 2;
+} flash_status_a_t;
+
+typedef struct __attribute__((packed)) {
+  uint8_t RESERVED1 : 3;
+  uint8_t BPS : 1;
+  uint8_t ECCSE : 2;
+  uint8_t RESERVED2 : 2;
+} flash_status_b_t;
+
+namespace Flash {
+
+bool begin();
+
+flash_error_t read_page(uint32_t addr, uint8_t *out);
+
+flash_error_t read_spare(uint32_t addr, uint8_t *out, size_t len);
+
+flash_error_t write_to_cache(uint32_t col_addr, uint8_t *data, size_t len);
+
+flash_error_t program(uint32_t addr);
+
+flash_error_t erase_block(uint32_t addr);
+
+}; // namespace Flash

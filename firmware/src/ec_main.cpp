@@ -4,6 +4,7 @@
 #include "CommsSerial.h"
 #include "PressureSensors.h"
 #include "RCS.h"
+#include "flash.h"
 #include "SolenoidValves.h"
 #include "TVC_Actuators.h"
 #include "TemperatureSensors.h"
@@ -38,6 +39,8 @@ void setup() {
 
   PT_TC_SPI_1.begin();
   PT_TC_SPI_3.begin();
+
+  Flash::begin();
 
   delay(3000);
 
