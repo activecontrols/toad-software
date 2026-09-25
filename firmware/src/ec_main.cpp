@@ -25,6 +25,87 @@ bool kill_flag;
 bool arm_flag;
 // void flight_loop();
 
+
+struct mux_entry
+{
+  Uart& intf;
+  pin_size_t pin;
+  const char* name;
+};
+
+mux_entry rs485_entries[] = 
+{
+  {
+    .intf = TVC_PITCH_RS485_BUS,
+    .pin = PIN_TVC_PITCH_SEL,
+    .name = "TVC_PITCH",
+  },
+  {
+    .intf = DRV_OX_RS485_BUS,
+    .pin = PIN_DRV_OX_SEL,
+    .name = "DRV_OX",
+  },
+  {
+    .intf = ENC_OX_RS485_BUS,
+    .pin = PIN_ENC_OX_SEL,
+    .name = "ENC_OX",
+  },
+  {
+    .intf = TVC_YAW_RS485_BUS,
+    .pin = PIN_TVC_YAW_SEL,
+    .name = "TVC_YAW",
+  },
+  {
+    .intf = DRV_FU_RS485_BUS,
+    .pin = PIN_DRV_FU_SEL,
+    .name = "DRV_FU",
+  },
+  {
+    .intf = ENC_FU_RS485_BUS,
+    .pin = PIN_ENC_FU_SEL,
+    .name = "ENC_FU",
+  },
+};
+
+#define ARRAYSIZE(a) (sizeof(a) / sizeof(*a))
+
+void cmd_test_mux(const char* args)
+{
+  mux_entry* entry = nullptr;
+  for (mux_entry& entry_it : rs485_entries)
+  {
+    if (strcmp(args, entry_it.name) == 0)
+    {
+      entry = &entry_it;
+    }
+  }
+  if (entry == nullptr)
+  {
+    CommsSerial.println("Usage: text_mux <interface name>");
+    return;
+  }
+
+  // mux for this interface
+  for (int i = 0; i < ARRAYSIZE(rs485_entries); ++i)
+  {
+    if (rs485_entries + i != entry)
+    {
+      digitalWrite(rs485_entries[i].pin, LOW);
+    }
+    else
+    {
+      digitalWrite(rs485_entries[i].pin, HIGH);
+    }
+  }
+
+  // transmit data
+  entry->intf.write("Hello, world!\n");
+  entry->intf.flush();
+
+  // clear selection
+  digitalWrite(entry->pin, LOW);
+}
+
 void setup() {
   // All shared interfaces are begun here.
 
@@ -32,6 +113,12 @@ void setup() {
   // USB_CommsSerial.begin(RADIO_BAUD);
   HW_CommsSerial.begin(RADIO_BAUD);
   HW_FallbackSerial.begin(RADIO_BAUD);
+
+  for (int i = 0; i < ARRAYSIZE(rs485_entries); ++i)
+  {
+    digitalWrite(rs485_entries[i].pin, LOW);
+    pinMode(rs485_entries[i].pin, OUTPUT);
+  }
 
   RS485_6.begin(9600); // TODO - what baud?
   RS485_2.begin(9600);
@@ -65,6 +152,8 @@ void setup() {
   // CommandRouter::add(flight_loop, "start_flight_loop");
   CommandRouter::add_flag(&kill_flag, "k", "terminate the flight loop early");
   CommandRouter::add_flag(&arm_flag, "arm", "start following a trajectory");
+  CommandRouter::add(cmd_test_mux, "test_mux", "Usage: text_mux <interface name>");
+  
   pinMode(LED_BUILTIN, OUTPUT);
 }
 
