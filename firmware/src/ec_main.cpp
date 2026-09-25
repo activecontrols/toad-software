@@ -29,7 +29,8 @@ bool arm_flag;
 struct mux_entry
 {
   Uart& intf;
-  pin_size_t pin;
+  pin_size_t SEL;
+  pin_size_t DE;
   const char* name;
 };
 
@@ -37,32 +38,38 @@ mux_entry rs485_entries[] =
 {
   {
     .intf = TVC_PITCH_RS485_BUS,
-    .pin = PIN_TVC_PITCH_SEL,
+    .SEL = PIN_TVC_PITCH_SEL,
+    .DE = PIN_RS485_6_DE,
     .name = "TVC_PITCH",
   },
   {
     .intf = DRV_OX_RS485_BUS,
-    .pin = PIN_DRV_OX_SEL,
+    .SEL = PIN_DRV_OX_SEL,
+    .DE = PIN_RS485_6_DE,
     .name = "DRV_OX",
   },
   {
     .intf = ENC_OX_RS485_BUS,
-    .pin = PIN_ENC_OX_SEL,
+    .SEL = PIN_ENC_OX_SEL,
+    .DE = PIN_RS485_6_DE,
     .name = "ENC_OX",
   },
   {
     .intf = TVC_YAW_RS485_BUS,
-    .pin = PIN_TVC_YAW_SEL,
+    .SEL = PIN_TVC_YAW_SEL,
+    .DE = PIN_RS485_2_DE,
     .name = "TVC_YAW",
   },
   {
     .intf = DRV_FU_RS485_BUS,
-    .pin = PIN_DRV_FU_SEL,
+    .SEL = PIN_DRV_FU_SEL,
+    .DE = PIN_RS485_2_DE,
     .name = "DRV_FU",
   },
   {
     .intf = ENC_FU_RS485_BUS,
-    .pin = PIN_ENC_FU_SEL,
+    .SEL = PIN_ENC_FU_SEL,
+    .DE = PIN_RS485_2_DE,
     .name = "ENC_FU",
   },
 };
@@ -90,20 +97,24 @@ void cmd_test_mux(const char* args)
   {
     if (rs485_entries + i != entry)
     {
-      digitalWrite(rs485_entries[i].pin, LOW);
+      digitalWrite(rs485_entries[i].SEL, LOW);
     }
     else
     {
-      digitalWrite(rs485_entries[i].pin, HIGH);
+      digitalWrite(rs485_entries[i].SEL, HIGH);
     }
   }
+
+  digitalWrite(entry->DE, HIGH);
 
   // transmit data
   entry->intf.write("Hello, world!\n");
   entry->intf.flush();
 
+  digitalWrite(entry->DE, LOW);
+
   // clear selection
-  digitalWrite(entry->pin, LOW);
+  digitalWrite(entry->SEL, LOW);
 }
 
 void setup() {
@@ -116,8 +127,11 @@ void setup() {
 
   for (int i = 0; i < ARRAYSIZE(rs485_entries); ++i)
   {
-    digitalWrite(rs485_entries[i].pin, LOW);
-    pinMode(rs485_entries[i].pin, OUTPUT);
+    digitalWrite(rs485_entries[i].SEL, LOW);
+    pinMode(rs485_entries[i].SEL, OUTPUT);
+
+    digitalWrite(rs485_entries[i].DE, LOW);
+    pinMode(rs485_entries[i].DE, OUTPUT);
   }
 
   RS485_6.begin(9600); // TODO - what baud?
@@ -161,10 +175,6 @@ void loop() {
   while (CommsSerial.available()) {
     CommandRouter::receive_byte(CommsSerial.read());
   }
-  digitalWrite(LED_BUILTIN, HIGH);
-  delay(500);
-  digitalWrite(LED_BUILTIN, LOW);
-  delay(500);
 
   // USB_CommsSerial.println("HELLO USB!");
   HW_CommsSerial.println("HELLO HARDWARE!");
