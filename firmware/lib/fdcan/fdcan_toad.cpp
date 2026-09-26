@@ -18,7 +18,7 @@ inline CAN* resolve_can(FDCAN_GlobalTypeDef* inst)
 {
   for (auto c : can_list)
   {
-    if (c->get_instance() == inst)
+    if (c->handle()->Instance == inst)
     {
       return c;
     }
@@ -40,10 +40,11 @@ static void CAN_init_gpio_dynamic(uint32_t pin, const PinMap pin_map[])
 extern "C" 
 {
 
-
 void fdcan_error_cbk(FDCAN_HandleTypeDef* hfdcan)
 {
-  auto target = reinterpret_cast<CAN::FDCAN_Handle_Wrapper*>(hfdcan);
+  // FDCAN_Handle_Wrapper inherits FDCAN_HandleTypeDef and all our hfdcans are defined as FDCAN_Handle_Wrapper
+  // therefore this cast is safe 
+  auto target = static_cast<CAN::FDCAN_Handle_Wrapper*>(hfdcan);
 
   if (target == nullptr)
   {
@@ -64,7 +65,7 @@ void FDCAN1_IT0_IRQHandler(void)
 {
   if (auto can_ptr = resolve_can(FDCAN1); can_ptr != nullptr)
   {
-    HAL_FDCAN_IRQHandler(&(can_ptr->hfdcan));
+    HAL_FDCAN_IRQHandler(can_ptr->handle());
   }
 }
 
@@ -73,7 +74,7 @@ void FDCAN2_IT0_IRQHandler(void)
 {
   if (auto can_ptr = resolve_can(FDCAN2); can_ptr != nullptr)
   {
-    HAL_FDCAN_IRQHandler(&(can_ptr->hfdcan));
+    HAL_FDCAN_IRQHandler(can_ptr->handle());
   }
 }
 
@@ -171,8 +172,7 @@ float CAN::_begin(uint32_t bit_rate)
   }
   else
   {
-    if (can1 == this) can1 = nullptr;
-    if (can2 == this) can2 = nullptr;
+    CommsSerial.println("Error: tq_before_sample is zero");
     return 0.0f;
   }
 
@@ -180,8 +180,7 @@ float CAN::_begin(uint32_t bit_rate)
 
   if (seg_1_tq > 256 || seg_2_tq > 128 || seg_1_tq < 2 || seg_2_tq < 2)
   {
-    if (can1 == this) can1 = nullptr;
-    if (can2 == this) can2 = nullptr;
+    CommsSerial.println("Error: seg_1 or seg_2 calculated values are invalid");
     return 0.0f;
   }
 
@@ -221,8 +220,7 @@ float CAN::_begin(uint32_t bit_rate)
   if (HAL_FDCAN_Init(&(this->hfdcan)) != HAL_OK)
   {
     /* Initialization Error */
-    if (can1 == this) can1 = nullptr;
-    if (can2 == this) can2 = nullptr;
+    CommsSerial.println("Error: HAL_FDCAN_Init failed");
     return 0.0f;
   }
 
@@ -249,8 +247,6 @@ float CAN::_begin(uint32_t bit_rate)
   /* Configure global filter to accept all 11 bit ID frames (and reject remote frames); jhillman todo: confirm the hardware on the bus does not use remote frames */
   if (HAL_FDCAN_ConfigGlobalFilter(&(this->hfdcan), FDCAN_ACCEPT_IN_RX_FIFO0, FDCAN_ACCEPT_IN_RX_FIFO0, FDCAN_REJECT_REMOTE, FDCAN_REJECT_REMOTE) != HAL_OK)
   {
-    if (can1 == this) can1 = nullptr;
-    if (can2 == this) can2 = nullptr;
     return 0.0f;
   }
 
@@ -258,8 +254,6 @@ float CAN::_begin(uint32_t bit_rate)
 
   if (HAL_FDCAN_ConfigInterruptLines(&(this->hfdcan), it_list, FDCAN_INTERRUPT_LINE0) != HAL_OK)
   {
-    if (can1 == this) can1 = nullptr;
-    if (can2 == this) can2 = nullptr;
     return 0.0f;
   }
 
@@ -269,8 +263,6 @@ float CAN::_begin(uint32_t bit_rate)
       0x00
     ) != HAL_OK)
   {
-    if (can1 == this) can1 = nullptr;
-    if (can2 == this) can2 = nullptr;
     return 0.0f;
   }
 
@@ -281,8 +273,6 @@ float CAN::_begin(uint32_t bit_rate)
   if (HAL_FDCAN_Start(&(this->hfdcan)) != HAL_OK)
   {
     /* Start Error */
-    if (can1 == this) can1 = nullptr;
-    if (can2 == this) can2 = nullptr;
     return 0.0f;
   }
   // step 3 end
@@ -451,14 +441,6 @@ void CAN::end(void)
   // from the HAL reference: this places the controller back in init mode
   // it should then be legal to eg change baud rate after calling CAN::end() by a successive call to CAN::begin()
   HAL_FDCAN_Stop(&(this->hfdcan));
-  if (can1 == this)
-  {
-    can1 = nullptr;
-  }
-  else if (can2 == this)
-  {
-    can2 = nullptr;
-  }
   return;
 }
 
@@ -505,5 +487,3 @@ void CAN::error_update_from_isr(void)
   memcpy(&(this->error_counts), &new_error_counts, sizeof(new_error_counts));
   return;
 }
-
-
