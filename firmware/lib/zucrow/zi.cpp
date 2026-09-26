@@ -34,10 +34,6 @@ void begin() {
   digitalWrite(PIN_ZUCROW_BOARD_CS, HIGH);
   zi_spi.begin();
 
-  zi_spi.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE0));
-  zi_spi.transfer16(0xCC);
-  zi_spi.endTransaction();
-
   // The channels are turned off at startup so we need to turn the channel we need on
   dac.turnOnChannelA();
   dac.turnOnChannelB();
