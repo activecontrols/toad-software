@@ -3,6 +3,13 @@
 #include "api/HardwareCAN.h"
 #include "Arduino.h"
 #include "stm32h7xx_hal.h"
+#include "CommandRouter.h"
+
+class CAN;
+
+// instantiated in fdcan_toad.cpp
+extern CAN can_tvc;
+extern CAN can_fc;
 
 class CAN : public arduino::HardwareCAN
 {
@@ -66,6 +73,29 @@ public:
         return &hfdcan;
     }
 
+    static bool begin(void)
+    {
+        bool success = true;
+        
+        success = success && can_tvc.begin();
+        success = success && can_fc.begin();
+
+        if (success)
+        {
+            CommandRouter::add([]()
+            {
+                CAN& test_can = can_tvc;
+
+                const uint8_t str[] = "hello123";
+                arduino::CanMsg msg(0x55, 8, str);
+                
+                test_can.write(msg);
+            }, "can_loopback_test");
+        };
+
+        return success;
+    }
+
     
 private:
     // Initialize the FDCAN peripheral with a specific bitrate in bps.
@@ -81,8 +111,3 @@ private:
     uint8_t rx_data[64] = {0};
     CAN_error_cbk_t error_cbk = nullptr;
 };
-
-// instantiated in fdcan_toad.cpp
-extern CAN can_tvc;
-extern CAN can_fc;
-
