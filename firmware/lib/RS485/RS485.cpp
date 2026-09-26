@@ -1,69 +1,124 @@
 #include "RS485.h"
 #include "CommsSerial.h"
+#include "PeripheralPins.h"
 #include "ec_pins.h"
-#include <iterator> // used to calculate size of the array hosuing the select pins in RS485s namespace.
-// TO-DO: Restructure to use std::array and remove sel_count parameter
+#include "pinmap.h"
+#include "stm32yyxx_ll_usart.h"
 
 namespace {
 constexpr uint32_t kMarginUs = 200; // TODO: tune against response time
 constexpr uint32_t kTxSlackUs = 2000;
-constexpr uint32_t kAckTimeoutUs = 1000; // TEACK/REACK after UE re-enable
 
+// DE timing, in sample-time units (1/16 bit at OVER16); HAL range 0..31.
+// Assertion: DE rises this long before the start bit. Must exceed the transceiver's
+// driver-enable time (t_ZH / t_ZL in its datasheet). 31 = 1.94 bit = 0.97 us at 2 Mbps.
+constexpr uint32_t kDeAssertTime = 31;
+// Deassertion: DE held this long after the end of the last stop bit.
+constexpr uint32_t kDeDeassertTime = 1;
 } // namespace
 
-RS485Bus::RS485Bus(uint32_t rx, uint32_t tx, uint32_t de, const uint32_t *sels, size_t sel_count)
-    : uart_(rx, tx, de), sels_(sels), sel_count_(sel_count) {}
+void RS485Bus::begin(unsigned long baud, uint16_t config) {
+  rs485_ok_ = false;
 
-bool RS485Bus::begin(uint32_t baud) {
+  // Transceiver in receive and all devices deselected until the USART owns DE.
+  pinMode(de_, OUTPUT);
+  digitalWrite(de_, LOW);
   for (size_t i = 0; i < sel_count_; i++) {
     pinMode(sels_[i], OUTPUT);
     digitalWrite(sels_[i], LOW);
   }
-  return initAt(baud);
+
+  Uart::begin(baud, config);                          // clocks, RX/TX mux, NVIC, HAL_UART_Init, RX armed
+  if (!Uart::operator bool() || config != SERIAL_8N1) // frameTimeUs() assumes 8N1
+    return;
+
+  rs485_ok_ = configureRS485(baud) && muxDE();
 }
 
-bool RS485Bus::setBaud(uint32_t baud) {
-  if (baud == 0)
-    return false;
-  if (!waitTxComplete(frameTimeUs(SERIAL_TX_BUFFER_SIZE) + kTxSlackUs))
-    return false;
-  uart_.end();
-  return initAt(baud);
+void RS485Bus::end() {
+  rs485_ok_ = false;
+  Uart::end();
+  // Take DE back from the now-unclocked USART and hold receive.
+  pinMode(de_, OUTPUT);
+  digitalWrite(de_, LOW);
 }
 
-// RS485 delta from HAL_RS485Ex_Init. SetConfig/AdvFeatureConfig
-// are already done by uart_.begin(). UART_CheckIdleState skipped because it resets RxState and
-// would disarm the core's Receive_IT; TX idle, bus deselected.
+RS485Bus::operator bool() {
+  // rs485_ok_ first: before begin() the handle's Instance is null.
+  return rs485_ok_ && Uart::operator bool() && LL_USART_IsEnabledDEMode(getHandle()->Instance);
+}
 
-bool RS485Bus::initAt(uint32_t baud) {
-  uart_.begin(baud);
+// Reconfigure the core's own handle for RS485, in place.
+// HAL_RS485Ex_Init re-runs UART_SetConfig and UART_CheckIdleState; the latter sets
+// RxState = READY, which orphans the core's pending 1-byte Receive_IT (the ISR would
+// then discard every byte). So: stop RX explicitly, reconfigure, re-arm RX through
+// the core's own entry point, and verify it is armed.
+//
+// NOTE: UART_CheckIdleState waits for TEACK with HAL_UART_TIMEOUT_VALUE (~9 h), not a
+// short timeout. It only blocks if the USART kernel clock is dead; the core's boot-time
+// HAL_UART_Init has the same exposure.
+bool RS485Bus::configureRS485(uint32_t baud) {
+  UART_HandleTypeDef *h = getHandle();
 
-  USART_TypeDef *u = uart_.getHandle()->Instance;
-  u->CR1 &= ~USART_CR1_UE;
-  applyDE(u);
-  u->CR1 |= USART_CR1_UE;
+  HAL_NVIC_DisableIRQ(_serial.irq); // core does the same around Receive_IT (handle lock)
+  HAL_UART_AbortReceive(h);
+  h->Init.BaudRate = baud;
+  h->Init.HwFlowCtl = UART_HWCONTROL_NONE; // the pin is DE, not RTS
+  const bool ok = HAL_RS485Ex_Init(h, UART_DE_POLARITY_HIGH, kDeAssertTime, kDeDeassertTime) == HAL_OK;
+  HAL_NVIC_EnableIRQ(_serial.irq);
+  if (!ok)
+    return false;
 
-  const uint32_t ack = USART_ISR_TEACK | USART_ISR_REACK;
-  const uint32_t start = micros();
-  while ((u->ISR & ack) != ack) {
-    if (micros() - start >= kAckTimeoutUs)
-      return false;
-  }
+  uart_attach_rx_callback(&_serial, _rx_complete_irq);
+  if ((HAL_UART_GetState(h) & HAL_UART_STATE_BUSY_RX) != HAL_UART_STATE_BUSY_RX)
+    return false; // RX not re-armed: fail closed
+
   baud_ = baud;
   return true;
 }
 
-void RS485Bus::applyDE(USART_TypeDef *u) {
-  u->CR3 &= ~(USART_CR3_RTSE | USART_CR3_DEP); // no RTS flow control, DE active-high // call pinmap_pinout()
-  u->CR3 |= USART_CR3_DEM;
-  u->CR1 &= ~(USART_CR1_DEAT | USART_CR1_DEDT);
-
-  // DEAT = 31/16 bit: gives the transceiver time to enable
-  u->CR1 |= (31U << USART_CR1_DEAT_Pos) | (1U << USART_CR1_DEDT_Pos);
+// Mux DE with the same call the core uses for RX/TX/RTS. RTS and DE share one AF on
+// STM32, so the RTS pinmap is the DE pinmap. The peripheral is checked first because
+// pinmap_pinout() hangs in Error_Handler() on an unmapped pin, and because lookup is
+// first-match: if this pin's DE function is on an _ALTx entry, fail loudly here rather
+// than mux the wrong AF.
+bool RS485Bus::muxDE() {
+  const PinName pn = digitalPinToPinName(de_);
+  if (pinmap_peripheral(pn, PinMap_UART_RTS) != (void *)getHandle()->Instance)
+    return false;
+  pinmap_pinout(pn, PinMap_UART_RTS);
+  return true;
 }
 
-bool RS485Bus::deModeActive() {
-  return (uart_.getHandle()->Instance->CR3 & USART_CR3_DEM) != 0;
+bool RS485Bus::setBaud(uint32_t baud) {
+  if (!rs485_ok_ || baud == 0)
+    return false;
+  if (baud == baud_)
+    return true;
+  if (!waitTxComplete(frameTimeUs(SERIAL_TX_BUFFER_SIZE) + kTxSlackUs))
+    return false;
+  rs485_ok_ = configureRS485(baud); // no clock/pin/NVIC teardown, unlike end()+begin()
+  return rs485_ok_;
+}
+
+// Done = core ring buffer drained, no HAL transfer in flight, and the last stop bit
+// has left the shift register. TC alone can read 1 for a few cycles at a ring-buffer
+// wrap, before the TX-complete ISR queues the next chunk.
+bool RS485Bus::waitTxComplete(uint32_t timeout_us) {
+  UART_HandleTypeDef *h = getHandle();
+  const uint32_t start = micros();
+
+  while (_serial.tx_head != _serial.tx_tail || serial_tx_active(&_serial) || !__HAL_UART_GET_FLAG(h, UART_FLAG_TC)) {
+    if (micros() - start >= timeout_us)
+      return false;
+  }
+  return true;
+}
+
+uint32_t RS485Bus::frameTimeUs(size_t len) const {
+  if (baud_ == 0)
+    return 0;
+  return (uint32_t)((len * 10ULL * 1000000ULL) / baud_);
 }
 
 void RS485Bus::deselectAll() {
@@ -79,80 +134,52 @@ void RS485Bus::select(size_t idx) {
   }
 }
 
-// Wait for the hardware TX complete flag, not just the software TX buffer depth.
-// previously used availableForWrite(), but that only tells us the queue has room, not that the final byte
-// has left the shift register and the bus is safe to deselect.
-bool RS485Bus::waitTxComplete(uint32_t timeout_us) {
-  USART_TypeDef *u = uart_.getHandle()->Instance;
-  const uint32_t start = micros();
-
-  while ((u->ISR & USART_ISR_TC) == 0) {
-    if (micros() - start >= timeout_us)
-      return false;
-  }
-
-  return true;
-}
-
-uint32_t RS485Bus::frameTimeUs(size_t len) const {
-  if (baud_ == 0)
-    return 0;
-  return (uint32_t)((len * 10ULL * 1000000ULL) / baud_);
-}
-
 // RS485Device methods
 
 bool RS485Device::beginTransaction() {
-  bus_.deselectAll();
-  bool ok = true;
-  if (bus_.baud_ != baud_)
-    ok = bus_.setBaud(baud_);
+  bus.deselectAll();
+  if (!bus.setBaud(baud_))
+    return false; // never select a device at the wrong baud
 
-  bus_.select(idx_);
-
-  while (uart.available())
-    uart.read();
-
-  return ok;
+  bus.select(idx_);
+  while (bus.available())
+    bus.read();
+  return true;
 }
 
 size_t RS485Device::read(uint8_t *dst, size_t len, uint32_t latency_us) {
-  // Don't start response clock while our own request is still sending
-  bool complete = bus_.waitTxComplete(bus_.frameTimeUs(SERIAL_TX_BUFFER_SIZE) + kTxSlackUs);
-
-  if (!complete) {
-    return 0; // Error Code 0; Bus is still transmitting
+  // Don't start the response clock while our own request is still on the wire.
+  if (!bus.waitTxComplete(bus.frameTimeUs(SERIAL_TX_BUFFER_SIZE) + kTxSlackUs)) {
+    return 0; // bus still transmitting
   }
 
-  const uint32_t budget = latency_us + bus_.frameTimeUs(len) + kMarginUs;
+  const uint32_t budget = latency_us + bus.frameTimeUs(len) + kMarginUs;
   const uint32_t start = micros();
   size_t n = 0;
 
   while (n < len) {
-    if (uart.available()) {
-      dst[n++] = (uint8_t)uart.read();
-      continue; // ensure all bytes are read before checking timeout
+    if (bus.available()) {
+      dst[n++] = (uint8_t)bus.read();
+      continue; // drain available bytes before checking the timeout
     }
-
     if (micros() - start >= budget) {
       break;
     }
   }
-
   return n;
 }
 
 void RS485Device::endTransaction() {
-  bus_.waitTxComplete(bus_.frameTimeUs(SERIAL_TX_BUFFER_SIZE) + kTxSlackUs);
-  bus_.deselectAll();
+  bus.waitTxComplete(bus.frameTimeUs(SERIAL_TX_BUFFER_SIZE) + kTxSlackUs);
+  bus.deselectAll();
 }
 
-// Namespace Globals
+// Namespace globals
 
 namespace RS485s {
 namespace {
 constexpr uint32_t kEncBaud = 2000000; // AMT24 2 Mbps data rate
-constexpr uint32_t kTvcBaud = 2000000; // TODO - Check Baud rate for TVC
+constexpr uint32_t kTvcBaud = 2000000; // TODO - check baud rate for TVC
 constexpr uint32_t kDrvBaud = 115200;  // TODO - check driver's RS485 config; placeholder
 
 // Index in each array == device index below
@@ -160,8 +187,8 @@ const uint32_t bus6_sels[] = {PIN_TVC_PITCH_SEL, PIN_ENC_OX_SEL, PIN_DRV_OX_SEL}
 const uint32_t bus2_sels[] = {PIN_TVC_YAW_SEL, PIN_ENC_FU_SEL, PIN_DRV_FU_SEL};
 } // namespace
 
-RS485Bus bus6(PIN_RS485_6_RX, PIN_RS485_6_TX, PIN_RS485_6_DE, bus6_sels, std::size(bus6_sels));
-RS485Bus bus2(PIN_RS485_2_RX, PIN_RS485_2_TX, PIN_RS485_2_DE, bus2_sels, std::size(bus2_sels));
+RS485Bus bus6(PIN_RS485_6_RX, PIN_RS485_6_TX, PIN_RS485_6_DE, bus6_sels);
+RS485Bus bus2(PIN_RS485_2_RX, PIN_RS485_2_TX, PIN_RS485_2_DE, bus2_sels);
 
 RS485Device tvc_pitch(bus6, 0, kTvcBaud);
 RS485Device enc_ox(bus6, 1, kEncBaud);
@@ -172,11 +199,9 @@ RS485Device enc_fu(bus2, 1, kEncBaud);
 RS485Device drv_fu(bus2, 2, kDrvBaud);
 
 bool begin() {
-  bool ok = true;
-  ok &= bus6.begin(kEncBaud);
-  ok &= bus2.begin(kEncBaud);
-  ok &= bus6.deModeActive();
-  ok &= bus2.deModeActive();
+  bus6.begin(kEncBaud);
+  bus2.begin(kEncBaud);
+  const bool ok = static_cast<bool>(bus6) && static_cast<bool>(bus2);
   if (!ok)
     CommsSerial.println("ERROR: RS485 init failed");
   return ok;
