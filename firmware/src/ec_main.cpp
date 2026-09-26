@@ -10,6 +10,7 @@
 #include "TemperatureSensors.h"
 #include "ThrottleValves.h"
 #include "ValveController.h"
+#include "zi.h"
 
 // shared interfaces
 CommsSerial_t<USBSerial> USB_CommsSerial;
@@ -55,6 +56,7 @@ void setup() {
   all_modules_ok &= SolenoidValves::begin();
   all_modules_ok &= TVC_Actuators::begin();
   all_modules_ok &= ValveController::begin();
+  ZucrowInterface::begin();
 
   if (!all_modules_ok) {
     while (true) {
