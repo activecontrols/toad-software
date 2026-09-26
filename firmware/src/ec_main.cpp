@@ -34,6 +34,9 @@ void flight_loop();
 void setup() {
   // All shared interfaces are begun here.
 
+  digitalWrite(LED_BUILTIN, HIGH);
+  pinMode(LED_BUILTIN, OUTPUT);
+
   // Use same baud rate on all Comm Serials for consistency.
   USB_CommsSerial.begin(RADIO_BAUD);
   HW_CommsSerial.begin(RADIO_BAUD);
