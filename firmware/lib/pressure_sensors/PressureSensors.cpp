@@ -19,6 +19,10 @@ bool PT_Board::read_pts(float *pt0_reading, float *pt1_reading) {
   *pt0_reading = adc_reading.ch0 * pt0_slope + pt0_offset;
   *pt1_reading = adc_reading.ch1 * pt1_slope + pt1_offset;
 
+  if (!adc_reading.crc_ok) {
+    ErrorCounters::increment(ErrorCounters::pt_crc);
+  }
+
   return adc_reading.crc_ok;
 }
 

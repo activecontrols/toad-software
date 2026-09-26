@@ -1,4 +1,5 @@
 #include "CommandRouter.h"
+#include "ErrorCounters.h"
 #include <string.h>
 #include <vector>
 
@@ -79,6 +80,7 @@ void receive_byte(uint8_t c) {
     if (command_buffer_pos == MAX_CMD_LEN) { // we need an extra byte at the end to guarantee a safe null-terminate
       // something went wrong and we never saw a non-escaped END_CHAR so just go back to 0 and try again
       command_buffer_pos = 0;
+      ErrorCounters::increment(ErrorCounters::cmd_buf_overflow);
     }
   }
 }
