@@ -225,8 +225,8 @@ void setup() {
   register_CAN_cmd<can_msg_reset_controller_t>(reset_h7);
   register_CAN_cmd<can_msg_enter_bootloader_t>(enter_bootloader_cmd, STATE_IDLE);
   register_CAN_cmd<can_msg_erase_flash_t>(erase_memory_cmd, STATE_PRE_ERASE);
-  register_CAN_cmd(select_page, STATE_READY);
-  register_CAN_cmd(rcv_mem, STATE_PAGE_SELECTED);
+  register_CAN_cmd<can_msg_select_page_t>(select_page, STATE_READY);
+  register_CAN_cmd<can_msg_mem_packet_t>(rcv_mem, STATE_PAGE_SELECTED);
   register_CAN_cmd<can_msg_write_flash_t>(write_flash, STATE_PAGE_SELECTED);
 }
 

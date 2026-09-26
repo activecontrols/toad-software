@@ -149,19 +149,12 @@ struct can_func {
 
 std::vector<can_func> can_funcs;
 
-template <typename F> struct arg_type;
-
-template <typename Arg> struct arg_type<void (*)(Arg)> {
-  using type = Arg;
-};
-
 // register a function that takes a buffer and a len
-template <typename F> void register_CAN_cmd(F f, uint8_t required_state = STATE_ANY) {
-  using msg_t = typename arg_type<F>::type;
-
+template <typename msg_t> void register_CAN_cmd(std::function<void(msg_t)> f, uint8_t required_state = STATE_ANY) {
   std::function<void(CanMsg)> f_internal = [f](CanMsg raw_msg) {
     if (raw_msg.data_length != fdcan_size_of<msg_t>().can_size) {
       // TODO - wrong len handler
+      return;
     }
 
     msg_t msg;
