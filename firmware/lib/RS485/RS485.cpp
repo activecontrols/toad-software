@@ -11,10 +11,11 @@ constexpr uint32_t kTxSlackUs = 2000;
 
 // DE timing, in sample-time units (1/16 bit at OVER16); HAL range 0..31.
 // Assertion: DE rises this long before the start bit. Must exceed the transceiver's
-// driver-enable time (t_ZH / t_ZL in its datasheet). 31 = 1.94 bit = 0.97 us at 2 Mbps.
-constexpr uint32_t kDeAssertTime = 31;
+// assert/deassert time is (parameter) / (baud * oversampling_ratio)
+// for 16x oversampling: (parameter) / (baud * 16)
+constexpr uint32_t kDeAssertTime = 16;
 // Deassertion: DE held this long after the end of the last stop bit.
-constexpr uint32_t kDeDeassertTime = 1;
+constexpr uint32_t kDeDeassertTime = 16;
 } // namespace
 
 void RS485Bus::begin(unsigned long baud, uint16_t config) {
@@ -178,8 +179,8 @@ void RS485Device::endTransaction() {
 
 namespace RS485s {
 namespace {
-constexpr uint32_t kEncBaud = 2000000; // AMT24 2 Mbps data rate
-constexpr uint32_t kTvcBaud = 2000000; // TODO - check baud rate for TVC
+constexpr uint32_t kEncBaud = 2'000'000; // AMT24 2 Mbps data rate
+constexpr uint32_t kTvcBaud = 2'000'000; // TODO - check baud rate for TVC
 constexpr uint32_t kDrvBaud = 115200;  // TODO - check driver's RS485 config; placeholder
 
 // Index in each array == device index below

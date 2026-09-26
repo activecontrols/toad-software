@@ -23,6 +23,24 @@ bool kill_flag;
 bool arm_flag;
 void flight_loop();
 
+
+void cmd_test_rs485(void)
+{
+  while (CommsSerial.available()) CommsSerial.read();
+  for (;;)
+  {
+    if (CommsSerial.available()) break;
+    RS485s::tvc_yaw.beginTransaction();
+
+    RS485s::tvc_yaw.bus.write("Hello, world!");
+
+    RS485s::tvc_yaw.endTransaction();
+
+    delay(1);
+  }
+  CommsSerial.println("Wrote to bus");
+}
+
 void setup() {
   // All shared interfaces are begun here.
 
@@ -42,13 +60,13 @@ void setup() {
   CommandRouter::begin();
 
   bool all_modules_ok = true;
-  all_modules_ok &= PressureSensors::begin();
-  all_modules_ok &= TemperatureSensors::begin();
+  // all_modules_ok &= PressureSensors::begin();
+  // all_modules_ok &= TemperatureSensors::begin();
   all_modules_ok &= RS485s::begin();
-  all_modules_ok &= ThrottleValves::begin();
-  all_modules_ok &= SolenoidValves::begin();
-  all_modules_ok &= TVC_Actuators::begin();
-  all_modules_ok &= ValveController::begin();
+  // all_modules_ok &= ThrottleValves::begin();
+  // all_modules_ok &= SolenoidValves::begin();
+  // all_modules_ok &= TVC_Actuators::begin();
+  // all_modules_ok &= ValveController::begin();
 
   if (!all_modules_ok) {
     while (true) {
@@ -61,6 +79,7 @@ void setup() {
   CommandRouter::add(flight_loop, "start_flight_loop");
   CommandRouter::add_flag(&kill_flag, "k", "terminate the flight loop early");
   CommandRouter::add_flag(&arm_flag, "arm", "start following a trajectory");
+  CommandRouter::add(cmd_test_rs485, "test_rs485");
 }
 
 void loop() {
