@@ -1,8 +1,7 @@
 #pragma once
 
 #include "CommsSerial.h"
-#include "driver/twai.h"
-
+#include "fdcan_toad.h"
 #include <array>
 #include <stdint.h>
 using std::size_t;
@@ -53,16 +52,9 @@ private:
     }
     frame[N + 1] = crc;
 
-    twai_message_t message;
-    message.identifier = 0x1;             // CAN ID
-    message.extd = 0;                     // 0 = standard (11-bit), 1 = extended (29-bit)
-    message.rtr = 0;                      // not a remote frame
-    message.data_length_code = frame_len; // number of bytes in payload
-    for (size_t i = 0; i < message.data_length_code; i++) {
-      message.data[i] = frame[i];
-    }
+    arduino::CanMsg message(0x1, frame_len, frame);
 
-    if (twai_transmit(&message, pdMS_TO_TICKS(1000)) == ESP_OK) {
+    if (can_tvc.write(message)) {
       // CommsSerial.println("Message sent");
     } else {
       CommsSerial.println("Failed to send message");

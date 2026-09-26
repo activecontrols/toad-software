@@ -4,20 +4,14 @@
 // max reading for a 12 bit encoder
 #define MAX_READING ((1 << 12) - 1)
 
+AMT242AV::AMT242AV(RS485Device &uart, uint8_t ID) : uart(uart), ID(ID) {}
 
-static portMUX_TYPE myMutex = portMUX_INITIALIZER_UNLOCKED;
-
-AMT242AV::AMT242AV(Uart &uart, unsigned int SEL, uint8_t ID) : uart(uart), SEL(SEL), ID(ID) {}
-
-void AMT242AV::begin() {
-  digitalWrite(SEL, LOW);
-  pinMode(SEL, OUTPUT);
-}
+void AMT242AV::begin() {}
 
 bool AMT242AV::wait_for_avail(unsigned long long delay_micros = 150) {
   unsigned long long start_time = micros();
   while (1) {
-    if (uart.available())
+    if (uart.bus.available())
       return true;
     if (micros() - start_time > delay_micros)
       return false;
@@ -31,34 +25,23 @@ bool AMT242AV::_read_pos(uint16_t *out) {
   uint8_t cs_transmission;
   uint8_t cs_real;
 
-  // clear uart receive buffer
-  while (uart.available())
-    uart.read();
-
-  // switch MAX485 to transmit mode
-  digitalWrite(SEL, HIGH);
-  delayMicroseconds(70);
+  uart.beginTransaction();
 
   // send read position command
-  uart.write(ID);
-
-  uart.flush();
-
-  //   // wait for uart to finish transmission
-  //   while (!(ll_uart_intf->ISR & USART_ISR_TC))
-  //     ;
+  uart.bus.write(ID);
+  uart.bus.flush();
 
   uint16_t res = 0;
   if (!wait_for_avail()) {
     goto FAIL;
   }
-  res |= uart.read();
+  res |= uart.bus.read();
   if (!wait_for_avail()) {
     goto FAIL;
   }
-  res |= uart.read() << 8;
+  res |= uart.bus.read() << 8;
 
-  digitalWrite(SEL, LOW);
+  uart.endTransaction();
 
   // lowest 14 bits contain data
   transmission = res & 0b0011111111111111;
@@ -87,10 +70,7 @@ bool AMT242AV::_read_pos(uint16_t *out) {
 
 // fail condition could be either transmission timed out or checksum failed
 FAIL:
-  // set MAX485 to inactive state
-  digitalWrite(RE, HIGH); // set RE to high first then DE low so that if both are the same pin we will be receiving
-                          // instead of driving
-  digitalWrite(DE, LOW);
+  uart.endTransaction();
   return false;
 }
 
@@ -113,31 +93,24 @@ bool AMT242AV::read_pos(float *out, int max_tries) {
 
 void AMT242AV::zero() {
   // switch MAX485 to transmit mode
-  digitalWrite(SEL, HIGH);
+  uart.beginTransaction();
 
   delayMicroseconds(70);
 
-  uart.write(ID | 0x02);
-  uart.flush(); // flush doesn't do anything on portenta h7 but maybe on other platforms it will
+  uart.bus.write(ID | 0x02);
+  uart.bus.flush(); // flush doesn't do anything on portenta h7 but maybe on other platforms it will
 
-  //   // wait for uart to finish transmission
-  //   while (!(ll_uart_intf->ISR & USART_ISR_TC))
-  //     ;
-  digitalWrite(SEL, LOW);
+  uart.endTransaction();
 }
 
 void AMT242AV::reset() {
   // switch MAX485 to transmit mode
-  digitalWrite(SEL, HIGH);
+  uart.beginTransaction();
 
   delayMicroseconds(70);
 
-  uart.write(ID | 0x03);
-  uart.flush(); // flush doesn't do anything on portenta h7 but maybe on other platforms it will
+  uart.bus.write(ID | 0x03);
+  uart.bus.flush(); // flush doesn't do anything on portenta h7 but maybe on other platforms it will
 
-  //   // wait for uart to finish transmission
-  //   while (!(ll_uart_intf->ISR & USART_ISR_TC))
-  //     ;
-
-  digitalWrite(SEL, LOW);
+  uart.endTransaction();
 }

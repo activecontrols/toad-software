@@ -5,10 +5,6 @@
 #include "toad_can_bus.h"
 #include <cmath>
 
-#ifdef DEVICE_ESP32
-#include "driver/uart.h"
-#endif
-
 #define ENCODER_UPDATE_INTERVAL_MS 5
 
 static uint32_t csv_time_start_ms = 0U;
@@ -17,16 +13,16 @@ static uint32_t csv_time_start_ms = 0U;
 static float wrapAngleDeg(float angle) {
   angle = std::fmod(angle + 180.0, 360.0);
   if (angle < 0.0) {
-      angle += 360.0;
+    angle += 360.0;
   }
   return angle - 180.0;
 }
 
-
-static float clamp(float a, float minimum, float maximum)
-{
-  if (a < minimum) a = minimum;
-  else if (a > maximum) a = maximum;
+static float clamp(float a, float minimum, float maximum) {
+  if (a < minimum)
+    a = minimum;
+  else if (a > maximum)
+    a = maximum;
 
   return a;
 }
@@ -49,25 +45,26 @@ void ThrottleValve::set_position(float angle) {
   mode = VALVE_MOVEMENT_MODE_POSITION;
 }
 
-void ThrottleValve::update(bool log_csv)
-{
-  if (log_csv) log_csv_sticky = true;
-
+void ThrottleValve::update(bool log_csv) {
+  if (log_csv)
+    log_csv_sticky = true;
 
   // no control system to update in these two cases
-  if (mode == VALVE_MOVEMENT_MODE_STOPPED) return;
-  if (mode == VALVE_MOVEMENT_MODE_CONSTANT_SPEED) return;
+  if (mode == VALVE_MOVEMENT_MODE_STOPPED)
+    return;
+  if (mode == VALVE_MOVEMENT_MODE_CONSTANT_SPEED)
+    return;
 
-  if (millis() - last_update_ms < ENCODER_UPDATE_INTERVAL_MS) return;
+  if (millis() - last_update_ms < ENCODER_UPDATE_INTERVAL_MS)
+    return;
 
   float current_pos = 0.0f;
 
-  if (!encoder.read_pos(&current_pos))
-  {
+  if (!encoder.read_pos(&current_pos)) {
     last_update_ms = millis();
     return; // error occurred while trying to read encoder position
   }
-  
+
   float current_angle = 360.0f - current_pos * 360.0f; // convert position to deg
 
   float error = wrapAngleDeg(target_angle - current_angle);
@@ -76,13 +73,11 @@ void ThrottleValve::update(bool log_csv)
   // clamp target speed to safe values
   target_speed = clamp(target_speed, -100.0f, 100.0f);
 
-
   // prevent weird jitter
-  if (std::fabs(error) < 0.4f) target_speed = 0;
-  
+  if (std::fabs(error) < 0.4f)
+    target_speed = 0;
 
-  if (log_csv_sticky)
-  {
+  if (log_csv_sticky) {
     float now_time_s = (millis() - csv_time_start_ms) * 1e-3;
     log_csv_sticky = false;
     CommsSerial.printf("%.3f,%.2f,%.2f,%.2f,%.2f\n", now_time_s, error, target_speed, current_angle, target_angle);
@@ -97,21 +92,13 @@ void ThrottleValve::update(bool log_csv)
 
 namespace ThrottleValves {
 
-
-// TODO: change for EC; this is for esp32 testing (RE/DE on D5)
-
-// note: on esp32, AMT242AV.cpp hardcodes uart 2 as the serial output (see AMT242AV::_read_pos())
-HardwareSerial rs485_test_ser(2);
-
 // using d14 as a placeholder
-ThrottleValve ox_valve(CAN_ID_STEPPER_OX, rs485_test_ser, 14, 14, 0x54);
+ThrottleValve ox_valve(CAN_ID_STEPPER_OX, RS485s::enc_ox, 0x54);
 // ThrottleValve fu_valve(CAN_ID_STEPPER_FU /*, FU_ENC_RS485_BUS, PIN_FU_ENC_DE, PIN_FU_ENC_RE, 0*/);
 
-void set_position_cmd(const char* cmd)\
-{
+void set_position_cmd(const char *cmd) {
   float angle = 0.0f;
-  if (sscanf(cmd, "%f", &angle) == 0)
-  {
+  if (sscanf(cmd, "%f", &angle) == 0) {
     CommsSerial.println("Usage: motor_set_position <angle>\n");
     return;
   }
@@ -130,44 +117,36 @@ void set_speed_cmd(const char *cmd) {
   ox_valve.mode = VALVE_MOVEMENT_MODE_CONSTANT_SPEED;
 }
 
-void get_position_cmd(const char* cmd)
-{
+void get_position_cmd(const char *cmd) {
   float pos = 0.0f;
 
-  if (!ox_valve.encoder.read_pos(&pos))
-  {
+  if (!ox_valve.encoder.read_pos(&pos)) {
     CommsSerial.println("Failed to read encoder position\n");
-  }
-  else
-  {
+  } else {
     CommsSerial.printf("Position: %.2f deg\n", pos * 360.0f);
   }
 }
 
-void motor_follow_profile_cmd(const char* cmd)
-{
+void motor_follow_profile_cmd(const char *cmd) {
   csv_time_start_ms = millis();
   CommsSerial.print("Time (s),Error (deg),Target Speed (rpm),Current Angle (deg),Target Angle (deg)\n");
 
   bool do_log = false; // wait for command from the python script before logging
-  for (;;)
-  {
+  for (;;) {
     char cmd = ' ';
-    while (CommsSerial.available())
-    {
+    while (CommsSerial.available()) {
       cmd = CommsSerial.read();
 
       // "goto" command and "quit" command
-      if (cmd == 'g' || cmd == 'q')
-      {
+      if (cmd == 'g' || cmd == 'q') {
         break;
       }
     }
 
-    if (cmd == 'q') break;
+    if (cmd == 'q')
+      break;
 
-    if (cmd == 'g')
-    { 
+    if (cmd == 'g') {
       String arg = CommsSerial.readStringUntil('\n');
 
       float target_pos = arg.toFloat();
@@ -181,8 +160,7 @@ void motor_follow_profile_cmd(const char* cmd)
   }
 }
 
-void motor_zero_cmd(const char* cmd)
-{
+void motor_zero_cmd(const char *cmd) {
   (void)cmd;
 
   ox_valve.encoder.zero();
@@ -192,14 +170,6 @@ void motor_zero_cmd(const char* cmd)
 
 // TODO - don't just return true here!
 bool begin() {
-  rs485_test_ser.begin(2000000);
-
-  #ifdef DEVICE_ESP32
-  
-  // this assumes we are using uart 2
-  uart_set_pin(2, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, 5, UART_PIN_NO_CHANGE); // Add Pin 5 as RTS - the uart controller automatically toggles RE/DE
-  uart_set_mode(2, UART_MODE_RS485_HALF_DUPLEX);   // Enable hardware toggling
-  #endif
 
   ox_valve.begin();
 
@@ -209,7 +179,9 @@ bool begin() {
   CommandRouter::add(stop, "motor_stop");
   CommandRouter::add(get_position_cmd, "motor_get_position");
   CommandRouter::add(set_position_cmd, "motor_set_position");
-  CommandRouter::add(motor_follow_profile_cmd, "motor_follow_profile"); // meant for use with the valve profile python script (see toad-software/scripts/valve_profile.py)
+  CommandRouter::add(motor_follow_profile_cmd,
+                     "motor_follow_profile"); // meant for use with the valve profile python script (see
+                                              // toad-software/scripts/valve_profile.py)
   CommandRouter::add(motor_zero_cmd, "motor_zero");
 
   return true;
@@ -235,10 +207,9 @@ void set_angles_ox_fu(float ox_angle, float fu_angle) {
 //   }
 // }
 
-void update(bool log_csv)
-{
+void update(bool log_csv) {
   // update all valves
-  ox_valve.update(log_csv); 
+  ox_valve.update(log_csv);
 }
 
 } // namespace ThrottleValves
