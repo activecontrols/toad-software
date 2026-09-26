@@ -10,6 +10,7 @@
 #include "TemperatureSensors.h"
 #include "ThrottleValves.h"
 #include "ValveController.h"
+#include "ZucrowInterface.h"
 #include "fdcan_toad.h"
 
 // shared interfaces
@@ -53,6 +54,8 @@ void setup() {
   bool all_modules_ok = true;
 
   all_modules_ok &= CAN::init();
+  // Zucrow before PT and TC: its begin() deselects the Zucrow DAC before those boards talk on the shared SPI1 bus.
+  all_modules_ok &= ZucrowInterface::begin();
   all_modules_ok &= PressureSensors::begin();
   all_modules_ok &= TemperatureSensors::begin();
   all_modules_ok &= ThrottleValves::begin();
@@ -77,6 +80,9 @@ void loop() {
   while (CommsSerial.available()) {
     CommandRouter::receive_byte(CommsSerial.read());
   }
+
+  // TODO - send measured valve angles to Zucrow here with ZucrowInterface::send_valve_angles(), so Zucrow
+  // always has an angle readout. Needs ThrottleValves to expose the encoder angles.
 }
 
 // TODO - these?
