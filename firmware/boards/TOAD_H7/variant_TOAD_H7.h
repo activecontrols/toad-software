@@ -295,6 +295,20 @@
 #define HAL_SD_MODULE_ENABLED
 #endif
 
+// added by jhillman - do compile FDCAN HAL
+#if !defined (HAL_FDCAN_MODULE_ENABLED)
+#define HAL_FDCAN_MODULE_ENABLED
+#endif
+#if !defined (USE_HAL_FDCAN_REGISTER_CALLBACKS)
+#define USE_HAL_FDCAN_REGISTER_CALLBACKS 1 
+#endif
+
+
+#if !defined(HSE_VALUE)
+// our HSE is 8MHz
+#define HSE_VALUE (8000000U)
+#endif
+
 /*----------------------------------------------------------------------------
  *        Arduino objects - C++ only
  *----------------------------------------------------------------------------*/
