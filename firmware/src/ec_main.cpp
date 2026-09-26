@@ -24,9 +24,6 @@ Uart RS485_2(PIN_RS485_2_RX, PIN_RS485_2_TX, PIN_RS485_2_DE);
 SPIClass PT_TC_SPI_1(PIN_PT_TC_SPI_1_MOSI, PIN_PT_TC_SPI_1_MISO, PIN_PT_TC_SPI_1_SCK);
 SPIClass PT_TC_SPI_3(PIN_PT_TC_SPI_3_MOSI, PIN_PT_TC_SPI_3_MISO, PIN_PT_TC_SPI_3_SCK);
 
-CAN CAN_FC(PIN_CAN_FC_TX, PIN_CAN_FC_RX);
-CAN CAN_TVC(PIN_CAN_TVC_TX, PIN_CAN_TVC_RX);
-
 bool kill_flag;
 bool arm_flag;
 void flight_loop();
@@ -42,8 +39,8 @@ void setup() {
   HW_CommsSerial.begin(RADIO_BAUD);
   HW_FallbackSerial.begin(RADIO_BAUD);
 
-  CAN_FC.begin(CanBitRate::BR_1000k);
-  CAN_TVC.begin(CanBitRate::BR_1000k);
+  can_fc.begin(CanBitRate::BR_1000k);
+  can_tvc.begin(CanBitRate::BR_1000k);
 
   PT_TC_SPI_1.begin();
   PT_TC_SPI_3.begin();

@@ -64,9 +64,6 @@
 #define CAN_FC_BASE  (FDCAN1)
 #define CAN_TVC_BASE (FDCAN2)
 
-extern CAN CAN_FC;
-extern CAN CAN_TVC;
-
 // PWM (spark)
 #define PIN_SPARK_PWM PC6
 #define PIN_SPARK_TRIG PC13

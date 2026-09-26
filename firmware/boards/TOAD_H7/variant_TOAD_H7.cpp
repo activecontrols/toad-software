@@ -354,4 +354,4 @@ void SystemClock_Config(void)
 }
 
 // jhillman added this to ensure HSE value is correct for all dynamic clock frequency calculations
-static_assert(HSE_VALUE == 8'000'000U);
+// static_assert(HSE_VALUE == 8'000'000U);

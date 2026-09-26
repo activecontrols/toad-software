@@ -122,7 +122,7 @@ float CAN::_begin(uint32_t bit_rate)
     PeriphClkInitStruct.FdcanClockSelection = RCC_FDCANCLKSOURCE_PLL; // jhillman: I expect PLL1 Q1 to give 120MHz
     if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
     {
-      return;
+      return 0.0;
     }
 
 
@@ -139,6 +139,7 @@ float CAN::_begin(uint32_t bit_rate)
   {
     // something went wrong, I was expecting 120 MHz
     CommsSerial.println("Error: CAN kernel clock frequency is not 120MHz");
+    CommsSerial.printf("Actual value: %u\n", can_ker_ck);
     return 0.0f;
   }
 
