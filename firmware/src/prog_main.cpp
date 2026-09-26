@@ -87,14 +87,6 @@ bool enter_bootloader() {
   return true;
 }
 
-void enter_bootloader_cmd() {
-  if (enter_bootloader()) {
-    prog_state = STATE_PRE_ERASE;
-  } else {
-    // TODO - handle error
-  }
-}
-
 bool erase_memory() {
   Prog_SPI.transfer(SYNC);
   Prog_SPI.transfer(CMD_EraseMem);
@@ -108,32 +100,6 @@ bool erase_memory() {
   ExitOnFail(spi_ack_frame());
 
   return true;
-}
-
-void erase_memory_cmd() {
-  if (erase_memory()) {
-    prog_state = STATE_READY;
-  } else {
-    // TODO - handle error
-  }
-}
-
-void select_page(can_msg_select_page_t msg) {
-  prog_state = STATE_PAGE_SELECTED;
-  active_pg_addr = msg.page_addr;
-  for (size_t i = 0; i < NUM_CAN_CHUNKS_PER_PAGE; i++) {
-    chunk_rcv[i] = false;
-  }
-}
-
-void rcv_mem(can_msg_mem_packet_t msg) {
-  if (msg.page_addr == active_pg_addr) {
-    static_assert(sizeof(msg.flash_bytes) == CAN_CHUNK_SIZE);
-    memcpy(&page_cache[msg.chunk_addr * CAN_CHUNK_SIZE], msg.flash_bytes, CAN_CHUNK_SIZE);
-    chunk_rcv[msg.chunk_addr] = true;
-  } else {
-    // TODO - handle wrong page addr
-  }
 }
 
 bool write_memory(uint32_t addr, const uint8_t *bytes, size_t len) {
@@ -164,29 +130,6 @@ bool write_memory(uint32_t addr, const uint8_t *bytes, size_t len) {
   ExitOnFail(spi_ack_frame());
 
   return true;
-}
-
-void write_flash() {
-  bool all_chunk_rcv = true;
-  for (size_t i = 0; i < NUM_CAN_CHUNKS_PER_PAGE; i++) {
-    if (!chunk_rcv) {
-      can_msg_request_mem_packet_t resp;
-      resp.chunk_addr = i;
-      resp.page_addr = active_pg_addr;
-      // TODO - send request message
-      all_chunk_rcv = false;
-    }
-  }
-
-  if (all_chunk_rcv) {
-    for (size_t i = 0; i < NUM_WRITE_CHUNKS_PER_PAGE; i++) {
-      static_assert(WRITE_CHUNK_SIZE <= 256);
-      write_memory(active_pg_addr * PAGE_CACHE_SIZE + WRITE_CHUNK_SIZE * i, &page_cache[WRITE_CHUNK_SIZE * i],
-                   WRITE_CHUNK_SIZE);
-      // TODO - send ok
-    }
-    prog_state = STATE_READY;
-  }
 }
 
 void setup() {
@@ -223,11 +166,73 @@ void setup() {
 
   // register_CAN_cmd<can_msg_heartbeat_t>();
   register_CAN_cmd<can_msg_reset_controller_t>(reset_h7);
-  register_CAN_cmd<can_msg_enter_bootloader_t>(enter_bootloader_cmd, STATE_IDLE);
-  register_CAN_cmd<can_msg_erase_flash_t>(erase_memory_cmd, STATE_PRE_ERASE);
-  register_CAN_cmd<can_msg_select_page_t>(select_page, STATE_READY);
-  register_CAN_cmd<can_msg_mem_packet_t>(rcv_mem, STATE_PAGE_SELECTED);
-  register_CAN_cmd<can_msg_write_flash_t>(write_flash, STATE_PAGE_SELECTED);
+
+  register_CAN_cmd<can_msg_enter_bootloader_t>(
+      []() {
+        if (enter_bootloader()) {
+          prog_state = STATE_PRE_ERASE;
+        } else {
+          // TODO - handle error
+        }
+      },
+      STATE_IDLE);
+
+  register_CAN_cmd<can_msg_erase_flash_t>(
+      []() {
+        if (erase_memory()) {
+          prog_state = STATE_READY;
+        } else {
+          // TODO - handle error
+        }
+      },
+      STATE_PRE_ERASE);
+
+  register_CAN_cmd<can_msg_select_page_t>(
+      [](can_msg_select_page_t msg) {
+        prog_state = STATE_PAGE_SELECTED;
+        active_pg_addr = msg.page_addr;
+        for (size_t i = 0; i < NUM_CAN_CHUNKS_PER_PAGE; i++) {
+          chunk_rcv[i] = false;
+        }
+      },
+      STATE_READY);
+
+  register_CAN_cmd<can_msg_mem_packet_t>(
+      [](can_msg_mem_packet_t msg) {
+        if (msg.page_addr == active_pg_addr) {
+          static_assert(sizeof(msg.flash_bytes) == CAN_CHUNK_SIZE);
+          memcpy(&page_cache[msg.chunk_addr * CAN_CHUNK_SIZE], msg.flash_bytes, CAN_CHUNK_SIZE);
+          chunk_rcv[msg.chunk_addr] = true;
+        } else {
+          // TODO - handle wrong page addr
+        }
+      },
+      STATE_PAGE_SELECTED);
+
+  register_CAN_cmd<can_msg_write_flash_t>(
+      []() {
+        bool all_chunk_rcv = true;
+        for (size_t i = 0; i < NUM_CAN_CHUNKS_PER_PAGE; i++) {
+          if (!chunk_rcv) {
+            can_msg_request_mem_packet_t resp;
+            resp.chunk_addr = i;
+            resp.page_addr = active_pg_addr;
+            // TODO - send request message
+            all_chunk_rcv = false;
+          }
+        }
+
+        if (all_chunk_rcv) {
+          for (size_t i = 0; i < NUM_WRITE_CHUNKS_PER_PAGE; i++) {
+            static_assert(WRITE_CHUNK_SIZE <= 256);
+            write_memory(active_pg_addr * PAGE_CACHE_SIZE + WRITE_CHUNK_SIZE * i, &page_cache[WRITE_CHUNK_SIZE * i],
+                         WRITE_CHUNK_SIZE);
+            // TODO - send ok
+          }
+          prog_state = STATE_READY;
+        }
+      },
+      STATE_PAGE_SELECTED);
 }
 
 void loop() {
