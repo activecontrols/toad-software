@@ -117,83 +117,6 @@ struct can_msg_write_flash_t {
 
 /// CAN Helper Functions
 
-template <typename state_t> class CAN_Msg_Decoder {
-
-public:
-  // Helper for decoding a raw buffer into a can msg with error handling.
-  CAN_Msg_Decoder(const uint8_t *raw_bytes, size_t len, state_t state)
-      : decoded(false), raw_bytes(raw_bytes), len(len), state(state) {};
-
-  // Decode a raw buffer into a CAN message of the specified type and verify the state machine state.
-  // If the command has already been decoded, does nothing and returns std::nullopt.
-  // If the command id does not match, does nothing and returns std::nullopt.
-  // If the payload length is incorrect, sends can_msg_incorrect_len and returns std::nullopt.
-  // If the state machine does not match the expected state, sends can_msg_unexpected_state and returns std::nullopt.
-  // Usage: `if (const auto msg = raw_msg.decode<can_msg_t>()) {`
-  template <typename msg_t> std::optional<msg_t> decode_and_enforce_state(state_t expected) {
-    // If the message was already decoded, exit early and
-    // return std::nullopt so this can be used in an if/else chain.
-    if (decoded) {
-      return std::nullopt;
-    }
-
-    msg_t msg;
-
-    // The cmd_id is always the first byte of the message. If the command id doesn't match,
-    // then return std::nullopt so this can be used in an if/else chain.
-    const uint8_t cmd = raw_bytes[0];
-    if (cmd != msg.cmd_id) {
-      return std::nullopt;
-    }
-
-    // The command id matched, so mark this message as decoded.
-    decoded = true;
-
-    if (len != sizeof(msg)) {
-      can_msg_incorrect_len_t error_msg;
-      // TODO - send
-      return std::nullopt;
-    }
-
-    if (state != expected) {
-      can_msg_unexpected_state_t error_msg;
-      error_msg.rcv_cmd_id = msg.cmd_id;
-      error_msg.expected_state = expected;
-      error_msg.state = state;
-      // TODO - send
-      return std::nullopt;
-    }
-
-    memcpy(&msg, raw_bytes, sizeof(msg));
-    return msg;
-  }
-
-  // Decode a raw buffer into a CAN message of the specified type.
-  // If the command has already been decoded, does nothing and returns std::nullopt.
-  // If the command id does not match, does nothing and returns std::nullopt.
-  // If the payload length is incorrect, sends can_msg_incorrect_len and returns std::nullopt.
-  // Usage: `if (const auto msg = raw_msg.decode<can_msg_t>()) {`
-  template <typename msg_t> std::optional<msg_t> decode() {
-    return decode_and_enforce_state<msg_t>(state);
-  }
-
-  // After a set of `decode` and `decode_and_enforce_state`, this function sends
-  // can_msg_invalid_cmd if the command was never decoded.
-  void send_error_if_not_decoded() {
-    if (!decoded) {
-      can_msg_invalid_cmd_t error_msg;
-      error_msg.rcv_cmd_id = raw_bytes[0];
-      // TODO - send CAN_MSG_INVALID_CMD
-    }
-  }
-
-private:
-  bool decoded;
-  const uint8_t *raw_bytes;
-  const size_t len;
-  const state_t state;
-};
-
 // FDCAN DLC to payload size
 constexpr std::array<size_t, 16> FDCAN_DLC_SIZES = {0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48, 64};
 
@@ -214,4 +137,42 @@ template <typename T> constexpr fdcan_size_t fdcan_size_of() {
     }
   }
   return {0, 0, 0}; // will never be reached because of static_assert above
+}
+
+constexpr uint8_t STATE_ANY = 0;
+
+struct can_func {
+  uint8_t cmd_id;
+  std::function<void(CanMsg)> func;
+  uint8_t required_state;
+};
+
+std::vector<can_func> can_funcs;
+
+template <typename F> struct arg_type;
+
+template <typename Arg> struct arg_type<void (*)(Arg)> {
+  using type = Arg;
+};
+
+// register a function that takes a buffer and a len
+template <typename F> void register_CAN_cmd(F f, uint8_t required_state = STATE_ANY) {
+  using msg_t = typename arg_type<F>::type;
+
+  std::function<void(CanMsg)> f_internal = [f](CanMsg raw_msg) {
+    if (raw_msg.data_length != fdcan_size_of<msg_t>().can_size) {
+      // TODO - wrong len handler
+    }
+
+    msg_t msg;
+    memcpy(&msg, raw_msg.data, raw_msg.data_length);
+    f(msg);
+  };
+  can_funcs.push_back({msg_t::cmd_id, f_internal, required_state});
+}
+
+template <typename msg_t> void register_CAN_cmd(std::function<void()> f, uint8_t required_state = STATE_ANY) {
+  static_assert(fdcan_size_of<msg_t>().can_size == 0);
+  std::function<void(CanMsg)> f_internal = [f](CanMsg raw_msg) { f(); };
+  can_funcs.push_back({msg_t::cmd_id, f_internal, required_state});
 }

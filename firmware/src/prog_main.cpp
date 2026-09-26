@@ -50,39 +50,6 @@ uint32_t active_pg_addr;
 uint8_t page_cache[PAGE_CACHE_SIZE];
 bool chunk_rcv[NUM_CAN_CHUNKS_PER_PAGE];
 
-void setup() {
-  // All shared interfaces are begun here.
-
-  // Use same baud rate on all Comm Serials for consistency.
-  USB_CommsSerial.begin(RADIO_BAUD);
-  HW_CommsSerial.begin(RADIO_BAUD);
-  HW_FallbackSerial.begin(RADIO_BAUD);
-
-  // Configure SPI interface and set CS HIGH
-  Prog_SPI.begin();
-  pinMode(PIN_PROG_SPI_CS, HIGH);
-
-  // Configure BOOT and NRST to default the STM32H7 into normal code execution
-  digitalWrite(PIN_H7_BOOT, BOOT_MODE_RUN);
-  pinMode(PIN_H7_BOOT, OUTPUT);
-
-  digitalWrite(PIN_H7_NRST, NRST_MODE_RUN);
-  pinMode(PIN_H7_NRST, OUTPUT);
-
-  pinMode(PIN_PROG_ID, INPUT);
-  prog_type = (digitalRead(PIN_PROG_ID) == PROG_ID_FLIGHT_CONTROLLER) ? PROG_FLIGHT_CONTROLLER : PROG_ENGINE_CONTROLLER;
-
-  delay(3000);
-
-  if (prog_type == PROG_FLIGHT_CONTROLLER) {
-    CommsSerial.println("Flight Controller Programmer Started!");
-  } else {
-    CommsSerial.println("Engine Controller Programmer Started!");
-  }
-
-  prog_state = STATE_IDLE;
-}
-
 void reset_h7() {
   digitalWrite(PIN_H7_NRST, NRST_MODE_RST);
   delay(1000);
@@ -120,6 +87,14 @@ bool enter_bootloader() {
   return true;
 }
 
+void enter_bootloader_cmd() {
+  if (enter_bootloader()) {
+    prog_state = STATE_PRE_ERASE;
+  } else {
+    // TODO - handle error
+  }
+}
+
 bool erase_memory() {
   Prog_SPI.transfer(SYNC);
   Prog_SPI.transfer(CMD_EraseMem);
@@ -133,6 +108,32 @@ bool erase_memory() {
   ExitOnFail(spi_ack_frame());
 
   return true;
+}
+
+void erase_memory_cmd() {
+  if (erase_memory()) {
+    prog_state = STATE_READY;
+  } else {
+    // TODO - handle error
+  }
+}
+
+void select_page(can_msg_select_page_t msg) {
+  prog_state = STATE_PAGE_SELECTED;
+  active_pg_addr = msg.page_addr;
+  for (size_t i = 0; i < NUM_CAN_CHUNKS_PER_PAGE; i++) {
+    chunk_rcv[i] = false;
+  }
+}
+
+void rcv_mem(can_msg_mem_packet_t msg) {
+  if (msg.page_addr == active_pg_addr) {
+    static_assert(sizeof(msg.flash_bytes) == CAN_CHUNK_SIZE);
+    memcpy(&page_cache[msg.chunk_addr * CAN_CHUNK_SIZE], msg.flash_bytes, CAN_CHUNK_SIZE);
+    chunk_rcv[msg.chunk_addr] = true;
+  } else {
+    // TODO - handle wrong page addr
+  }
 }
 
 bool write_memory(uint32_t addr, const uint8_t *bytes, size_t len) {
@@ -165,6 +166,70 @@ bool write_memory(uint32_t addr, const uint8_t *bytes, size_t len) {
   return true;
 }
 
+void write_flash() {
+  bool all_chunk_rcv = true;
+  for (size_t i = 0; i < NUM_CAN_CHUNKS_PER_PAGE; i++) {
+    if (!chunk_rcv) {
+      can_msg_request_mem_packet_t resp;
+      resp.chunk_addr = i;
+      resp.page_addr = active_pg_addr;
+      // TODO - send request message
+      all_chunk_rcv = false;
+    }
+  }
+
+  if (all_chunk_rcv) {
+    for (size_t i = 0; i < NUM_WRITE_CHUNKS_PER_PAGE; i++) {
+      static_assert(WRITE_CHUNK_SIZE <= 256);
+      write_memory(active_pg_addr * PAGE_CACHE_SIZE + WRITE_CHUNK_SIZE * i, &page_cache[WRITE_CHUNK_SIZE * i],
+                   WRITE_CHUNK_SIZE);
+      // TODO - send ok
+    }
+    prog_state = STATE_READY;
+  }
+}
+
+void setup() {
+  // All shared interfaces are begun here.
+
+  // Use same baud rate on all Comm Serials for consistency.
+  USB_CommsSerial.begin(RADIO_BAUD);
+  HW_CommsSerial.begin(RADIO_BAUD);
+  HW_FallbackSerial.begin(RADIO_BAUD);
+
+  // Configure SPI interface and set CS HIGH
+  Prog_SPI.begin();
+  pinMode(PIN_PROG_SPI_CS, HIGH);
+
+  // Configure BOOT and NRST to default the STM32H7 into normal code execution
+  digitalWrite(PIN_H7_BOOT, BOOT_MODE_RUN);
+  pinMode(PIN_H7_BOOT, OUTPUT);
+
+  digitalWrite(PIN_H7_NRST, NRST_MODE_RUN);
+  pinMode(PIN_H7_NRST, OUTPUT);
+
+  pinMode(PIN_PROG_ID, INPUT);
+  prog_type = (digitalRead(PIN_PROG_ID) == PROG_ID_FLIGHT_CONTROLLER) ? PROG_FLIGHT_CONTROLLER : PROG_ENGINE_CONTROLLER;
+
+  delay(3000);
+
+  if (prog_type == PROG_FLIGHT_CONTROLLER) {
+    CommsSerial.println("Flight Controller Programmer Started!");
+  } else {
+    CommsSerial.println("Engine Controller Programmer Started!");
+  }
+
+  prog_state = STATE_IDLE;
+
+  // register_CAN_cmd<can_msg_heartbeat_t>();
+  register_CAN_cmd<can_msg_reset_controller_t>(reset_h7);
+  register_CAN_cmd<can_msg_enter_bootloader_t>(enter_bootloader_cmd, STATE_IDLE);
+  register_CAN_cmd<can_msg_erase_flash_t>(erase_memory_cmd, STATE_PRE_ERASE);
+  register_CAN_cmd(select_page, STATE_READY);
+  register_CAN_cmd(rcv_mem, STATE_PAGE_SELECTED);
+  register_CAN_cmd<can_msg_write_flash_t>(write_flash, STATE_PAGE_SELECTED);
+}
+
 void loop() {
   // TODO - prog state machine
   // Wait for CAN cmds, control reset and boot
@@ -178,78 +243,5 @@ void loop() {
 
   CanMsg raw_msg;
 
-#define if_msg_is_valid(_msg, _msg_type, ...)                          \
-  do {                                                                 \
-    if ((_msg).id == _msg_type::cmd_id) {                              \
-      if ((_msg).data_length == fdcan_size_of<_msg_type>().can_size) { \
-        _msg_type msg;                                                 \
-        memcpy(&msg, raw_msg.data, sizeof(raw_msg));                   \
-        __VA_ARGS__                                                    \
-      } else {                                                         \
-      }                                                                \
-    } else {                                                           \
-      Error_Handler();                                                 \
-    }                                                                  \
-  } while (0)
-
-  if_msg_is_valid(raw_msg, can_msg_heartbeat_t,
-                  {
-                      // TODO - this
-                  });
-  if_msg_is_valid(raw_msg, can_msg_reset_controller_t, { reset_h7(); });
-  if_msg_is_valid(raw_msg, can_msg_enter_bootloader_t, {
-    if (enter_bootloader()) {
-      prog_state = STATE_PRE_ERASE;
-    } else {
-      // TODO - handle error
-    }
-  });
-  if_msg_is_valid(raw_msg, can_msg_erase_flash_t, {
-    if (erase_memory()) {
-      prog_state = STATE_READY;
-    } else {
-      // TODO - handle error
-    }
-  });
-  if_msg_is_valid(raw_msg, can_msg_select_page_t, {
-    prog_state = STATE_PAGE_SELECTED;
-    active_pg_addr = msg.page_addr;
-    for (size_t i = 0; i < NUM_CAN_CHUNKS_PER_PAGE; i++) {
-      chunk_rcv[i] = false;
-    }
-  });
-
-  if (const auto msg = raw_msg.decode_and_enforce_state<can_msg_mem_packet_t>(STATE_PAGE_SELECTED)) {
-    if (msg->page_addr == active_pg_addr) {
-      static_assert(sizeof(msg->flash_bytes) == CAN_CHUNK_SIZE);
-      memcpy(&page_cache[msg->chunk_addr * CAN_CHUNK_SIZE], msg->flash_bytes, CAN_CHUNK_SIZE);
-      chunk_rcv[msg->chunk_addr] = true;
-    } else {
-      // TODO - handle wrong page addr
-    }
-
-  } else if (const auto msg = raw_msg.decode_and_enforce_state<can_msg_write_flash_t>(STATE_PAGE_SELECTED)) {
-    bool all_chunk_rcv = true;
-    for (size_t i = 0; i < NUM_CAN_CHUNKS_PER_PAGE; i++) {
-      if (!chunk_rcv) {
-        can_msg_request_mem_packet_t resp;
-        resp.chunk_addr = i;
-        resp.page_addr = active_pg_addr;
-        // TODO - send request message
-        all_chunk_rcv = false;
-      }
-    }
-
-    if (all_chunk_rcv) {
-      for (size_t i = 0; i < NUM_WRITE_CHUNKS_PER_PAGE; i++) {
-        static_assert(WRITE_CHUNK_SIZE <= 256);
-        write_memory(active_pg_addr * PAGE_CACHE_SIZE + WRITE_CHUNK_SIZE * i, &page_cache[WRITE_CHUNK_SIZE * i],
-                     WRITE_CHUNK_SIZE);
-        // TODO - send ok
-      }
-      prog_state = STATE_READY;
-    }
-  }
-
-  // TODO - send error if not decoded
+  // call decoder
 }
