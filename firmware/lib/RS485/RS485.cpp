@@ -1,7 +1,8 @@
 #include "RS485.h"
 #include "CommsSerial.h"
 #include "ec_pins.h"
-#include <iterator>
+#include <iterator> // used to calculate size of the array hosuing the select pins in RS485s namespace.
+// TO-DO: Restructure to use std::array and remove sel_count parameter
 
 namespace {
 constexpr uint32_t kMarginUs = 200; // TODO: tune against response time
@@ -30,9 +31,9 @@ bool RS485Bus::setBaud(uint32_t baud) {
   return initAt(baud);
 }
 
-  // RS485 delta from HAL_RS485Ex_Init. SetConfig/AdvFeatureConfig
-  // are already done by uart_.begin(). UART_CheckIdleState skipped because it resets RxState and
-  // would disarm the core's Receive_IT; TX idle, bus deselected.
+// RS485 delta from HAL_RS485Ex_Init. SetConfig/AdvFeatureConfig
+// are already done by uart_.begin(). UART_CheckIdleState skipped because it resets RxState and
+// would disarm the core's Receive_IT; TX idle, bus deselected.
 
 bool RS485Bus::initAt(uint32_t baud) {
   uart_.begin(baud);
@@ -41,7 +42,6 @@ bool RS485Bus::initAt(uint32_t baud) {
   u->CR1 &= ~USART_CR1_UE;
   applyDE(u);
   u->CR1 |= USART_CR1_UE;
-  interrupts();
 
   const uint32_t ack = USART_ISR_TEACK | USART_ISR_REACK;
   const uint32_t start = micros();
@@ -54,7 +54,7 @@ bool RS485Bus::initAt(uint32_t baud) {
 }
 
 void RS485Bus::applyDE(USART_TypeDef *u) {
-  u->CR3 &= ~(USART_CR3_RTSE | USART_CR3_DEP); // no RTS flow control, DE active-high
+  u->CR3 &= ~(USART_CR3_RTSE | USART_CR3_DEP); // no RTS flow control, DE active-high // call pinmap_pinout()
   u->CR3 |= USART_CR3_DEM;
   u->CR1 &= ~(USART_CR1_DEAT | USART_CR1_DEDT);
 
@@ -79,13 +79,18 @@ void RS485Bus::select(size_t idx) {
   }
 }
 
-// Same condition Uart::flush() waits on (tx_tail advances in the TC callback), but bounded.
+// Wait for the hardware TX complete flag, not just the software TX buffer depth.
+// previously used availableForWrite(), but that only tells us the queue has room, not that the final byte
+// has left the shift register and the bus is safe to deselect.
 bool RS485Bus::waitTxComplete(uint32_t timeout_us) {
+  USART_TypeDef *u = uart_.getHandle()->Instance;
   const uint32_t start = micros();
-  while (uart_.availableForWrite() < SERIAL_TX_BUFFER_SIZE - 1) {
+
+  while ((u->ISR & USART_ISR_TC) == 0) {
     if (micros() - start >= timeout_us)
       return false;
   }
+
   return true;
 }
 
@@ -115,21 +120,26 @@ size_t RS485Device::read(uint8_t *dst, size_t len, uint32_t latency_us) {
   // Don't start response clock while our own request is still sending
   bool complete = bus_.waitTxComplete(bus_.frameTimeUs(SERIAL_TX_BUFFER_SIZE) + kTxSlackUs);
 
+  if (!complete) {
+    return 0; // Error Code 0; Bus is still transmitting
+  }
+
   const uint32_t budget = latency_us + bus_.frameTimeUs(len) + kMarginUs;
   const uint32_t start = micros();
   size_t n = 0;
-  if (complete) {
-    while (n < len) {
-      if (uart.available()) {
-        dst[n++] = (uint8_t)uart.read();
-        continue;
-      }
-      if (micros() - start >= budget)
-        break;
+
+  while (n < len) {
+    if (uart.available()) {
+      dst[n++] = (uint8_t)uart.read();
+      continue; // ensure all bytes are read before checking timeout
     }
-    return n;
+
+    if (micros() - start >= budget) {
+      break;
+    }
   }
-  return 0;
+
+  return n;
 }
 
 void RS485Device::endTransaction() {

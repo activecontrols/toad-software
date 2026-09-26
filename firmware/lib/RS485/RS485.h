@@ -22,9 +22,10 @@ public:
   bool waitTxComplete(uint32_t timeout_us);
   uint32_t frameTimeUs(size_t len) const; // 8N1: 10 bits per byte
   bool deModeActive();
-
-private:
   Uart uart_;
+  
+private:
+  
   const uint32_t *sels_;
   size_t sel_count_;
   uint32_t baud_ = 0;
