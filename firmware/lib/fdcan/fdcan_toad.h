@@ -55,18 +55,25 @@ public:
     // Returns true if buffer is free, false if timed out.
     bool flush(uint32_t timeout_ms = UINT32_MAX);
 
-    FDCAN_GlobalTypeDef* get_instance(void)
+    struct FDCAN_Handle_Wrapper : public FDCAN_HandleTypeDef
     {
-        return hfdcan.Instance;
+        CAN* obj; // pointer back to the CAN object that owns this peripheral
+    };
+
+
+    FDCAN_Handle_Wrapper* handle(void)
+    {
+        return &hfdcan;
     }
 
-
+    
 private:
     // Initialize the FDCAN peripheral with a specific bitrate in bps.
     // Returns actual bitrate achieved in bps, or 0.0f on failure.
     float _begin(uint32_t bit_rate);
 
-    FDCAN_HandleTypeDef hfdcan = {0};
+
+    FDCAN_Handle_Wrapper hfdcan = {0};
     FDCAN_ErrorCountersTypeDef error_counts = {0};
     FDCAN_RxHeaderTypeDef rx_header = {0};
     uint32_t tx_pin = 0;

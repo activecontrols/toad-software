@@ -6,18 +6,25 @@
 #include "variant_TOAD_H7.h"
 #include "ec_pins.h"
 #include "CommsSerial.h"
-#include <optional>
 
 using namespace arduino;
 
 CAN can_tvc(PIN_CAN_TVC_TX, PIN_CAN_TVC_RX);
 CAN can_fc(PIN_CAN_FC_TX, PIN_CAN_FC_RX);
 
-std::array<CAN&, 2> cans = {can_tvc, can_fc};
+std::array<CAN*, 2> can_list = {&can_tvc, &can_fc};
 
-std::optional<CAN&> resolve_can(FDCAN_GlobalTypeDef* inst)
+inline CAN* resolve_can(FDCAN_GlobalTypeDef* inst)
 {
+  for (auto c : can_list)
+  {
+    if (c->get_instance() == inst)
+    {
+      return c;
+    }
+  }
 
+  return nullptr;
 }
 
 /* enable GPIO clock and configure pin (must pass a bit mask for which pin(s) to configure on the specific port) */
@@ -36,24 +43,14 @@ extern "C"
 
 void fdcan_error_cbk(FDCAN_HandleTypeDef* hfdcan)
 {
-  CAN* target = nullptr;
-
-  if (hfdcan->Instance == FDCAN1)
-  {
-    target = can1;
-  }
-  else if (hfdcan->Instance == FDCAN2)
-  {
-    target = can2;
-  }
+  auto target = reinterpret_cast<CAN::FDCAN_Handle_Wrapper*>(hfdcan);
 
   if (target == nullptr)
   {
     return;
   }
 
-  target->error_update_from_isr();
-
+  target->obj->error_update_from_isr();
   return;
 }
 
@@ -65,18 +62,18 @@ void fdcan_error_status_cbk(FDCAN_HandleTypeDef* hfdcan, uint32_t ErrorStatusITs
 
 void FDCAN1_IT0_IRQHandler(void)
 {
-  if (can1 != nullptr)
+  if (auto can_ptr = resolve_can(FDCAN1); can_ptr != nullptr)
   {
-    HAL_FDCAN_IRQHandler(&(can1->hfdcan));
+    HAL_FDCAN_IRQHandler(&(can_ptr->hfdcan));
   }
 }
 
 
 void FDCAN2_IT0_IRQHandler(void)
 {
-  if (can2 != nullptr)
+  if (auto can_ptr = resolve_can(FDCAN2); can_ptr != nullptr)
   {
-    HAL_FDCAN_IRQHandler(&(can2->hfdcan));
+    HAL_FDCAN_IRQHandler(&(can_ptr->hfdcan));
   }
 }
 
@@ -88,6 +85,7 @@ CAN::CAN(uint32_t _tx_pin, uint32_t _rx_pin)
   this->tx_pin = _tx_pin;
   this->rx_pin = _rx_pin;
   this->hfdcan = {0};
+  this->hfdcan.obj = this;
 }
 
 
