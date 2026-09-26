@@ -4,6 +4,7 @@
 #include "ec_pins.h"
 #include "fdcan_toad.h"
 #include "toad_can_bus.h"
+#include <CommsSerial.h>
 
 // One CAN object here, not two - CAN_ID_TVC_PITCH and CAN_ID_TVC_YAW are two
 // message IDs on the SAME physical "Actuators CAN Bus" (PIN_CAN_TVC_RX/TX),
@@ -61,6 +62,13 @@ bool begin() {
     if (heard_pitch && heard_yaw) {
       return true;
     }
+  }
+
+  if (!heard_pitch) {
+    CommsSerial.println("No telemetry heard from Pitch Actuator");
+  }
+  if (!heard_yaw) {
+    CommsSerial.println("No telemetry heard from Yaw Actuator");
   }
 
   return false;
