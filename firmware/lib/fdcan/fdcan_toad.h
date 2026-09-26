@@ -8,7 +8,6 @@ class CAN : public arduino::HardwareCAN
 {
 public:
     CAN(uint32_t tx_pin, uint32_t rx_pin);
-    ~CAN() override;
 
     enum class error_type_t 
     {
@@ -18,10 +17,6 @@ public:
     };
     
     typedef void (*CAN_error_cbk_t)(error_type_t error_type, uint32_t new_count);
-
-    // Initialize the FDCAN peripheral with a specific bitrate in bps.
-    // Returns actual bitrate achieved in bps, or 0.0f on failure.
-    float begin(uint32_t bit_rate);
 
     // Initialize using standard Arduino CanBitRate enum.
     // Conforms to arduino::HardwareCAN interface.
@@ -60,8 +55,17 @@ public:
     // Returns true if buffer is free, false if timed out.
     bool flush(uint32_t timeout_ms = UINT32_MAX);
 
+    FDCAN_GlobalTypeDef* get_instance(void)
+    {
+        return hfdcan.Instance;
+    }
 
-// private:
+
+private:
+    // Initialize the FDCAN peripheral with a specific bitrate in bps.
+    // Returns actual bitrate achieved in bps, or 0.0f on failure.
+    float _begin(uint32_t bit_rate);
+
     FDCAN_HandleTypeDef hfdcan = {0};
     FDCAN_ErrorCountersTypeDef error_counts = {0};
     FDCAN_RxHeaderTypeDef rx_header = {0};
@@ -70,3 +74,8 @@ public:
     uint8_t rx_data[64] = {0};
     CAN_error_cbk_t error_cbk = nullptr;
 };
+
+// instantiated in fdcan_toad.cpp
+extern CAN can_tvc;
+extern CAN can_fc;
+

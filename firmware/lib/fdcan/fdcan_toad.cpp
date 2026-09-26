@@ -5,11 +5,20 @@
 #include "stm32h7xx_hal.h"
 #include "variant_TOAD_H7.h"
 #include "ec_pins.h"
+#include "CommsSerial.h"
+#include <optional>
 
 using namespace arduino;
 
-static CAN* can1 = nullptr;
-static CAN* can2 = nullptr;
+CAN can_tvc(PIN_CAN_TVC_TX, PIN_CAN_TVC_RX);
+CAN can_fc(PIN_CAN_FC_TX, PIN_CAN_FC_RX);
+
+std::array<CAN&, 2> cans = {can_tvc, can_fc};
+
+std::optional<CAN&> resolve_can(FDCAN_GlobalTypeDef* inst)
+{
+
+}
 
 /* enable GPIO clock and configure pin (must pass a bit mask for which pin(s) to configure on the specific port) */
 static void CAN_init_gpio_dynamic(uint32_t pin, const PinMap pin_map[])
@@ -23,48 +32,6 @@ static void CAN_init_gpio_dynamic(uint32_t pin, const PinMap pin_map[])
 
 extern "C" 
 {
-
-void HAL_FDCAN_MspInit(FDCAN_HandleTypeDef* hfdcan)
-{
-  static bool has_initialized_clock = false;
-
-  if (!has_initialized_clock)
-  {
-    RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
-
-    PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_FDCAN;
-    PeriphClkInitStruct.FdcanClockSelection = RCC_FDCANCLKSOURCE_PLL; // jhillman: I expect PLL1 Q1 to give 120MHz
-    if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
-    {
-      return;
-    }
-
-
-    /* Peripheral clock enable */
-    __HAL_RCC_FDCAN_CLK_ENABLE();
-
-    has_initialized_clock = true;
-  }
- 
-
-  CAN* target = (hfdcan->Instance == FDCAN1) ? can1 : can2;
-  if (target != nullptr)
-  {
-    CAN_init_gpio_dynamic(target->rx_pin, PinMap_CAN_RD);
-    CAN_init_gpio_dynamic(target->tx_pin, PinMap_CAN_TD);
-  }
-
-
-  IRQn_Type irqn = FDCAN1_IT0_IRQn; // each FDCAN has two interrupt lines but we can just use line 0
-
-  if (hfdcan->Instance == FDCAN2) 
-  {
-    irqn = FDCAN2_IT0_IRQn;
-  }
-  /* FDCAN1 interrupt Init */
-  HAL_NVIC_SetPriority(irqn, 0, 0);
-  HAL_NVIC_EnableIRQ(irqn);
-}
 
 
 void fdcan_error_cbk(FDCAN_HandleTypeDef* hfdcan)
@@ -116,74 +83,73 @@ void FDCAN2_IT0_IRQHandler(void)
 } // extern "C"
 
 
-
-CAN::~CAN()
-{
-  if (can1 == this)
-  {
-    HAL_NVIC_DisableIRQ(FDCAN1_IT0_IRQn);
-    can1 = nullptr;
-  }
-  else if (can2 == this)
-  {
-    HAL_NVIC_DisableIRQ(FDCAN2_IT0_IRQn);
-    can2 = nullptr;
-  }
-}
-
 CAN::CAN(uint32_t _tx_pin, uint32_t _rx_pin)
 {
   this->tx_pin = _tx_pin;
   this->rx_pin = _rx_pin;
   this->hfdcan = {0};
-
-  FDCAN_GlobalTypeDef* inst_1 = static_cast<FDCAN_GlobalTypeDef*>(pinmap_find_peripheral(digitalPinToPinName(_tx_pin), PinMap_CAN_TD));
-  FDCAN_GlobalTypeDef* inst_2 = static_cast<FDCAN_GlobalTypeDef*>(pinmap_find_peripheral(digitalPinToPinName(_rx_pin), PinMap_CAN_RD));
-
-  if ((inst_1 != inst_2) || inst_1 == NP)
-  {
-    return;
-  }
-
-  this->hfdcan.Instance = inst_1;
 }
 
 
 // jhillman adapted from https://github.com/STMicroelectronics/STM32CubeH7/blob/master/Projects/STM32H743I-EVAL/Examples/FDCAN/FDCAN_Classic_Frame_Networking/Src/main.c
-float CAN::begin(uint32_t bit_rate)
+float CAN::_begin(uint32_t bit_rate)
 {
-  // Map this instance for interrupt handling and MSP initialization
-  if (this->hfdcan.Instance == FDCAN1)
+  FDCAN_GlobalTypeDef* inst_1 = static_cast<FDCAN_GlobalTypeDef*>(pinmap_find_peripheral(digitalPinToPinName(tx_pin), PinMap_CAN_TD));
+  FDCAN_GlobalTypeDef* inst_2 = static_cast<FDCAN_GlobalTypeDef*>(pinmap_find_peripheral(digitalPinToPinName(rx_pin), PinMap_CAN_RD));
+
+  if ((inst_1 != inst_2) || inst_1 == NP)
   {
-    can1 = this;
+    CommsSerial.println("Error: CAN has conflicting pins");
+    return 0.0;
   }
-  else if (this->hfdcan.Instance == FDCAN2)
-  {
-    can2 = this;
-  }
-  else
-  {
-    return 0.0f;
-  }
+
+  this->hfdcan.Instance = inst_1;
 
   if (bit_rate == 0U || bit_rate > 1'000'000U)
   {
     // not allowed for normal CAN operation
-    if (can1 == this) can1 = nullptr;
-    if (can2 == this) can2 = nullptr;
+    CommsSerial.println("Error: invalid CAN bit rate supplied");
     return 0.0f;
   }
-  // TODO: audit this
 
-  const uint32_t can_ker_ck = 120'000'000; // peripheral clock is 120 MHz - this is hardcoded
+  // initialize peripheral clock
+  static bool has_initialized_clock = false;
+
+  if (!has_initialized_clock)
+  {
+    RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
+
+    PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_FDCAN;
+    PeriphClkInitStruct.FdcanClockSelection = RCC_FDCANCLKSOURCE_PLL; // jhillman: I expect PLL1 Q1 to give 120MHz
+    if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
+    {
+      return;
+    }
+
+
+    /* Peripheral clock enable */
+    __HAL_RCC_FDCAN_CLK_ENABLE();
+
+    has_initialized_clock = true;
+  }
+  
+
+  const uint32_t can_ker_ck = HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_FDCAN);
+
+  if (can_ker_ck != 120'000'000)
+  {
+    // something went wrong, I was expecting 120 MHz
+    CommsSerial.println("Error: CAN kernel clock frequency is not 120MHz");
+    return 0.0f;
+  }
+
   const uint32_t prescaler = 3;            // or dynamic
   const uint32_t tq_freq = can_ker_ck / prescaler;
 
   // Check if rate divides evenly without any remainder
   if ((tq_freq % bit_rate) != 0) {
     // Exact baud rate is mathematically impossible with this prescaler/clock
-    if (can1 == this) can1 = nullptr;
-    if (can2 == this) can2 = nullptr;
+    CommsSerial.println("Error: target bit rate does not divide evenly");
     return 0.0f;
   }
 
@@ -262,6 +228,21 @@ float CAN::begin(uint32_t bit_rate)
     return 0.0f;
   }
 
+  CAN_init_gpio_dynamic(tx_pin, PinMap_CAN_TD);
+  CAN_init_gpio_dynamic(rx_pin, PinMap_CAN_RD);
+
+
+  IRQn_Type irqn = FDCAN1_IT0_IRQn; // each FDCAN has two interrupt lines but we can just use line 0
+
+  if (hfdcan.Instance == FDCAN2) 
+  {
+    irqn = FDCAN2_IT0_IRQn;
+  }
+
+  /* FDCAN interrupt Init */
+  HAL_NVIC_SetPriority(irqn, 0, 0);
+  HAL_NVIC_EnableIRQ(irqn);
+
   // step 1 end
 
   // step 2: configure the FDCAN peripheral
@@ -317,7 +298,7 @@ float CAN::begin(uint32_t bit_rate)
 // returns true on success, false on failure
 bool CAN::begin(CanBitRate bit_rate)
 {
-  return this->begin((uint32_t)bit_rate) > 0.0f;
+  return this->_begin((uint32_t)bit_rate) > 0.0f;
 }
 
 // get number of elements in the receive fifo
@@ -526,3 +507,5 @@ void CAN::error_update_from_isr(void)
   memcpy(&(this->error_counts), &new_error_counts, sizeof(new_error_counts));
   return;
 }
+
+
