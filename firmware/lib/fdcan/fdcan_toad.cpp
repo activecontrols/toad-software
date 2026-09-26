@@ -116,14 +116,14 @@ float CAN::_begin(uint32_t bit_rate)
 
   if (!has_initialized_clock)
   {
-    RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
+    // RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
 
-    PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_FDCAN;
-    PeriphClkInitStruct.FdcanClockSelection = RCC_FDCANCLKSOURCE_PLL; // jhillman: I expect PLL1 Q1 to give 120MHz
-    if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
-    {
-      return 0.0;
-    }
+    // PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_FDCAN;
+    // PeriphClkInitStruct.FdcanClockSelection = RCC_FDCANCLKSOURCE_PLL; // jhillman: I expect PLL1 Q1 to give 120MHz
+    // if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
+    // {
+    //   return 0.0;
+    // }
 
 
     /* Peripheral clock enable */
