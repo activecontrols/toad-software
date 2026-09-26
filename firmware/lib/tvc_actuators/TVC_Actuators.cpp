@@ -32,10 +32,38 @@ uint16_t length_to_target_pos(float length_mm) {
 }
 
 bool begin() {
-  float actual_rate = actuators_can.begin(ACTUATORS_CAN_BIT_RATE);
+  uint32_t ASSUMED_ACTUATOR_TELEMETRY_INTERVAL_MS = 1000;
+  uint32_t ACTUATOR_HANDSHAKE_TIMEOUT_MS = 2 * ASSUMED_ACTUATOR_TELEMETRY_INTERVAL_MS + 500;
+
+  float actual_rate = CAN_TVC.begin(ACTUATORS_CAN_BIT_RATE);
   if (actual_rate <= 0.0f) {
     return false;
   }
+
+  // both actuators broadcast telemetry on their own every ~ACTUATOR_HANDSHAKE_TIMEOUT_MS/2 ms. Just
+  // listen until we've heard from both, or give up after the timeout.
+  bool heard_pitch = false;
+  bool heard_yaw = false;
+
+  uint32_t start_time = millis();
+  while (millis() - start_time < ACTUATOR_HANDSHAKE_TIMEOUT_MS) {
+    while (CAN_TVC.available() > 0) {
+      arduino::CanMsg msg = CAN_TVC.read();
+      uint32_t id = msg.isStandardId() ? msg.getStandardId() : msg.getExtendedId();
+
+      if (id == CAN_ID_TVC_PITCH) {
+        heard_pitch = true;
+      } else if (id == CAN_ID_TVC_YAW) {
+        heard_yaw = true;
+      }
+    }
+
+    if (heard_pitch && heard_yaw) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 void set_angles_pitch_yaw(float pitch, float yaw) {

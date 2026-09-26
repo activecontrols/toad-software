@@ -309,6 +309,8 @@ tvc_actuator_telemetry_t parse_tvc_telemetry(const uint8_t data[8]) {
   tvc_actuator_telemetry_t out;
   out.status_word = (uint32_t)data[0] | ((uint32_t)data[1] << 8) | ((uint32_t)data[2] << 16); // K,L,M
   out.position = (uint16_t)data[3] | ((uint16_t)data[4] << 8);                                // G,H
+  out.avg_motor_current = (uint16_t)data[5] | ((uint16_t)data[6] << 8);                       // E,F
+  out.pcb_temp_c = (int16_t)data[7] - 50;                                                     // Y
   return out;
 }
 

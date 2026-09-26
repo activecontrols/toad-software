@@ -56,8 +56,10 @@ void send_target_pos(CAN &bus, uint16_t id, uint16_t target_pos);
 void send_target_pos(CAN &bus, uint16_t id, uint16_t target_pos, uint16_t max_torque);
 
 struct tvc_actuator_telemetry_t {
-  uint32_t status_word; // latched-high status word, bits 0-23 only (byte 3/N not included by default)
-  uint16_t position;    // absolute servo cylinder position
+  uint32_t status_word;       // latched-high status word, bits 0-23 only (byte 3/N not included by default)
+  uint16_t position;          // absolute servo cylinder position
+  uint16_t avg_motor_current; // raw units, 0-32767 - see UM711293 (hardware manual) for conversion to amps
+  int16_t pcb_temp_c;         // decoded PCB temperature in degrees C (raw byte "Y" is 0-200; 0 = -50C, 200 = +150C)
 };
 
 tvc_actuator_telemetry_t parse_tvc_telemetry(const uint8_t data[8]);
