@@ -66,7 +66,7 @@ extern Uart RS485_2; // RS485 on UART 2
 #define PIN_SPARK_TRIG PC13
 
 // Zucrow Board
-#define PIN_ZUCROW_BOARD_CS PE3 // TODO - replace with PT board definition
+#define PIN_ZUCROW_BOARD_CS PB5 // TODO - replace with PT board definition
 
 #define PIN_ZUCROW_BOARD_DO1 PF4
 #define PIN_ZUCROW_BOARD_DO2 PF3

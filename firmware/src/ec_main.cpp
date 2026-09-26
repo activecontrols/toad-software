@@ -49,13 +49,15 @@ void setup() {
   ErrorCounters::begin();
   CommandRouter::begin();
 
+  delay(3000);
+
   bool all_modules_ok = true;
-  all_modules_ok &= PressureSensors::begin();
-  all_modules_ok &= TemperatureSensors::begin();
-  all_modules_ok &= ThrottleValves::begin();
-  all_modules_ok &= SolenoidValves::begin();
-  all_modules_ok &= TVC_Actuators::begin();
-  all_modules_ok &= ValveController::begin();
+  // all_modules_ok &= PressureSensors::begin();
+  // all_modules_ok &= TemperatureSensors::begin();
+  // all_modules_ok &= ThrottleValves::begin();
+  // all_modules_ok &= SolenoidValves::begin();
+  // all_modules_ok &= TVC_Actuators::begin();
+  // all_modules_ok &= ValveController::begin();
   ZucrowInterface::begin();
 
   if (!all_modules_ok) {

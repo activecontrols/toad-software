@@ -13,7 +13,11 @@ namespace ZucrowInterface {
 
 void set_voltages(const char *args) {
   float lox_v, ipa_v;
-  sscanf(args, "%f %f", &lox_v, &ipa_v);
+  int x = sscanf(args, "%f %f", &lox_v, &ipa_v);
+  if (x != 2) {
+    CommsSerial.println("Failed to parse.");
+    return;
+  }
   lox_v = min(1, max(0, lox_v)); // clamp
   ipa_v = min(1, max(0, ipa_v)); // clamp
 
@@ -22,12 +26,17 @@ void set_voltages(const char *args) {
   dac.setVoltageA(va);
   dac.setVoltageB(vb);
   dac.updateDAC();
+  CommsSerial.printf("Set voltages: %d %d\n", va, vb);
 }
 
 void begin() {
   pinMode(PIN_ZUCROW_BOARD_CS, OUTPUT);
   digitalWrite(PIN_ZUCROW_BOARD_CS, HIGH);
   zi_spi.begin();
+
+  zi_spi.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE0));
+  zi_spi.transfer16(0xCC);
+  zi_spi.endTransaction();
 
   // The channels are turned off at startup so we need to turn the channel we need on
   dac.turnOnChannelA();
