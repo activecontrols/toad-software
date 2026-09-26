@@ -1,6 +1,7 @@
 #include "PressureSensors.h"
 #include "CommandRouter.h"
 #include "CommsSerial.h"
+#include "ErrorCounters.h"
 #include "pt_calibration.h"
 
 // Init the ADC on the PT board.
