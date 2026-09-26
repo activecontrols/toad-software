@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 
+#include "RS485.h"
 #include "SPI.h"
 
 // UARTS
@@ -14,9 +15,7 @@
 #define PIN_HW_FALLBACK_SERIAL_TX PB10
 
 // RS485 Busses (UART6 and UART2)
-// these are declared in ec_main
-extern Uart RS485_6; // RS485 on UART 6
-extern Uart RS485_2; // RS485 on UART 2
+// These UARTs are owned by the RS485Bus objects in RS485.cpp.
 
 #define PIN_RS485_6_RX PG9
 #define PIN_RS485_6_TX PG14
@@ -25,18 +24,18 @@ extern Uart RS485_2; // RS485 on UART 2
 #define PIN_RS485_2_TX PD5
 #define PIN_RS485_2_DE PD4
 
-#define TVC_PITCH_RS485_BUS RS485_6
+#define TVC_PITCH_RS485_BUS RS485s::bus6
 #define PIN_TVC_PITCH_SEL PF8
-#define DRV_OX_RS485_BUS RS485_6 // unused
-#define PIN_DRV_OX_SEL PF9       // unused
-#define ENC_OX_RS485_BUS RS485_6
+#define DRV_OX_RS485_BUS RS485s::bus6 // unused
+#define PIN_DRV_OX_SEL PF9           // unused
+#define ENC_OX_RS485_BUS RS485s::bus6
 #define PIN_ENC_OX_SEL PF10
 
-#define TVC_YAW_RS485_BUS RS485_2
+#define TVC_YAW_RS485_BUS RS485s::bus2
 #define PIN_TVC_YAW_SEL PD8
-#define DRV_FU_RS485_BUS RS485_2 // unused
-#define PIN_DRV_FU_SEL PD9       // unused
-#define ENC_FU_RS485_BUS RS485_2
+#define DRV_FU_RS485_BUS RS485s::bus2 // unused
+#define PIN_DRV_FU_SEL PD9           // unused
+#define ENC_FU_RS485_BUS RS485s::bus2
 #define PIN_ENC_FU_SEL PD10
 
 // SPI

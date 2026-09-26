@@ -10,14 +10,12 @@
 #include "TemperatureSensors.h"
 #include "ThrottleValves.h"
 #include "ValveController.h"
+#include "RS485.h"
 
 // shared interfaces
 CommsSerial_t<USBSerial> USB_CommsSerial;
 CommsSerial_t<Uart> HW_CommsSerial(PIN_HW_COMM_SERIAL_RX, PIN_HW_COMM_SERIAL_TX);
 CommsSerial_t<Uart> HW_FallbackSerial(PIN_HW_FALLBACK_SERIAL_RX, PIN_HW_FALLBACK_SERIAL_TX);
-// TODO - configure DE pin
-Uart RS485_6(PIN_RS485_6_RX, PIN_RS485_6_TX, PIN_RS485_6_DE);
-Uart RS485_2(PIN_RS485_2_RX, PIN_RS485_2_TX, PIN_RS485_2_DE);
 
 SPIClass PT_TC_SPI_1(PIN_PT_TC_SPI_1_MOSI, PIN_PT_TC_SPI_1_MISO, PIN_PT_TC_SPI_1_SCK);
 SPIClass PT_TC_SPI_3(PIN_PT_TC_SPI_3_MOSI, PIN_PT_TC_SPI_3_MISO, PIN_PT_TC_SPI_3_SCK);
@@ -34,9 +32,6 @@ void setup() {
   HW_CommsSerial.begin(RADIO_BAUD);
   HW_FallbackSerial.begin(RADIO_BAUD);
 
-  RS485_6.begin(9600); // TODO - what baud?
-  RS485_2.begin(9600);
-
   PT_TC_SPI_1.begin();
   PT_TC_SPI_3.begin();
 
@@ -51,6 +46,7 @@ void setup() {
   bool all_modules_ok = true;
   all_modules_ok &= PressureSensors::begin();
   all_modules_ok &= TemperatureSensors::begin();
+  all_modules_ok &= RS485s::begin();
   all_modules_ok &= ThrottleValves::begin();
   all_modules_ok &= SolenoidValves::begin();
   all_modules_ok &= TVC_Actuators::begin();
