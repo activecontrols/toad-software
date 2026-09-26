@@ -33,6 +33,9 @@ void flight_loop();
 void setup() {
   // All shared interfaces are begun here.
 
+  digitalWrite(LED_BUILTIN, HIGH);
+  pinMode(LED_BUILTIN, OUTPUT);
+
   // Use same baud rate on all Comm Serials for consistency.
   USB_CommsSerial.begin(RADIO_BAUD);
   HW_CommsSerial.begin(RADIO_BAUD);
@@ -56,12 +59,15 @@ void setup() {
   CommandRouter::begin();
 
   bool all_modules_ok = true;
-  all_modules_ok &= PressureSensors::begin();
-  all_modules_ok &= TemperatureSensors::begin();
-  all_modules_ok &= ThrottleValves::begin();
-  all_modules_ok &= SolenoidValves::begin();
-  all_modules_ok &= TVC_Actuators::begin();
-  all_modules_ok &= ValveController::begin();
+
+  // all_modules_ok &= PressureSensors::begin();
+  // all_modules_ok &= TemperatureSensors::begin();
+  // all_modules_ok &= ThrottleValves::begin();
+  // all_modules_ok &= SolenoidValves::begin();
+  // all_modules_ok &= TVC_Actuators::begin();
+  // all_modules_ok &= ValveController::begin();
+
+  all_modules_ok &= CAN::init();
 
   if (!all_modules_ok) {
     while (true) {

@@ -73,12 +73,12 @@ public:
         return &hfdcan;
     }
 
-    static bool begin(void)
+    static bool init(void)
     {
         bool success = true;
         
-        success = success && can_tvc.begin();
-        success = success && can_fc.begin();
+        success = success && can_tvc.begin(CanBitRate::BR_500k);
+        success = success && can_fc.begin(CanBitRate::BR_500k);
 
         if (success)
         {

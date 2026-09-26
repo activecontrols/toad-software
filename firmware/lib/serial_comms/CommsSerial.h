@@ -72,4 +72,4 @@ extern CommsSerial_t<USBSerial> USB_CommsSerial;
 extern CommsSerial_t<Uart> HW_CommsSerial;
 extern CommsSerial_t<Uart> HW_FallbackSerial;
 
-#define CommsSerial HW_CommsSerial
+#define CommsSerial HW_FallbackSerial 
