@@ -4,6 +4,7 @@ bin/
 lib/
 cmake-build-*/
 compile_commands.json
+CMakeFiles/
 
 # vcpkg local package installations (manifest mode)
 vcpkg_installed/

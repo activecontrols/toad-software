@@ -77,32 +77,39 @@ include_directories(
 )
 
 # Core simulation static library
+# add_library(toad_sim_core STATIC
+#     core/VirtualClock.cpp
+#     core/FiberScheduler.cpp
+#     core/BusRegistry.cpp
+#     core/SimulatedGPIO.cpp
+#     core/VirtualTerminal.cpp
+#     hal_mock/Arduino.cpp
+#     hal_mock/Serial.cpp
+#     hal_mock/SPI.cpp
+#     hal_mock/CAN.cpp
+#     bus/UartBus.cpp
+#     bus/UartSnooper.cpp
+#     bus/SPISnooper.cpp
+#     bus/RS485Mux.cpp
+#     bus/SPIBus.cpp
+#     bus/CANBus.cpp
+#     bus/SystemCAN.cpp
+#     peripherals/AMT242AV_Sim.cpp
+#     peripherals/ADS131M02_Sim.cpp
+#     peripherals/MksServo57D_Sim.cpp
+#     peripherals/TVCActuator_Sim.cpp
+#     runner/UartTerminalHarness.cpp
+# 
+#     ${arduino_core_api_SOURCE_DIR}/api/Print.cpp
+#     ${arduino_core_api_SOURCE_DIR}/api/Stream.cpp
+#     ${arduino_core_api_SOURCE_DIR}/api/String.cpp
+# )
+
 add_library(toad_sim_core STATIC
     core/VirtualClock.cpp
     core/FiberScheduler.cpp
-    core/BusRegistry.cpp
     core/SimulatedGPIO.cpp
-    core/VirtualTerminal.cpp
     hal_mock/Arduino.cpp
-    hal_mock/Serial.cpp
-    hal_mock/SPI.cpp
-    hal_mock/CAN.cpp
-    bus/UartBus.cpp
-    bus/UartSnooper.cpp
-    bus/SPISnooper.cpp
-    bus/RS485Mux.cpp
-    bus/SPIBus.cpp
-    bus/CANBus.cpp
-    bus/SystemCAN.cpp
-    peripherals/AMT242AV_Sim.cpp
-    peripherals/ADS131M02_Sim.cpp
-    peripherals/MksServo57D_Sim.cpp
-    peripherals/TVCActuator_Sim.cpp
-    runner/UartTerminalHarness.cpp
-
-    ${arduino_core_api_SOURCE_DIR}/api/Print.cpp
-    ${arduino_core_api_SOURCE_DIR}/api/Stream.cpp
-    ${arduino_core_api_SOURCE_DIR}/api/String.cpp
 )
 
 target_link_libraries(toad_sim_core PUBLIC
@@ -150,6 +157,13 @@ add_executable(test_can_bus
 )
 target_link_libraries(test_can_bus PRIVATE toad_sim_core)
 add_test(NAME test_can_bus COMMAND test_can_bus)
+
+add_executable(test_generic_peripheral
+    tests/test_generic_peripheral.cpp
+)
+target_link_libraries(test_generic_peripheral PRIVATE toad_sim_core)
+# add_test(NAME test_generic_peripheral COMMAND test_generic_peripheral)
+
 # VirtualTerminal standalone unit test
 add_executable(test_virtual_terminal
     tests/test_virtual_terminal.cpp

@@ -88,6 +88,7 @@ void flight_loop() {
   TVC_Actuators::set_angles_pitch_yaw(0.0, 0.0);
   RCS::close();
 
+  unsigned long last_loop_us = micros();
   while (true) {
     while (CommsSerial.available()) {
       CommandRouter::receive_byte(CommsSerial.read());
@@ -113,6 +114,17 @@ void flight_loop() {
       TVC_Actuators::set_angles_pitch_yaw(tvc_pitch, tvc_yaw);
       RCS::update_rcs_valves(rcs_force);
     }
+
+    // target 1KHz flight loop
+    unsigned long now_loop_us = micros();
+    unsigned long delta = now_loop_us - last_loop_us;
+
+    if (delta < 1000UL)
+    {
+      delayMicroseconds(1000UL - delta);
+    }
+
+    last_loop_us = now_loop_us;
   }
 
   // TODO - safe remaining valves

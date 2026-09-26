@@ -7,6 +7,7 @@
 #include <vector>
 #include "hal_mock/pins_arduino.h"
 #include "api/Common.h"
+#include <boost/fiber/all.hpp>
 
 namespace toad::sim {
 
@@ -45,7 +46,7 @@ private:
     SimulatedGPIO(const SimulatedGPIO&) = delete;
     SimulatedGPIO& operator=(const SimulatedGPIO&) = delete;
 
-    mutable std::mutex mtx_;
+    mutable boost::fibers::mutex mtx_; // use fibers mutex; all gpio action must be performed from fiber context
     std::map<uint32_t, PinState> pins_;
     std::map<uint32_t, std::vector<PinListener>> listeners_;
 };
