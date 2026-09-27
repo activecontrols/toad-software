@@ -46,15 +46,15 @@ void setup() {
   CommandRouter::begin();
 
   bool all_modules_ok = true;
-  all_modules_ok &= PressureSensors::begin();
-  all_modules_ok &= TemperatureSensors::begin();
+  // all_modules_ok &= PressureSensors::begin();
+  // all_modules_ok &= TemperatureSensors::begin();
   all_modules_ok &= RS485s::begin();
-  all_modules_ok &= ThrottleValves::begin();
-  all_modules_ok &= SolenoidValves::begin();
-  all_modules_ok &= TVC_Actuators::begin();
-  all_modules_ok &= ValveController::begin();
   all_modules_ok &= CAN::init();
-
+  all_modules_ok &= ThrottleValves::begin();
+  // all_modules_ok &= SolenoidValves::begin();
+  // all_modules_ok &= TVC_Actuators::begin();
+  // all_modules_ok &= ValveController::begin();
+ 
   if (!all_modules_ok) {
     while (true) {
       CommsSerial.println("At least one module failed to begin(), see errors above.");

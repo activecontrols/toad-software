@@ -31,6 +31,9 @@ bool AMT242AV::_read_pos(uint16_t *out) {
   uart.bus.write(ID);
   uart.bus.flush();
 
+  // TODO get rid of this line once the hardware bugs are fixed
+  uart.bus.read();
+
   uint16_t res = 0;
   if (!wait_for_avail()) {
     goto FAIL;

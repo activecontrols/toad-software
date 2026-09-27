@@ -93,7 +93,7 @@ void ThrottleValve::update(bool log_csv) {
 namespace ThrottleValves {
 
 // using d14 as a placeholder
-ThrottleValve ox_valve(CAN_ID_STEPPER_OX, RS485s::enc_fu, 0x54);
+ThrottleValve ox_valve(CAN_ID_STEPPER_OX, RS485s::tvc_yaw, 0x54);
 // ThrottleValve fu_valve(CAN_ID_STEPPER_FU /*, FU_ENC_RS485_BUS, PIN_FU_ENC_DE, PIN_FU_ENC_RE, 0*/);
 
 void set_position_cmd(const char *cmd) {
