@@ -9,11 +9,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef enum { 
-  FLASH_SUCCESS, 
-  FLASH_FAIL, 
-  FLASH_TIMED_OUT 
-} flash_error_t;
+typedef enum { FLASH_SUCCESS, FLASH_FAIL, FLASH_TIMED_OUT } flash_error_t;
 
 typedef struct __attribute__((packed)) {
   uint8_t OIP : 1;
@@ -35,9 +31,8 @@ namespace Flash {
 
 bool begin();
 
-flash_error_t read_page(uint32_t addr, uint8_t *out);
-
-flash_error_t read_spare(uint32_t addr, uint8_t *out, size_t len);
+// Reads len bytes from page addr starting at column col (spare area begins at NAND_PAGE_SIZE)
+flash_error_t read(uint32_t addr, uint32_t col, uint8_t *out, size_t len, bool check_ecc = true);
 
 flash_error_t write_to_cache(uint32_t col_addr, uint8_t *data, size_t len);
 
