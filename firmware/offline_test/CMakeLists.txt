@@ -107,6 +107,7 @@ include_directories(
 
 add_library(toad_sim_core STATIC
     core/VirtualClock.cpp
+    core/VirtualTerminal.cpp
     core/FiberScheduler.cpp
     core/SimulatedGPIO.cpp
     hal_mock/Arduino.cpp

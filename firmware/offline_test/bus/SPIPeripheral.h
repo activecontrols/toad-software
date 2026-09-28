@@ -1,6 +1,5 @@
 #pragma once
 
-#include "GenericPeripheral.h"
 #include "GenericBus.h"
 #include "SPIBus.h"
 #include "api/Common.h"

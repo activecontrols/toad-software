@@ -1,9 +1,9 @@
 #pragma once
 
-#include "SPIPeripheral.h"
 #include "SPIBus.h"
 #include "GenericBus.h"
 #include "api/Common.h"
+#include "VirtualTerminal.h"
 
 struct SPIMessage
 {
@@ -26,6 +26,8 @@ public:
     void begin(void)
     {
         // TODO register bus in registry
+
+        
     }
 
     size_t transfer(SPIMessage& msg)
