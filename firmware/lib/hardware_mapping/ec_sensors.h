@@ -1,7 +1,9 @@
 #pragma once
-#include "ec_pins.h"
+
+#include "stdint.h"
 
 // Canonical PT Names
+#define NUM_PT_BOARDS 6
 #define PT_1 PT_N2_01_tank
 #define PT_2 PT_N2_02_reg
 #define PT_3 PT_N2_03_service
@@ -15,16 +17,15 @@
 #define PT_11 PT_FU_04_igniter
 #define PT_12 PT_FU_05_venturi_upstream
 // TODO - add other PTs / TCs
-static_assert(NUM_PT_BOARDS == 6);
 
 // Canonical TC Names
+#define NUM_TC_CHIPS 6
 #define TC_1 TC_N2_01_tank
 #define TC_2 TC_O2_01_tank
 #define TC_3 TC_FU_01_inj
-#define TC_4 TC_FU_02_regen_inlet
+#define TC_4 TC_O2_02_inj
 #define TC_5 TC_unused_1
 #define TC_6 TC_unused_2
-static_assert(NUM_TC_CHIPS == 6);
 
 struct pressure_readings_t {
   uint8_t crc_errors;
