@@ -98,11 +98,6 @@ public:
 
     
 private:
-    // Initialize the FDCAN peripheral with a specific bitrate in bps.
-    // Returns actual bitrate achieved in bps, or 0.0f on failure.
-    float _begin(uint32_t bit_rate);
-
-
     FDCAN_Handle_Wrapper hfdcan = {0};
     FDCAN_ErrorCountersTypeDef error_counts = {0};
     FDCAN_RxHeaderTypeDef rx_header = {0};

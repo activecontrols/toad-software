@@ -278,6 +278,8 @@ void SystemClock_Config(void)
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK) {
     Error_Handler();
   }
+
+  __HAL_RCC_FDCAN_CLK_ENABLE();
 }
 
 // jhillman added this to ensure HSE value is correct for all dynamic clock frequency calculations

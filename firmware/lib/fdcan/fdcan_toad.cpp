@@ -91,15 +91,17 @@ CAN::CAN(uint32_t _tx_pin, uint32_t _rx_pin)
 
 
 // jhillman adapted from https://github.com/STMicroelectronics/STM32CubeH7/blob/master/Projects/STM32H743I-EVAL/Examples/FDCAN/FDCAN_Classic_Frame_Networking/Src/main.c
-float CAN::_begin(uint32_t bit_rate)
+bool CAN::begin(CanBitRate _bitrate)
 {
+  uint32_t bit_rate = (uint32_t)_bitrate;
+
   FDCAN_GlobalTypeDef* inst_1 = static_cast<FDCAN_GlobalTypeDef*>(pinmap_find_peripheral(digitalPinToPinName(tx_pin), PinMap_CAN_TD));
   FDCAN_GlobalTypeDef* inst_2 = static_cast<FDCAN_GlobalTypeDef*>(pinmap_find_peripheral(digitalPinToPinName(rx_pin), PinMap_CAN_RD));
 
   if ((inst_1 != inst_2) || inst_1 == NP)
   {
     CommsSerial.println("Error: CAN has conflicting pins");
-    return 0.0;
+    return false;
   }
 
   this->hfdcan.Instance = inst_1;
@@ -108,30 +110,8 @@ float CAN::_begin(uint32_t bit_rate)
   {
     // not allowed for normal CAN operation
     CommsSerial.println("Error: invalid CAN bit rate supplied");
-    return 0.0f;
+    return false;
   }
-
-  // initialize peripheral clock
-  static bool has_initialized_clock = false;
-
-  if (!has_initialized_clock)
-  {
-    // RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
-
-    // PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_FDCAN;
-    // PeriphClkInitStruct.FdcanClockSelection = RCC_FDCANCLKSOURCE_PLL; // jhillman: I expect PLL1 Q1 to give 120MHz
-    // if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
-    // {
-    //   return 0.0;
-    // }
-
-
-    /* Peripheral clock enable */
-    __HAL_RCC_FDCAN_CLK_ENABLE();
-
-    has_initialized_clock = true;
-  }
-  
 
   const uint32_t can_ker_ck = HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_FDCAN);
 
@@ -140,7 +120,7 @@ float CAN::_begin(uint32_t bit_rate)
     // something went wrong, I was expecting 120 MHz
     CommsSerial.println("Error: CAN kernel clock frequency is not 120MHz");
     CommsSerial.printf("Actual value: %u\n", can_ker_ck);
-    return 0.0f;
+    return false;
   }
 
   const uint32_t prescaler = 3;            // or dynamic
@@ -150,7 +130,7 @@ float CAN::_begin(uint32_t bit_rate)
   if ((tq_freq % bit_rate) != 0) {
     // Exact baud rate is mathematically impossible with this prescaler/clock
     CommsSerial.println("Error: target bit rate does not divide evenly");
-    return 0.0f;
+    return false;
   }
 
   // bit_time_tq unit: tq per bit: (tq / s) / (bit / s)
@@ -174,7 +154,7 @@ float CAN::_begin(uint32_t bit_rate)
   else
   {
     CommsSerial.println("Error: tq_before_sample is zero");
-    return 0.0f;
+    return false;
   }
 
   seg_2_tq = bit_time_tq - tq_before_sample;
@@ -182,7 +162,7 @@ float CAN::_begin(uint32_t bit_rate)
   if (seg_1_tq > 256 || seg_2_tq > 128 || seg_1_tq < 2 || seg_2_tq < 2)
   {
     CommsSerial.println("Error: seg_1 or seg_2 calculated values are invalid");
-    return 0.0f;
+    return false;
   }
 
   // FDCAN_FilterTypeDef sFilterConfig;
@@ -222,7 +202,7 @@ float CAN::_begin(uint32_t bit_rate)
   {
     /* Initialization Error */
     CommsSerial.println("Error: HAL_FDCAN_Init failed");
-    return 0.0f;
+    return false;
   }
 
   CAN_init_gpio_dynamic(tx_pin, PinMap_CAN_TD);
@@ -248,14 +228,14 @@ float CAN::_begin(uint32_t bit_rate)
   /* Configure global filter to accept all 11 bit ID frames (and reject remote frames); jhillman todo: confirm the hardware on the bus does not use remote frames */
   if (HAL_FDCAN_ConfigGlobalFilter(&(this->hfdcan), FDCAN_ACCEPT_IN_RX_FIFO0, FDCAN_ACCEPT_IN_RX_FIFO0, FDCAN_REJECT_REMOTE, FDCAN_REJECT_REMOTE) != HAL_OK)
   {
-    return 0.0f;
+    return false;
   }
 
   constexpr uint32_t it_list = FDCAN_IT_ERROR_PASSIVE | FDCAN_IT_ERROR_WARNING;
 
   if (HAL_FDCAN_ConfigInterruptLines(&(this->hfdcan), it_list, FDCAN_INTERRUPT_LINE0) != HAL_OK)
   {
-    return 0.0f;
+    return false;
   }
 
   if (HAL_FDCAN_ActivateNotification(
@@ -264,7 +244,7 @@ float CAN::_begin(uint32_t bit_rate)
       0x00
     ) != HAL_OK)
   {
-    return 0.0f;
+    return false;
   }
 
   // step 2 end
@@ -274,20 +254,12 @@ float CAN::_begin(uint32_t bit_rate)
   if (HAL_FDCAN_Start(&(this->hfdcan)) != HAL_OK)
   {
     /* Start Error */
-    return 0.0f;
+    return false;
   }
   // step 3 end
 
   // calculate actual bitrate
-  return ((float)tq_freq / (1 + seg_1_tq + seg_2_tq));
-}
-
-
-// for compliance with the arduino api spec
-// returns true on success, false on failure
-bool CAN::begin(CanBitRate bit_rate)
-{
-  return this->_begin((uint32_t)bit_rate) > 0.0f;
+  return true;
 }
 
 // get number of elements in the receive fifo
