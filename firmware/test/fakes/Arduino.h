@@ -27,19 +27,27 @@ inline std::vector<FakeEvent> fake_events;
 // Level driven on an output, or the level a test wants an input to read.
 inline PinStatus fake_levels[NUM_FAKE_PINS];
 
+// stm32duino only enables a GPIO port's clock inside pinMode(), so a digitalWrite() to a pin that
+// was never configured is dropped by the hardware. Modelled per pin rather than per port.
+inline bool fake_configured[NUM_FAKE_PINS];
+
 inline void fake_reset() {
   fake_events.clear();
   for (int i = 0; i < NUM_FAKE_PINS; i++) {
     fake_levels[i] = LOW;
+    fake_configured[i] = false;
   }
 }
 
 inline void pinMode(uint32_t pin, PinMode mode) {
+  fake_configured[pin] = true;
   fake_events.push_back({EV_PIN_MODE, pin, (uint32_t)mode});
 }
 
 inline void digitalWrite(uint32_t pin, PinStatus level) {
-  fake_levels[pin] = level;
+  if (fake_configured[pin]) {
+    fake_levels[pin] = level;
+  }
   fake_events.push_back({EV_DIGITAL_WRITE, pin, (uint32_t)level});
 }
 

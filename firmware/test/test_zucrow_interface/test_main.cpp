@@ -117,28 +117,20 @@ void test_begin_returns_true_without_spi_traffic() {
   TEST_ASSERT_EQUAL(0, count_events(EV_SPI_TRANSFER16));
 }
 
-void test_begin_deselects_dac_before_enabling_cs() {
+// The fake drops writes to pins not yet set with pinMode, like the real core, so these check
+// that begin() configures each output before driving it.
+
+void test_begin_deselects_dac() {
   ZucrowInterface::begin();
-  int write = find_event(EV_DIGITAL_WRITE, PIN_ZUCROW_BOARD_CS);
-  int mode = find_event(EV_PIN_MODE, PIN_ZUCROW_BOARD_CS);
-  TEST_ASSERT_TRUE(write >= 0 && mode >= 0);
-  TEST_ASSERT_TRUE(write < mode);
-  TEST_ASSERT_EQUAL(HIGH, fake_events[write].value);
-  TEST_ASSERT_EQUAL(OUTPUT, fake_events[mode].value);
+  assert_event(find_event(EV_PIN_MODE, PIN_ZUCROW_BOARD_CS), EV_PIN_MODE, PIN_ZUCROW_BOARD_CS, OUTPUT);
+  TEST_ASSERT_EQUAL(HIGH, fake_levels[PIN_ZUCROW_BOARD_CS]);
 }
 
 void test_begin_boots_faulted_and_idle() {
   ZucrowInterface::begin();
-
-  // Levels are set before the pins become outputs, so there is no glitch to the other level.
-  int fault_write = find_event(EV_DIGITAL_WRITE, PIN_ZUCROW_BOARD_DO1);
-  int fault_mode = find_event(EV_PIN_MODE, PIN_ZUCROW_BOARD_DO1);
-  TEST_ASSERT_TRUE(fault_write >= 0 && fault_write < fault_mode);
+  assert_event(find_event(EV_PIN_MODE, PIN_ZUCROW_BOARD_DO1), EV_PIN_MODE, PIN_ZUCROW_BOARD_DO1, OUTPUT);
+  assert_event(find_event(EV_PIN_MODE, PIN_ZUCROW_BOARD_DO2), EV_PIN_MODE, PIN_ZUCROW_BOARD_DO2, OUTPUT);
   TEST_ASSERT_EQUAL(HIGH, fake_levels[PIN_ZUCROW_BOARD_DO1]);
-
-  int sync_write = find_event(EV_DIGITAL_WRITE, PIN_ZUCROW_BOARD_DO2);
-  int sync_mode = find_event(EV_PIN_MODE, PIN_ZUCROW_BOARD_DO2);
-  TEST_ASSERT_TRUE(sync_write >= 0 && sync_write < sync_mode);
   TEST_ASSERT_EQUAL(LOW, fake_levels[PIN_ZUCROW_BOARD_DO2]);
 }
 
@@ -183,6 +175,9 @@ void test_check_sync_running_when_low() {
 }
 
 void test_fault_output_levels() {
+  ZucrowInterface::begin();
+  ZucrowInterface::send_ok();
+  TEST_ASSERT_EQUAL(LOW, fake_levels[PIN_ZUCROW_BOARD_DO1]);
   ZucrowInterface::send_fault();
   TEST_ASSERT_EQUAL(HIGH, fake_levels[PIN_ZUCROW_BOARD_DO1]);
   ZucrowInterface::send_ok();
@@ -190,6 +185,7 @@ void test_fault_output_levels() {
 }
 
 void test_sync_output_levels() {
+  ZucrowInterface::begin();
   ZucrowInterface::send_sync(true);
   TEST_ASSERT_EQUAL(HIGH, fake_levels[PIN_ZUCROW_BOARD_DO2]);
   ZucrowInterface::send_sync(false);
@@ -233,7 +229,7 @@ int main() {
   RUN_TEST(test_send_valve_angles_writes_ox_to_a_and_fu_to_b);
   RUN_TEST(test_send_valve_angles_bad_input_writes_zero);
   RUN_TEST(test_begin_returns_true_without_spi_traffic);
-  RUN_TEST(test_begin_deselects_dac_before_enabling_cs);
+  RUN_TEST(test_begin_deselects_dac);
   RUN_TEST(test_begin_boots_faulted_and_idle);
   RUN_TEST(test_begin_sets_inputs);
   RUN_TEST(test_begin_leaves_reserved_pins_alone);
