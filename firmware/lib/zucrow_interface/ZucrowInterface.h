@@ -4,6 +4,9 @@
 // Fault and sync lines run in both directions, and two analog outputs report
 // valve angles to Zucrow's DAQ.
 
+// Valve angle that maps to full scale on the analog outputs. Zucrow configures their scaling to match.
+#define FULL_SCALE_ANGLE_DEG 90.0f
+
 namespace ZucrowInterface {
 
 bool begin();
