@@ -12,9 +12,6 @@
 #define DAC_MAX_COUNT (DAC_COUNTS - 1)
 #define VOLTS_PER_COUNT (2.048f * 4.0f / DAC_COUNTS)
 
-// Valve angle that maps to full scale. Zucrow configures their scaling to match.
-#define FULL_SCALE_ANGLE_DEG 90.0f
-
 // MCP4822 write command is one 16 bit word [MCP4822 datasheet, write command register]:
 //   bit 15 channel (0 = A, 1 = B), bit 13 gain (1 = 1x), bit 12 output (1 = active), bits 11:0 data
 // LDAC is tied to GND_ISO on this board, so each write updates the output immediately.
@@ -134,7 +131,7 @@ void calibration_sweep() {
     CommsSerial.printf("%4u counts, expect %.3f V\n", count, count * VOLTS_PER_COUNT);
     delay(5000);
   }
-  send_valve_angles(0.0, 0.0);
+  send_valve_angles(0.0f, 0.0f);
   CommsSerial.println("Sweep done, outputs zeroed.");
 }
 
