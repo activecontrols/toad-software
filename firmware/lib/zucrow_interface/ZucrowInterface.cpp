@@ -141,18 +141,20 @@ void calibration_sweep() {
 bool begin() {
   // Deselect the DAC first. SPI1 is shared with PT and TC boards, and until this runs the CS pin
   // floats, which could let the DAC clock in their traffic.
-  digitalWrite(PIN_ZUCROW_BOARD_CS, HIGH);
+  // pinMode must come before digitalWrite on every output here: stm32duino only enables the GPIO
+  // port clock inside pinMode, so an earlier write is silently dropped and the pin comes up LOW.
   pinMode(PIN_ZUCROW_BOARD_CS, OUTPUT);
+  digitalWrite(PIN_ZUCROW_BOARD_CS, HIGH);
 
   pinMode(PIN_ZUCROW_FAULT_IN, INPUT);
   pinMode(PIN_ZUCROW_SYNC_IN, INPUT);
 
   // Boot reporting a fault, and only report ok once we are actually ready. A controller that
   // resets or hangs during boot then looks like a fault to Zucrow. Same as TADPOLE.
-  digitalWrite(PIN_EC_FAULT_OUT, EC_FAULT_LEVEL);
   pinMode(PIN_EC_FAULT_OUT, OUTPUT);
-  digitalWrite(PIN_EC_SYNC_OUT, EC_IDLE_LEVEL);
+  digitalWrite(PIN_EC_FAULT_OUT, EC_FAULT_LEVEL);
   pinMode(PIN_EC_SYNC_OUT, OUTPUT);
+  digitalWrite(PIN_EC_SYNC_OUT, EC_IDLE_LEVEL);
 
   // No DAC write here. The MCP4822 powers up with both outputs shut down, which already reads as
   // 0 V at the connector, and the first write to each channel enables it. Skipping the write means
