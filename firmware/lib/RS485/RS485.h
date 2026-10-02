@@ -13,14 +13,16 @@
 //   1. DE held LOW as a GPIO (transceiver in receive), all selects LOW.
 //   2. Uart::begin(): core enables clocks, muxes RX/TX, sets up NVIC,
 //      runs HAL_UART_Init and arms interrupt-driven RX.
-//   3. HAL_RS485Ex_Init() on the core's own handle: DE mode, polarity, DEAT/DEDT.
-//   4. RX re-armed through the core (step 3 resets RxState, orphaning the
-//      core's pending Receive_IT).
+//   3. configureRS485(): with UE cleared, set DEM/DEP/DEAT/DEDT and BRR directly.
+//      Clearing UE preserves configuration (incl. RXNEIE), so the core's pending
+//      Receive_IT survives; no re-arm needed. Waits for TEACK/REACK on re-enable.
+//   4. DE pin muxed to its USART AF ...
 //   5. DE pin muxed to its USART AF with the core's pinmap_pinout(), only after
 //      the peripheral is already in DE mode, so the pin is never a live RTS output.
 //
 // begin()/end() are virtual in Uart, so every (re)init path, including a plain
 // bus.begin(baud), goes through the RS485 configuration.
+
 class RS485Bus : public Uart {
 public:
   // N is deduced from the select-pin array. DE is deliberately NOT passed to the
@@ -37,7 +39,17 @@ public:
   using Uart::begin;                                        // keep begin(baud) visible alongside the override below
   void begin(unsigned long baud, uint16_t config) override; // config must be SERIAL_8N1
   void end() override;
-  operator bool() override; // core init OK and DE mode confirmed in hardware
+
+  // True only if begin() completed every step: core init, DE mode, baud, DE pin muxed.
+  // Cleared by end() and by a failed setBaud().
+  bool ready() const {
+    return rs485_ok_;
+  }
+
+  // Kept only so a Uart& caller can't get a misleading 'true'. Use ready() in RS485 code.
+  operator bool() override {
+    return ready();
+  }
 
   bool setBaud(uint32_t baud); // in-place reconfigure; waits for TX to drain first
   uint32_t baud() const {
@@ -51,8 +63,8 @@ public:
 private:
   friend class RS485Device;
   void select(size_t idx);
-  bool configureRS485(uint32_t baud); // HAL_RS485Ex_Init on the core handle + RX re-arm
-  bool muxDE();                       // DE pin -> USART AF via the core's pinmap
+  void configureRS485(); // HAL_RS485Ex_Init on the core handle + RX re-arm
+  bool configureDE();                       // DE pin -> USART AF via the core's pinmap
 
   const uint32_t de_;
   const uint32_t *const sels_;
@@ -100,3 +112,4 @@ extern RS485Device tvc_yaw;
 extern RS485Device enc_fu;
 extern RS485Device drv_fu;
 } // namespace RS485s
+
