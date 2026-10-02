@@ -3,7 +3,7 @@
 #include "PeripheralPins.h"
 #include "ec_pins.h"
 #include "pinmap.h"
-#include "stm32yyxx_ll_usart.h"
+
 
 namespace {
   // in Microseconds
@@ -17,8 +17,8 @@ constexpr uint32_t kTxSlackUs = 2000;
 //   Assert:   31 samples = 969 ns at 2 Mbps. Must exceed transceiver t_ZH / t_ZL.
 //   Deassert:  1 sample  =  31 ns at 2 Mbps.
 // Using sample time since STM32 splits each bit into samples 
-constexpr uint32_t kDeAssertTime = 31; // IN SAMPLES
-constexpr uint32_t kDeDeassertTime = 1; // IN SAMPLES
+constexpr uint32_t kDeAssertTime = 5; // IN SAMPLES
+constexpr uint32_t kDeDeassertTime = 5; // IN SAMPLES
 static_assert(kDeAssertTime <= 31 && kDeDeassertTime <= 31, "DEAT/DEDT are 5-bit fields");
 } // namespace
 
@@ -190,15 +190,14 @@ RS485Device drv_fu(bus2, 2, kDrvBaud);
 bool begin() {
   bus6.begin(kEncBaud);
   bus2.begin(kEncBaud);
+
   if (!bus6.ready()){
     CommsSerial.println("ERROR: RS485 bus6 (USART6) init failed");
+     return false;
   }
 
   if (!bus2.ready()){
     CommsSerial.println("ERROR: RS485 bus2 (USART2) init failed");
-  }
-
-  if(!bus6){
     return false;
   }
 
