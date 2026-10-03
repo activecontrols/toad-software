@@ -11,10 +11,13 @@ namespace ZucrowInterface {
 
 bool begin();
 
-// Inputs from Zucrow. Return true when the condition is asserted, so callers
-// never deal with pin polarity.
-bool check_fault();
-bool check_sync();
+// State of the fault line from Zucrow. FAULT_ASSERTED comes first so a zero-initialized value reads
+// as a fault: an unknown state should safe the system, the same as a disconnected line.
+enum fault_state_t { FAULT_ASSERTED, FAULT_CLEAR };
+
+// Inputs from Zucrow. These hide pin polarity from callers.
+fault_state_t check_fault();
+bool check_sync(); // true when Zucrow reports running
 
 // Outputs to Zucrow.
 void send_fault();

@@ -14,11 +14,10 @@
 #define MCP4822_GAIN_1X (1 << 13)
 #define MCP4822_ACTIVE (1 << 12)
 
-// TODO - verify clock integrity with a scope. The ISO6441 isolator is rated to 150 Mbps, so the
-// limit here is the long traces to the Zucrow board. Matches the other devices on this bus.
+// TODO: verify clock integrity with a scope; The ISO6441 isolator is rated to 150 Mbps,
+// and long traces to the zucrow board may cause issues.
 SPISettings ZUCROW_DAC_SPI_SETTINGS(4000000, MSBFIRST, SPI_MODE0);
 
-// Line assignments. DI3 and DI4 are reserved for the Skipper autosequences.
 // TODO - confirm DI1/DI2 and DO1/DO2 against the schematic net names.
 #define PIN_ZUCROW_FAULT_IN PIN_ZUCROW_BOARD_DI1
 #define PIN_ZUCROW_SYNC_IN PIN_ZUCROW_BOARD_DI2
@@ -72,8 +71,8 @@ void send_valve_angles(float ox_angle_deg, float fu_angle_deg) {
   write_dac(MCP4822_CHANNEL_B, last_count_fu);
 }
 
-bool check_fault() {
-  return digitalRead(PIN_ZUCROW_FAULT_IN) == ZUCROW_FAULT_LEVEL;
+fault_state_t check_fault() {
+  return digitalRead(PIN_ZUCROW_FAULT_IN) == ZUCROW_FAULT_LEVEL ? FAULT_ASSERTED : FAULT_CLEAR;
 }
 
 bool check_sync() {
@@ -93,7 +92,7 @@ void send_sync(bool running) {
 }
 
 void print_status() {
-  CommsSerial.printf("From Zucrow: fault %s, sync %s\n", check_fault() ? "ASSERTED" : "clear",
+  CommsSerial.printf("From Zucrow: fault %s, sync %s\n", check_fault() == FAULT_ASSERTED ? "ASSERTED" : "clear",
                      check_sync() ? "running" : "idle");
   CommsSerial.printf("To Zucrow:   fault %s, sync %s\n",
                      digitalRead(PIN_EC_FAULT_OUT) == EC_FAULT_LEVEL ? "ASSERTED" : "clear",
