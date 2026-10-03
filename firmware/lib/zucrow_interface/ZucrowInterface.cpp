@@ -21,6 +21,8 @@ SPISettings ZUCROW_DAC_SPI_SETTINGS(4000000, MSBFIRST, SPI_MODE0);
 // TODO - confirm DI1/DI2 and DO1/DO2 against the schematic net names.
 #define PIN_ZUCROW_FAULT_IN PIN_ZUCROW_BOARD_DI1
 #define PIN_ZUCROW_SYNC_IN PIN_ZUCROW_BOARD_DI2
+#define PIN_ZUCROW_DI3 PIN_ZUCROW_BOARD_DI3
+#define PIN_ZUCROW_DI4 PIN_ZUCROW_BOARD_DI4
 #define PIN_EC_FAULT_OUT PIN_ZUCROW_BOARD_DO1
 #define PIN_EC_SYNC_OUT PIN_ZUCROW_BOARD_DO2
 
@@ -79,6 +81,14 @@ bool check_sync() {
   return digitalRead(PIN_ZUCROW_SYNC_IN) == ZUCROW_RUNNING_LEVEL;
 }
 
+PinStatus check_di3() {
+  return digitalRead(PIN_ZUCROW_BOARD_DI3);
+}
+
+PinStatus check_di4() {
+  return digitalRead(PIN_ZUCROW_BOARD_DI4);
+}
+
 void send_fault() {
   digitalWrite(PIN_EC_FAULT_OUT, EC_FAULT_LEVEL);
 }
@@ -97,6 +107,8 @@ void print_status() {
   CommsSerial.printf("To Zucrow:   fault %s, sync %s\n",
                      digitalRead(PIN_EC_FAULT_OUT) == EC_FAULT_LEVEL ? "ASSERTED" : "clear",
                      digitalRead(PIN_EC_SYNC_OUT) == EC_RUNNING_LEVEL ? "running" : "idle");
+  CommsSerial.printf("Spare lines from Zucrow:   DI3: %s, DI4: %s\n", check_di3() == HIGH ? "high" : "low",
+                     check_di4() == HIGH ? "high" : "low");
   CommsSerial.printf("OX: %4u counts, %.3f V\n", last_count_ox, last_count_ox * VOLTS_PER_COUNT);
   CommsSerial.printf("FU: %4u counts, %.3f V\n", last_count_fu, last_count_fu * VOLTS_PER_COUNT);
 }
@@ -138,6 +150,8 @@ bool begin() {
 
   pinMode(PIN_ZUCROW_FAULT_IN, INPUT);
   pinMode(PIN_ZUCROW_SYNC_IN, INPUT);
+  pinMode(PIN_ZUCROW_DI3, INPUT);
+  pinMode(PIN_ZUCROW_DI4, INPUT);
 
   // Boot reporting a fault, and only report ok once we are actually ready. A controller that
   // resets or hangs during boot then looks like a fault to Zucrow. Same as TADPOLE.

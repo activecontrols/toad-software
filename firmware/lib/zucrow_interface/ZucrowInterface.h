@@ -1,4 +1,5 @@
 #pragma once
+#include <Arduino.h>
 
 // Interface to the Zucrow test facility through the Zucrow board.
 // Fault and sync lines run in both directions, and two analog outputs report
@@ -18,7 +19,9 @@ enum fault_state_t { FAULT_ASSERTED, FAULT_CLEAR };
 // Inputs from Zucrow. These hide pin polarity from callers.
 fault_state_t check_fault();
 bool check_sync(); // true when Zucrow reports running
-
+// TODO: Rename when di3 and di4 have defined purposes
+PinStatus check_di3();
+PinStatus check_di4();
 // Outputs to Zucrow.
 void send_fault();
 void send_ok();
