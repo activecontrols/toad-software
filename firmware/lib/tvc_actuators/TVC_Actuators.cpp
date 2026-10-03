@@ -6,17 +6,10 @@
 #include "toad_can_bus.h"
 #include <CommsSerial.h>
 
-// One CAN object here, not two - CAN_ID_TVC_PITCH and CAN_ID_TVC_YAW are two
-// message IDs on the SAME physical "Actuators CAN Bus" (PIN_CAN_TVC_RX/TX),
-// not two separate buses. Note the constructor takes (tx_pin, rx_pin), in
-// that order - matches CAN::CAN(uint32_t _tx_pin, uint32_t _rx_pin) in
-// fdcan_toad.cpp.
-
 namespace TVC_Actuators {
 
 uint32_t ASSUMED_ACTUATOR_TELEMETRY_INTERVAL_MS = 1000;
 uint32_t ACTUATOR_HANDSHAKE_TIMEOUT_MS = 2 * ASSUMED_ACTUATOR_TELEMETRY_INTERVAL_MS + 500;
-uint32_t ACTUATORS_CAN_BIT_RATE = 1000000;
 bool tvc_debug_mode = false;
 
 // TODO - PLACEHOLDER scaling. Assumes a straight linear map from physical
