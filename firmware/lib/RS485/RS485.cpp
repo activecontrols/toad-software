@@ -80,14 +80,15 @@ bool RS485Bus::configureDE() {
 }
 
 bool RS485Bus::setBaud(uint32_t baud) {
-  if (!rs485_ok_ || baud == 0)
+  if (baud == 0)
     return false;
   if (baud == baud_)
     return true;
 
-  Uart::begin(baud);
+  Uart::begin(baud, SERIAL_8N1);
   configureRS485();
-  return Uart::operator bool(); // Checking underlying Uart ok 
+  baud_ = baud;
+  return Uart::operator bool(); // Checking underlying Uart ok
 }
 
 // Done = core ring buffer drained, no HAL transfer in flight, and the last stop bit
