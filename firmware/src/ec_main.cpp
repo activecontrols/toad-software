@@ -5,13 +5,13 @@
 #include "ErrorCounters.h"
 #include "PressureSensors.h"
 #include "RCS.h"
+#include "RS485.h"
 #include "SolenoidValves.h"
 #include "TVC_Actuators.h"
 #include "TemperatureSensors.h"
 #include "ThrottleValves.h"
 #include "ValveController.h"
 #include "fdcan_toad.h"
-#include "RS485.h"
 
 // shared interfaces
 CommsSerial_t<USBSerial> USB_CommsSerial;
@@ -29,22 +29,24 @@ namespace {
 constexpr char kRs485TestMessage[] = "Hello World";
 }
 
-void cmd_test_write_rs485(void){
-  if (!RS485s::tvc_pitch.beginTransaction()) {
+void cmd_test_write_rs485(void) {
+  if (!RS485s::drv_fu.beginTransaction()) {
     CommsSerial.println("RS485 write test: failed to start transaction");
     return;
   }
 
-  RS485s::tvc_pitch.bus.write(kRs485TestMessage);
-  RS485s::tvc_pitch.endTransaction();
+  RS485s::drv_fu.bus.write(kRs485TestMessage);
+  RS485s::drv_fu.endTransaction();
   CommsSerial.println("RS485 write test: sent Hello World");
 }
 
-void cmd_test_read_rs485(void){
-  if (!RS485s::tvc_pitch.beginTransaction() && !RS485s::tvc_yaw.beginTransaction()) {
+void cmd_test_read_rs485(void) {
+  if (!(RS485s::tvc_yaw.beginTransaction() && RS485s::tvc_pitch.beginTransaction())) {
     CommsSerial.println("RS485 read test: failed to start transaction");
     return;
   }
+
+  delay(1);
 
   constexpr size_t responseLength = sizeof(kRs485TestMessage) - 1;
   uint8_t response[responseLength];
@@ -56,7 +58,8 @@ void cmd_test_read_rs485(void){
     return;
   }
 
-  const size_t received = RS485s::tvc_pitch.read(response, responseLength, 5000);
+    // Reading 
+  const size_t received = RS485s::tvc_pitch.read(response, responseLength, 3000);
   RS485s::tvc_pitch.endTransaction();
 
   if (received != responseLength) {
@@ -69,6 +72,10 @@ void cmd_test_read_rs485(void){
   }
 
   for (size_t i = 0; i < responseLength; ++i) {
+    CommsSerial.print(response[i], HEX);
+  }
+
+  for (size_t i = 0; i < responseLength; ++i) {
     if (response[i] != static_cast<uint8_t>(kRs485TestMessage[i])) {
       CommsSerial.println("RS485 read test: reply did not match request");
       return;
@@ -77,7 +84,6 @@ void cmd_test_read_rs485(void){
 
   CommsSerial.println("RS485 read test: received matching echo");
 }
-
 
 void setup() {
   // All shared interfaces are begun here.
@@ -101,13 +107,13 @@ void setup() {
   bool all_modules_ok = true;
 
   all_modules_ok &= CAN::init();
-  all_modules_ok &= PressureSensors::begin();
-  all_modules_ok &= TemperatureSensors::begin();
+  // all_modules_ok &= PressureSensors::begin();
+  // all_modules_ok &= TemperatureSensors::begin();
   all_modules_ok &= RS485s::begin();
-  all_modules_ok &= ThrottleValves::begin();
-  all_modules_ok &= SolenoidValves::begin();
-  all_modules_ok &= TVC_Actuators::begin();
-  all_modules_ok &= ValveController::begin();
+  // all_modules_ok &= ThrottleValves::begin();
+  // all_modules_ok &= SolenoidValves::begin();
+  // all_modules_ok &= TVC_Actuators::begin();
+  // all_modules_ok &= ValveController::begin();
 
   if (!all_modules_ok) {
     while (true) {
@@ -119,7 +125,8 @@ void setup() {
 
   CommandRouter::add(flight_loop, "start_flight_loop");
   CommandRouter::add(cmd_test_write_rs485, "test_write_rs485", "Send Hello World to the TVC pitch device.");
-  CommandRouter::add(cmd_test_read_rs485, "test_read_rs485", "Send Hello World and check for an echo from the TVC pitch device.");
+  CommandRouter::add(cmd_test_read_rs485, "test_read_rs485",
+                     "Send Hello World and check for an echo from the TVC pitch device.");
   CommandRouter::add_flag(&kill_flag, "k", "terminate the flight loop early");
   CommandRouter::add_flag(&arm_flag, "arm", "start following a trajectory");
 }

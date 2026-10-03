@@ -80,13 +80,14 @@ bool RS485Bus::configureDE() {
 }
 
 bool RS485Bus::setBaud(uint32_t baud) {
-  if (!rs485_ok_ || baud == 0)
+  if (baud == 0)
     return false;
   if (baud == baud_)
     return true;
 
-  Uart::begin(baud);
+  Uart::begin(baud, SERIAL_8N1);
   configureRS485();
+  baud_ = baud;
   return Uart::operator bool(); // Checking underlying Uart ok 
 }
 
@@ -167,8 +168,8 @@ void RS485Device::endTransaction() {
 
 namespace RS485s {
 namespace {
-constexpr uint32_t kEncBaud = 2000000; // AMT24 2 Mbps data rate
-constexpr uint32_t kTvcBaud = 2000000; // TODO - check baud rate for TVC
+constexpr uint32_t kEncBaud = 115200; // AMT24 2 Mbps data rate
+constexpr uint32_t kTvcBaud = 115200; // TODO - check baud rate for TVC
 constexpr uint32_t kDrvBaud = 115200;  // TODO - check driver's RS485 config; placeholder
 
 // Index in each array == device index below
