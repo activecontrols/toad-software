@@ -14,7 +14,7 @@
 #include "RS485.h"
 
 // shared interfaces
-CommsSerial_t<USBSerial> USB_CommsSerial;
+// CommsSerial_t<USBSerial> USB_CommsSerial;
 CommsSerial_t<Uart> HW_CommsSerial(PIN_HW_COMM_SERIAL_RX, PIN_HW_COMM_SERIAL_TX);
 CommsSerial_t<Uart> HW_FallbackSerial(PIN_HW_FALLBACK_SERIAL_RX, PIN_HW_FALLBACK_SERIAL_TX);
 
@@ -29,7 +29,7 @@ void setup() {
   // All shared interfaces are begun here.
 
   // Use same baud rate on all Comm Serials for consistency.
-  USB_CommsSerial.begin(RADIO_BAUD);
+  // USB_CommsSerial.begin(RADIO_BAUD);
   HW_CommsSerial.begin(RADIO_BAUD);
   HW_FallbackSerial.begin(RADIO_BAUD);
 
