@@ -32,7 +32,7 @@ adc_reading_t ADS131M02::read_adc() {
   adc_reading.status_reg = transact_word(0x000000, &crc_buf[0]);
   adc_reading.ch0 = transact_word(0x000000, &crc_buf[3]);
   adc_reading.ch1 = transact_word(0x000000, &crc_buf[6]);
-  uint32_t rcv_crc = transact_word(0x000000, DISCARD_CRC) & 0xFFFF;
+  uint32_t rcv_crc = transact_word(0x000000, DISCARD_CRC) >> 8;
 
   spi_bus.endTransaction();
   digitalWrite(cs_pin, HIGH);

@@ -86,8 +86,8 @@ void print_pt_crc_errors(pressure_readings_t pt_readings) {
     if (pt_readings.crc_errors & (1 << i)) {
       CommsSerial.printf("%d_%d ", i * 2 + 1, i * 2 + 2);
     }
-    CommsSerial.println();
   }
+  CommsSerial.println();
 }
 
 // print PT readings in psi.
