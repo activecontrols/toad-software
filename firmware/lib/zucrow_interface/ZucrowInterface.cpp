@@ -3,22 +3,16 @@
 #include "CommsSerial.h"
 #include "ec_pins.h"
 
-// Analog chain on the Zucrow board:
-//   MCP4822 12 bit DAC, internal 2.048 V reference, 1x gain
-//   -> TLV9142 non-inverting stage, gain = 1 + 15k / 5k = 4
-//   -> AO_1 (ox) and AO_2 (fu) at the Zucrow connector
-// Full scale is 2.048 V * 4 = 8.192 V, which is exactly 2 mV per count.
-#define DAC_COUNTS 4096
+#define DAC_COUNTS (1 << 12) // 12 bit DAC, 4096 counts
 #define DAC_MAX_COUNT (DAC_COUNTS - 1)
 #define VOLTS_PER_COUNT (2.048f * 4.0f / DAC_COUNTS)
 
-// MCP4822 write command is one 16 bit word [MCP4822 datasheet, write command register]:
-//   bit 15 channel (0 = A, 1 = B), bit 13 gain (1 = 1x), bit 12 output (1 = active), bits 11:0 data
-// LDAC is tied to GND_ISO on this board, so each write updates the output immediately.
-#define MCP4822_CHANNEL_A 0x0000
-#define MCP4822_CHANNEL_B 0x8000
-#define MCP4822_GAIN_1X 0x2000
-#define MCP4822_ACTIVE 0x1000
+// MCP4822 write command: 16 bit word:
+// bit 15 channel (0 = A, 1 = B), bit 13 gain (1 = 1x), bit 12 output (1 = active), bits 11:0 data
+#define MCP4822_CHANNEL_A (0 << 15)
+#define MCP4822_CHANNEL_B (1 << 15)
+#define MCP4822_GAIN_1X (1 << 13)
+#define MCP4822_ACTIVE (1 << 12)
 
 // TODO - verify clock integrity with a scope. The ISO6441 isolator is rated to 150 Mbps, so the
 // limit here is the long traces to the Zucrow board. Matches the other devices on this bus.
