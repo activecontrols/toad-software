@@ -9,16 +9,25 @@ void PT_Board::begin() {
   adc.begin();
 }
 
+float convert_reading_to_psi(int32_t raw_reading, float slope, float offset) {
+  // Convert counts to volts
+  // 2.4 is 2x ADC VREF
+  // 3.09 is PT board scaling
+  // (1 << 24) is ADC precision
+  float reading = raw_reading * 2.4 * 3.09 / (1 << 24);
+
+  // Convert volts to PSI
+  return reading * slope + offset;
+}
+
 // Read both PT channels on the ADC, converting using the saved slope/offsets.
 // Return the PT readings through the parameters.
 // Returns false if a CRC occurs while reading, true otherwise.
 bool PT_Board::read_pts(float *pt0_reading, float *pt1_reading) {
   adc_reading_t adc_reading = adc.read_adc();
 
-  // TODO PTs - add preconversion logic to account for voltage level changes
-  // probably need to divide by pow(2, 24) as well
-  *pt0_reading = adc_reading.ch0 * pt0_slope + pt0_offset;
-  *pt1_reading = adc_reading.ch1 * pt1_slope + pt1_offset;
+  *pt0_reading = convert_reading_to_psi(adc_reading.ch0, pt0_slope, pt0_offset);
+  *pt1_reading = convert_reading_to_psi(adc_reading.ch1, pt1_slope, pt1_offset);
 
   if (!adc_reading.crc_ok) {
     ErrorCounters::increment(ErrorCounters::pt_crc);
