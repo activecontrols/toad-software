@@ -12,11 +12,7 @@
 // fdcan_toad.cpp.
 
 namespace TVC_Actuators {
-
-CAN actuators_can(PIN_CAN_TVC_TX, PIN_CAN_TVC_RX);
-
-constexpr uint32_t ACTUATORS_CAN_BIT_RATE = 1000000;
-bool tvc_debug_mode = false;
+bool tvc_debug_mode = true;
 
 // TODO - PLACEHOLDER scaling. Assumes a straight linear map from physical
 // actuator length (mm) to the actuator's raw target_pos range (0-65535).
@@ -32,31 +28,47 @@ uint16_t length_to_target_pos(float length_mm) {
 }
 
 bool begin() {
-  float actual_rate = actuators_can.begin(ACTUATORS_CAN_BIT_RATE);
-  if (actual_rate <= 0.0f) {
-    return false;
-  }
+  // float actual_rate = actuators_can.begin(ACTUATORS_CAN_BIT_RATE);
+  // if (actual_rate <= 0.0f) {
+  //   return false;
+  // }
+
+  CommandRouter::add([](const char* arg)
+  {
+    int target_input = 0;
+    if (sscanf(arg, "%d", &target_input) != 1)
+    {
+      CommsSerial.println("Invalid command");
+    }
+    uint16_t target = target_input;
+    send_target_pos(can_tvc, 0x04, target);
+  }, "set_target_pos");
+
+  return true;
 }
 
 void set_angles_pitch_yaw(float pitch, float yaw) {
   float pitch_len, yaw_len;
   calc_actuator_lengths(pitch, yaw, &pitch_len, &yaw_len); // already implemented
 
-  send_target_pos(actuators_can, CAN_ID_TVC_PITCH, length_to_target_pos(pitch_len));
-  send_target_pos(actuators_can, CAN_ID_TVC_YAW, length_to_target_pos(yaw_len));
+  send_target_pos(can_tvc, CAN_ID_TVC_PITCH, length_to_target_pos(pitch_len));
+  send_target_pos(can_tvc, CAN_ID_TVC_YAW, length_to_target_pos(yaw_len));
 }
 
 // Call every flight_loop() iteration - nothing currently does. Drains
 // whatever arrived in the RX FIFO since the last call and decodes anything
 // addressed to the TVC actuators.
 void poll() {
-  while (actuators_can.available() > 0) {
-    arduino::CanMsg msg = actuators_can.read();
+  while (can_tvc.available() > 0) {
+    arduino::CanMsg msg = can_tvc.read();
     uint32_t id = msg.isStandardId() ? msg.getStandardId() : msg.getExtendedId();
 
-    if (id == CAN_ID_TVC_PITCH || id == CAN_ID_TVC_YAW) {
+    // if (id == CAN_ID_TVC_PITCH || id == CAN_ID_TVC_YAW) {
+    if (true){
       // Fixed-format decode for exactly what flight code acts on - no
       // letter-code dispatch, no unused fields.
+
+      CommsSerial.println("received message");
       tvc_actuator_telemetry_t telem = parse_tvc_telemetry(msg.data);
 
       if (tvc_debug_mode) {

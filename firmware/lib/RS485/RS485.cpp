@@ -169,7 +169,7 @@ void RS485Device::endTransaction() {
 namespace RS485s {
 namespace {
 constexpr uint32_t kEncBaud = 2000000; // AMT24 2 Mbps data rate
-constexpr uint32_t kTvcBaud = 2000000; // TODO - check baud rate for TVC
+constexpr uint32_t kTvcBaud = 115200; // TODO - check baud rate for TVC
 constexpr uint32_t kDrvBaud = 115200;  // TODO - check driver's RS485 config; placeholder
 
 // Index in each array == device index below

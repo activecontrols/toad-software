@@ -77,8 +77,8 @@ public:
     {
         bool success = true;
         
-        success = success && can_tvc.begin(CanBitRate::BR_500k);
-        success = success && can_fc.begin(CanBitRate::BR_500k);
+        success = success && can_tvc.begin(CanBitRate::BR_1000k);
+        success = success && can_fc.begin(CanBitRate::BR_1000k);
 
         if (success)
         {
@@ -91,6 +91,20 @@ public:
                 
                 test_can.write(msg);
             }, "can_loopback_test");
+
+
+            CommandRouter::add([]()
+            {
+                FDCAN_ErrorCountersTypeDef new_error_counts = {0};
+
+                HAL_FDCAN_GetErrorCounters(can_tvc.handle(), &new_error_counts);
+
+
+                CommsSerial.printf("RX Error Count: %u\n", new_error_counts.RxErrorCnt);
+                CommsSerial.printf("RX Error Passive: %u\n", new_error_counts.RxErrorPassive);
+
+
+            }, "can_error_count");
         };
 
         return success;

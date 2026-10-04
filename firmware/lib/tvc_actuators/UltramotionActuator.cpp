@@ -320,7 +320,7 @@ void send_target_pos(CAN &bus, uint16_t id, uint16_t target_pos) {
       static_cast<uint8_t>(target_pos & 0xFF),
       static_cast<uint8_t>(target_pos >> 8),
   };
-  CanMsg msg(CanStandardId(id), sizeof(data), data);
+  CanMsg msg(CanExtendedId(id), sizeof(data), data);
   bus.write(msg);
 }
 
@@ -331,6 +331,6 @@ void send_target_pos(CAN &bus, uint16_t id, uint16_t target_pos, uint16_t max_to
       static_cast<uint8_t>(max_torque & 0xFF),
       static_cast<uint8_t>(max_torque >> 8),
   };
-  CanMsg msg(CanStandardId(id), sizeof(data), data);
+  CanMsg msg(CanExtendedId(id), sizeof(data), data);
   bus.write(msg);
 }

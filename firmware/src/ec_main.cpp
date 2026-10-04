@@ -25,6 +25,17 @@ bool kill_flag;
 bool arm_flag;
 void flight_loop();
 
+
+void tvc_send_data(const char* data_str)
+{
+  for (int i = 0; data_str[i]; ++i)
+  {
+    RS485s::tvc_yaw.bus.write(data_str[i]);
+
+    delay(1); // give time to receive
+  }
+}
+
 void setup() {
   // All shared interfaces are begun here.
 
@@ -47,13 +58,13 @@ void setup() {
   bool all_modules_ok = true;
 
   all_modules_ok &= CAN::init();
-  all_modules_ok &= PressureSensors::begin();
-  all_modules_ok &= TemperatureSensors::begin();
+  // all_modules_ok &= PressureSensors::begin();
+  // all_modules_ok &= TemperatureSensors::begin();
   all_modules_ok &= RS485s::begin();
-  all_modules_ok &= ThrottleValves::begin();
-  all_modules_ok &= SolenoidValves::begin();
+  // all_modules_ok &= ThrottleValves::begin();
+  // all_modules_ok &= SolenoidValves::begin();
   all_modules_ok &= TVC_Actuators::begin();
-  all_modules_ok &= ValveController::begin();
+  // all_modules_ok &= ValveController::begin();
 
   if (!all_modules_ok) {
     while (true) {
@@ -66,12 +77,53 @@ void setup() {
   CommandRouter::add(flight_loop, "start_flight_loop");
   CommandRouter::add_flag(&kill_flag, "k", "terminate the flight loop early");
   CommandRouter::add_flag(&arm_flag, "arm", "start following a trajectory");
+
+  RS485s::tvc_yaw.beginTransaction();
+
+  delay(1);
+
+  RS485s::tvc_yaw.bus.print("lk unlock\r");
+
+  CommandRouter::add([](const char* fw_data)
+  {
+    // RS485s::tvc_yaw.bus.write(fw_data);
+    // RS485s::tvc_yaw.bus.write("\r\n");
+
+    tvc_send_data(fw_data);
+    tvc_send_data("\r\n");
+    RS485s::tvc_yaw.bus.flush();
+
+    CommsSerial.write(fw_data);
+    CommsSerial.write('\n');
+
+    CommsSerial.print("Raw bytes: ");
+    for (int i = 0; fw_data[i]; ++i)
+    {
+      CommsSerial.print(fw_data[i], HEX);
+      CommsSerial.print(' ');
+    }
+
+    CommsSerial.print('\r', HEX);
+
+    CommsSerial.println();
+  }, "tvc_yaw");
 }
 
 void loop() {
   while (CommsSerial.available()) {
     CommandRouter::receive_byte(CommsSerial.read());
   }
+
+  while (RS485s::tvc_yaw.bus.available())
+  {
+    if (char a = RS485s::tvc_yaw.bus.read(); a != '\r')
+    {
+      CommsSerial.write(a);
+    }
+    // CommsSerial.write(' ');
+  }
+
+  TVC_Actuators::poll();
 }
 
 // TODO - these?
