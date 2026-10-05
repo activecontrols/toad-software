@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ErrorCounters.h"
+#include "fdcan_toad.h"
 #include <array>
 #include <stdint.h>
 using std::size_t;
@@ -48,7 +50,10 @@ private:
     }
     frame[N + 1] = crc;
 
-    // TODO - transmit the frame
+    CanMsg message(can_id, frame_len, frame);
+    if (!can_tvc.write(message)) {
+      ErrorCounters::increment(ErrorCounters::motor_CAN_tx);
+    }
   }
 
   uint16_t can_id;

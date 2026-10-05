@@ -31,12 +31,32 @@ namespace ThrottleValves {
 ThrottleValve ox_valve(CAN_ID_STEPPER_OX, ENC_OX_RS485_BUS, PIN_ENC_OX_SEL, 0);
 ThrottleValve fu_valve(CAN_ID_STEPPER_FU, ENC_FU_RS485_BUS, PIN_ENC_FU_SEL, 0);
 
-// TODO - don't just return true here!
+void set_position_cmd(const char *cmd) {
+  float angle = 0.0f;
+  char *motor = "";
+  if (sscanf(cmd, "%s %f", &motor, &angle) != 2) {
+    CommsSerial.println("Usage: motor_set_position <ox/fu> <angle>\n");
+    return;
+  }
+  if (strcmp(motor, "ox") == 0) {
+    ox_valve.set_position(angle);
+  } else if (strcmp(motor, "fu") == 0) {
+    fu_valve.set_position(angle);
+  } else {
+    CommsSerial.println("Motor must be 'ox' or 'fu'\n");
+    return;
+  }
+}
+
 bool begin() {
   ox_valve.begin();
   fu_valve.begin();
 
-  return true;
+  // TODO - add rest of the commands
+  CommandRouter::add(stop, "motor_stop");
+  CommandRouter::add(set_position_cmd, "motor_set_position");
+
+  return true; // TODO - check for telemetry from each motor
 }
 
 // Stop both throttle valve motors.

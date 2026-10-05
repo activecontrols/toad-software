@@ -10,6 +10,7 @@ extern uint8_t error_counters[];
 enum error_counter_t {
   pt_crc,           // incremented every time a PT board read has a CRC error (potentially multiple per flight loop)
   cmd_buf_overflow, // command buffer overflows while parsing a command
+  motor_CAN_tx,     // motor CAN bus failed to send
   NUM_ERR_COUNTERS
 };
 
