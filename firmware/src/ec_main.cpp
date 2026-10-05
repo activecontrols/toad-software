@@ -13,7 +13,6 @@
 #include "ValveController.h"
 #include "fdcan_toad.h"
 
-
 // shared interfaces
 CommsSerial_t<USBSerial> USB_CommsSerial;
 CommsSerial_t<Uart> HW_CommsSerial(PIN_HW_COMM_SERIAL_RX, PIN_HW_COMM_SERIAL_TX);
@@ -59,7 +58,7 @@ void setup() {
   if (!all_modules_ok) {
     while (true) {
       CommsSerial.println("At least one module failed to begin(), see errors above.");
-      HW_FallbackSerial.println("At least one module failed to begin(), see errors above. [Fallback Serial]");
+      HW_FallbackSerial.println("At least one module failed to begin(). [Fallback Serial]");
       delay(5000);
     }
   }

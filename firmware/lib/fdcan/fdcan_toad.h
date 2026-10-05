@@ -77,6 +77,7 @@ public:
     {
         bool success = true;
         
+        // TODO - print error for each CAN bus that fails
         success = success && can_tvc.begin(CanBitRate::BR_500k);
         success = success && can_fc.begin(CanBitRate::BR_500k);
 
