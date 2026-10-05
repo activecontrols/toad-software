@@ -4,6 +4,8 @@
 
 #include "RS485.h"
 #include "SPI.h"
+#include "ec_sensors.h"
+#include "ec_valves.h"
 
 // UARTS
 // Primary serial output (UART5)
@@ -78,7 +80,6 @@
 // Valve DOs
 #define PIN_SV_BV_LATCH_ENABLE NC // TODO - flywire and assign
 
-#define NUM_SV_BV_VALVES 16
 #define PIN_SV_DO_1 PA4
 #define PIN_SV_DO_2 PA5
 #define PIN_SV_DO_3 PA6
@@ -95,6 +96,7 @@
 #define PIN_BV_DO_14 PH10
 #define PIN_BV_DO_15 PH11
 #define PIN_BV_DO_16 PH12
+static_assert(NUM_SV_BV_VALVES == 16);
 
 #define PIN_VALVE_OE_INPUT PG1
 
@@ -102,8 +104,6 @@
 // these are declared in ec_main
 extern SPIClass PT_TC_SPI_1;
 extern SPIClass PT_TC_SPI_3;
-
-#define NUM_PT_BOARDS 6
 
 #define PT_BOARD_1_2_SPI_BUS PT_TC_SPI_3
 #define PIN_PT_BOARD_1_2_CS PH15
@@ -122,8 +122,7 @@ extern SPIClass PT_TC_SPI_3;
 
 #define PT_BOARD_11_12_SPI_BUS PT_TC_SPI_1
 #define PIN_PT_BOARD_11_12_CS PG13
-
-#define NUM_TC_CHIPS 6
+static_assert(NUM_PT_BOARDS == 6);
 
 #define TC_CHIP_1_SPI_BUS PT_TC_SPI_3
 #define PIN_TC_CHIP_1_CS PD2
@@ -142,6 +141,7 @@ extern SPIClass PT_TC_SPI_3;
 
 #define TC_CHIP_6_SPI_BUS PT_TC_SPI_1
 #define PIN_TC_CHIP_6_CS PI7
+static_assert(NUM_TC_CHIPS == 6);
 
 // Unused
 #define PIN_FAULT_TC_1 PD0
