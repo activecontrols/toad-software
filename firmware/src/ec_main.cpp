@@ -5,13 +5,13 @@
 #include "ErrorCounters.h"
 #include "PressureSensors.h"
 #include "RCS.h"
+#include "RS485.h"
 #include "SolenoidValves.h"
 #include "TVC_Actuators.h"
 #include "TemperatureSensors.h"
 #include "ThrottleValves.h"
 #include "ValveController.h"
 #include "fdcan_toad.h"
-#include "RS485.h"
 
 // shared interfaces
 // CommsSerial_t<USBSerial> USB_CommsSerial;
@@ -58,7 +58,7 @@ void setup() {
   if (!all_modules_ok) {
     while (true) {
       CommsSerial.println("At least one module failed to begin(), see errors above.");
-      HW_FallbackSerial.println("At least one module failed to begin(), see errors above. [Fallback Serial]");
+      HW_FallbackSerial.println("At least one module failed to begin(). [Fallback Serial]");
       delay(5000);
     }
   }
