@@ -12,18 +12,22 @@ Adafruit_MAX31856 tc_chip_3(TC_CHIP_3_SPI_BUS, PIN_TC_CHIP_3_CS, MAX31856_TCTYPE
 Adafruit_MAX31856 tc_chip_4(TC_CHIP_4_SPI_BUS, PIN_TC_CHIP_4_CS, MAX31856_TCTYPE_K);
 Adafruit_MAX31856 tc_chip_5(TC_CHIP_5_SPI_BUS, PIN_TC_CHIP_5_CS, MAX31856_TCTYPE_K);
 Adafruit_MAX31856 tc_chip_6(TC_CHIP_6_SPI_BUS, PIN_TC_CHIP_6_CS, MAX31856_TCTYPE_K);
+Adafruit_MAX31856 tc_chips[NUM_TC_CHIPS] = {tc_chip_1, tc_chip_2, tc_chip_3, tc_chip_4, tc_chip_5, tc_chip_6};
+const char *tc_names[NUM_TC_CHIPS] = {STRINGIFY(TC1), STRINGIFY(TC2), STRINGIFY(TC3),
+                                      STRINGIFY(TC4), STRINGIFY(TC5), STRINGIFY(TC6)};
 static_assert(NUM_TC_CHIPS == 6);
 
 // Configures each TC chip.
 // Always returns true.
 bool begin() {
   bool all_chips_connected = true;
-  all_chips_connected &= tc_chip_1.begin();
-  all_chips_connected &= tc_chip_2.begin();
-  all_chips_connected &= tc_chip_3.begin();
-  all_chips_connected &= tc_chip_4.begin();
-  all_chips_connected &= tc_chip_5.begin();
-  all_chips_connected &= tc_chip_6.begin();
+  for (size_t i = 0; i < NUM_TC_CHIPS; i++) {
+    bool connected = tc_chips[i].begin();
+    if (!connected) {
+      CommsSerial.printf("TC Board %d failed to connect.", i);
+    }
+    all_chips_connected &= connected;
+  }
 
   CommandRouter::add(print_tc_readings, "print_tc", "Print TC readings in Fahrenheit.");
 
@@ -42,6 +46,7 @@ temperature_readings_t read_tcs() {
   tc_readings.TC_4 = tc_chip_4.readThermocoupleTemperature() + C_TO_KELVIN;
   tc_readings.TC_5 = tc_chip_5.readThermocoupleTemperature() + C_TO_KELVIN;
   tc_readings.TC_6 = tc_chip_6.readThermocoupleTemperature() + C_TO_KELVIN;
+  static_assert(NUM_TC_CHIPS == 6);
 
   return tc_readings;
 }
@@ -54,12 +59,9 @@ float c_to_f(float c) {
 // print TC readings in Fahrenheit.
 void print_tc_readings() {
   CommsSerial.print("TC Readings:");
-  CommsSerial.printf("%20s: %6.2f C\n", STRINGIFY(TC_1), c_to_f(tc_chip_1.readThermocoupleTemperature()));
-  CommsSerial.printf("%20s: %6.2f C\n", STRINGIFY(TC_2), c_to_f(tc_chip_2.readThermocoupleTemperature()));
-  CommsSerial.printf("%20s: %6.2f C\n", STRINGIFY(TC_3), c_to_f(tc_chip_3.readThermocoupleTemperature()));
-  CommsSerial.printf("%20s: %6.2f C\n", STRINGIFY(TC_4), c_to_f(tc_chip_4.readThermocoupleTemperature()));
-  CommsSerial.printf("%20s: %6.2f C\n", STRINGIFY(TC_5), c_to_f(tc_chip_5.readThermocoupleTemperature()));
-  CommsSerial.printf("%20s: %6.2f C\n", STRINGIFY(TC_6), c_to_f(tc_chip_6.readThermocoupleTemperature()));
+  for (size_t i = 0; i < NUM_TC_CHIPS; i++) {
+    CommsSerial.printf("%20s: %6.2f F\n", tc_names[i], c_to_f(tc_chips[i].readThermocoupleTemperature()));
+  }
 }
 
 } // namespace TemperatureSensors
