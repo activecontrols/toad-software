@@ -8,7 +8,11 @@
 
 // See also: https://github.com/whickmott/MKSServoCAN/blob/main/src/MKSServoCAN.cpp
 
-void MksServo57D::begin() {}
+void MksServo57D::begin() {
+  // Send empty frame to get motor status/state
+  std::array<uint8_t, 0> data{};
+  send_frame(0x40, data);
+}
 
 // Command the speed and acceleration of the motor. See [72].
 void MksServo57D::set_speed(int16_t speed, uint8_t acceleration) {

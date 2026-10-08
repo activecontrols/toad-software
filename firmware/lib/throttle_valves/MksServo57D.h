@@ -1,5 +1,8 @@
 #pragma once
 
+#include "CommsSerial.h"
+#include "fdcan_toad.h"
+
 #include <array>
 #include <stdint.h>
 using std::size_t;
@@ -35,20 +38,29 @@ private:
   template <size_t N> void send_frame(uint8_t cmd, const std::array<uint8_t, N> &data) {
     constexpr size_t frame_len = N + 2;
     static_assert(frame_len <= 8, "CAN 2.0 has a max frame length of 8 bytes.");
-    uint8_t frame[frame_len];
 
-    frame[0] = cmd;
+    // Create a CanMsg with intial values
+    CanMsg msg;
+    msg.id = can_id;
+    msg.data_length = frame_len;
+    msg.data[0] = cmd;
+
+    // Load data into the CanMsg
     for (size_t i = 0; i < N; i++) {
-      frame[i + 1] = data[i];
+      msg.data[i + 1] = data[i];
     }
 
+    // Calculate and append the checksum
     uint8_t crc = can_id;
     for (size_t i = 0; i < N + 1; i++) {
-      crc += frame[i];
+      crc += msg.data[i];
     }
-    frame[N + 1] = crc;
+    msg.data[N + 1] = crc;
 
-    // TODO - transmit the frame
+    // Transmit the frame
+    if (can_tvc.write(msg) == 0) {
+      CommsSerial.println("Failed to send throttle valve CAN message");
+    }
   }
 
   uint16_t can_id;
