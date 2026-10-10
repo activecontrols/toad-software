@@ -17,9 +17,12 @@
 
 namespace Flash {
 
+namespace {
+
 QSPI_HandleTypeDef hqspi;
 
 bool cache_loaded = false;
+uint32_t cache_offset = 0;
 
 // Header phase command
 #define QSPI_CMD_OR_RETURN(cmd_ptr, fail_ret)                       \
@@ -40,6 +43,15 @@ bool cache_loaded = false;
   do {                                                               \
     if (HAL_QSPI_Receive(&hqspi, (data_ptr), HAL_TIMEOUT) != HAL_OK) \
       return (fail_ret);                                             \
+  } while (0)
+
+// Call a funtion and fail if bad
+#define ACTION_OR_FAIL(function, msg) \
+  do {                                \
+    if (!function()) {                \
+      CommsSerial.println(msg);       \
+      return false;                   \
+    }                                 \
   } while (0)
 
 typedef struct {
@@ -112,154 +124,13 @@ flash_error_t wait_until_ready(uint32_t timeout) {
 
     // if operation no longer in progress
     if (data.OIP == 0) {
-      return FLASH_SUCCESS;
+      return FLASH_READY;
     }
 
     if (micros() - start_time > timeout) {
       return FLASH_TIMED_OUT;
     }
   }
-}
-
-flash_error_t read(uint32_t addr, uint32_t col, uint8_t *data_out, size_t len, bool check_ecc) {
-  // main + spare area are addressable as one column range
-  if (col + len > NAND_PAGE_SIZE + NAND_SPARE_PAGE_SIZE) {
-    return FLASH_FAIL;
-  }
-
-  // load page into cache
-  QSPI_CommandTypeDef cmd;
-  build_cmd(&cmd, {.opcode = CMD_NAND_PAGE_READ, .addr = addr, .addr_size = QSPI_ADDRESS_24_BITS});
-  QSPI_CMD_OR_RETURN(&cmd, FLASH_FAIL);
-
-  // wait for page to arrive in cache
-  flash_error_t err = wait_until_ready(60);
-  if (err != FLASH_SUCCESS) {
-    return err;
-  }
-
-  // tell cache to send data, starting at the given column offset
-  build_cmd(&cmd, {.opcode = CMD_NAND_READ_FROM_CACHE_QUAD,
-                   .addr = col,
-                   .addr_size = QSPI_ADDRESS_16_BITS,
-                   .data_size = static_cast<uint32_t>(len),
-                   .dummy_cycles = 8,
-                   .data_lines = QSPI_DATA_4_LINES});
-  QSPI_CMD_OR_RETURN(&cmd, FLASH_FAIL);
-
-  // receive data from cache across spi
-  QSPI_RECV_OR_RETURN(data_out, FLASH_FAIL);
-
-  if (!check_ecc) {
-    return FLASH_SUCCESS;
-  }
-
-  // load status register
-  flash_status_a_t status_a;
-  memset(&status_a, 0, sizeof(status_a));
-  if (!get_status_a(&status_a)) {
-    return FLASH_FAIL;
-  }
-
-  // check whether read was ok
-  if (status_a.ECCS != 0) {
-    return FLASH_FAIL;
-  }
-
-  return FLASH_SUCCESS;
-}
-
-flash_error_t write_to_cache(uint32_t col_addr, uint8_t *data, size_t len) {
-  // does cache page have enough space?
-  if (col_addr + len > NAND_PAGE_SIZE) {
-    return FLASH_FAIL;
-  }
-
-  // The first write to cache needs to use Program Load to clear cache
-  // and afterwards need to use Load Random to not overwrite content
-  uint32_t nand_cmd = cache_loaded ? CMD_NAND_PROGRAM_LOAD_RANDOM : CMD_NAND_PROGRAM_LOAD;
-
-  // load data into cache
-  QSPI_CommandTypeDef cmd;
-  build_cmd(&cmd, {.opcode = nand_cmd, .addr = col_addr, .addr_size = QSPI_ADDRESS_16_BITS, .data_size = len});
-  QSPI_CMD_OR_RETURN(&cmd, FLASH_FAIL);
-
-  // send data across spi into cache
-  QSPI_TRANSMIT_OR_RETURN(data, FLASH_FAIL);
-
-  cache_loaded = true;
-  return FLASH_SUCCESS;
-}
-
-flash_error_t program(uint32_t addr) {
-  // chip can lose commands if it is busy when instruction occurs
-  // ensure worst case timeout is waited until chip free
-  flash_error_t err = wait_until_ready(WORST_CASE_PROGRAM_TIMEOUT);
-  if (err != FLASH_SUCCESS)
-    return err;
-
-  // write enable
-  QSPI_CommandTypeDef cmd;
-  build_cmd(&cmd, {.opcode = CMD_NAND_WRITE_ENABLE});
-  QSPI_CMD_OR_RETURN(&cmd, FLASH_FAIL);
-
-  // commit cache to memory
-  build_cmd(&cmd, {.opcode = CMD_NAND_PROGRAM_EXECUTE, .addr = addr, .addr_size = QSPI_ADDRESS_24_BITS});
-  QSPI_CMD_OR_RETURN(&cmd, FLASH_FAIL);
-
-  // wait for cache to be written
-  err = wait_until_ready(WORST_CASE_MEMORY_TIMEOUT);
-  cache_loaded = false;
-
-  if (err != FLASH_SUCCESS) {
-    return err;
-  }
-
-  // ensure successful write
-  flash_status_a_t status_a;
-  if (!get_status_a(&status_a)) {
-    return FLASH_FAIL;
-  }
-
-  if (status_a.P_FAIL) {
-    return FLASH_FAIL;
-  }
-
-  return FLASH_SUCCESS;
-}
-
-flash_error_t erase_block(uint32_t addr) {
-  // ensure chip is done with any previous erases
-  flash_error_t err = wait_until_ready(WORST_CASE_MEMORY_TIMEOUT);
-  if (err != FLASH_SUCCESS)
-    return err;
-
-  // write enable
-  QSPI_CommandTypeDef cmd;
-  build_cmd(&cmd, {.opcode = CMD_NAND_WRITE_ENABLE});
-  QSPI_CMD_OR_RETURN(&cmd, FLASH_FAIL);
-
-  // erase block
-  build_cmd(&cmd, {.opcode = CMD_NAND_BLOCK_ERASE, .addr = addr, .addr_size = QSPI_ADDRESS_24_BITS});
-  QSPI_CMD_OR_RETURN(&cmd, FLASH_FAIL);
-
-  // wait for erase to finish
-  err = wait_until_ready(WORST_CASE_MEMORY_TIMEOUT);
-  if (err != FLASH_SUCCESS) {
-    return err;
-  }
-
-  // ensure erase was successful
-  flash_status_a_t status_a;
-  if (!get_status_a(&status_a)) {
-    return FLASH_FAIL;
-  }
-
-  if (status_a.E_FAIL) {
-    return FLASH_FAIL;
-  }
-
-  return FLASH_SUCCESS;
 }
 
 void init_qspi_gpio() {
@@ -367,6 +238,151 @@ bool enable_quad_mode() {
   return HAL_QSPI_Transmit(&hqspi, &config, HAL_TIMEOUT) == HAL_OK;
 }
 
+} // namespace
+
+flash_error_t read(uint32_t addr, uint32_t col, uint8_t *data_out, size_t len, bool check_ecc) {
+  // main + spare area are addressable as one column range
+  if (col + len > NAND_PAGE_SIZE + NAND_SPARE_PAGE_SIZE) {
+    return FLASH_FAIL;
+  }
+
+  // load page into cache
+  QSPI_CommandTypeDef cmd;
+  build_cmd(&cmd, {.opcode = CMD_NAND_PAGE_READ, .addr = addr, .addr_size = QSPI_ADDRESS_24_BITS});
+  QSPI_CMD_OR_RETURN(&cmd, FLASH_FAIL);
+
+  // wait for page to arrive in cache
+  flash_error_t err = wait_until_ready(60);
+  if (err != FLASH_READY) {
+    return err;
+  }
+
+  // tell cache to send data, starting at the given column offset
+  build_cmd(&cmd, {.opcode = CMD_NAND_READ_FROM_CACHE_QUAD,
+                   .addr = col,
+                   .addr_size = QSPI_ADDRESS_16_BITS,
+                   .data_size = static_cast<uint32_t>(len),
+                   .dummy_cycles = 8,
+                   .data_lines = QSPI_DATA_4_LINES});
+  QSPI_CMD_OR_RETURN(&cmd, FLASH_FAIL);
+
+  // receive data from cache across spi
+  QSPI_RECV_OR_RETURN(data_out, FLASH_FAIL);
+
+  if (!check_ecc) {
+    return FLASH_SUCCESS;
+  }
+
+  // load status register
+  flash_status_a_t status_a;
+  memset(&status_a, 0, sizeof(status_a));
+  if (!get_status_a(&status_a)) {
+    return FLASH_FAIL;
+  }
+
+  // check whether read was ok
+  if (status_a.ECCS != 0) {
+    return FLASH_FAIL;
+  }
+
+  return FLASH_SUCCESS;
+}
+
+flash_error_t write_to_cache(uint8_t *data, size_t len) {
+  // does cache page have enough space?
+  if (cache_offset + len > NAND_PAGE_SIZE) {
+    return FLASH_FAIL;
+  }
+
+  // The first write to cache needs to use Program Load to clear cache
+  // and afterwards need to use Load Random to not overwrite content
+  uint32_t nand_cmd = cache_loaded ? CMD_NAND_PROGRAM_LOAD_RANDOM : CMD_NAND_PROGRAM_LOAD;
+
+  // load data into cache
+  QSPI_CommandTypeDef cmd;
+  build_cmd(&cmd, {.opcode = nand_cmd, .addr = cache_offset, .addr_size = QSPI_ADDRESS_16_BITS, .data_size = len});
+  QSPI_CMD_OR_RETURN(&cmd, FLASH_FAIL);
+
+  // send data across spi into cache
+  QSPI_TRANSMIT_OR_RETURN(data, FLASH_FAIL);
+
+  cache_loaded = true;
+  cache_offset += len;
+  return FLASH_SUCCESS;
+}
+
+flash_error_t program(uint32_t addr) {
+  // chip can lose commands if it is busy when instruction occurs
+  // ensure worst case timeout is waited until chip free
+  flash_error_t err = wait_until_ready(WORST_CASE_PROGRAM_TIMEOUT);
+  if (err != FLASH_READY)
+    return err;
+
+  // write enable
+  QSPI_CommandTypeDef cmd;
+  build_cmd(&cmd, {.opcode = CMD_NAND_WRITE_ENABLE});
+  QSPI_CMD_OR_RETURN(&cmd, FLASH_FAIL);
+
+  // commit cache to memory
+  build_cmd(&cmd, {.opcode = CMD_NAND_PROGRAM_EXECUTE, .addr = addr, .addr_size = QSPI_ADDRESS_24_BITS});
+  QSPI_CMD_OR_RETURN(&cmd, FLASH_FAIL);
+
+  // wait for cache to be written
+  err = wait_until_ready(WORST_CASE_MEMORY_TIMEOUT);
+  cache_loaded = false;
+  cache_offset = 0;
+
+  if (err != FLASH_READY) {
+    return err;
+  }
+
+  // ensure successful write
+  flash_status_a_t status_a;
+  if (!get_status_a(&status_a)) {
+    return FLASH_FAIL;
+  }
+
+  if (status_a.P_FAIL) {
+    return FLASH_FAIL;
+  }
+
+  return FLASH_SUCCESS;
+}
+
+flash_error_t erase_block(uint32_t addr) {
+  // ensure chip is done with any previous erases
+  flash_error_t err = wait_until_ready(WORST_CASE_MEMORY_TIMEOUT);
+  if (err != FLASH_READY)
+    return err;
+
+  // write enable
+  QSPI_CommandTypeDef cmd;
+  build_cmd(&cmd, {.opcode = CMD_NAND_WRITE_ENABLE});
+  QSPI_CMD_OR_RETURN(&cmd, FLASH_FAIL);
+
+  // erase block
+  build_cmd(&cmd, {.opcode = CMD_NAND_BLOCK_ERASE, .addr = addr, .addr_size = QSPI_ADDRESS_24_BITS});
+  QSPI_CMD_OR_RETURN(&cmd, FLASH_FAIL);
+
+  // wait for erase to finish
+  err = wait_until_ready(WORST_CASE_MEMORY_TIMEOUT);
+  if (err != FLASH_READY) {
+    return err;
+  }
+
+  // ensure erase was successful
+  flash_status_a_t status_a;
+  if (!get_status_a(&status_a)) {
+    return FLASH_FAIL;
+  }
+
+  if (status_a.E_FAIL) {
+    return FLASH_FAIL;
+  }
+
+  return FLASH_SUCCESS;
+}
+
 bool begin() {
   if (!init_qspi_peripheral()) {
     CommsSerial.println("QSPI Init Failed");
@@ -389,6 +405,7 @@ bool begin() {
   }
 
   cache_loaded = false;
+  cache_offset = 0;
 
   CommsSerial.println("NAND flash driver ready");
 
