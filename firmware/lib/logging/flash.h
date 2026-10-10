@@ -1,5 +1,5 @@
 /**
- * @file flash.hpp
+ * @file flash.h
  * @brief NAND flash header for GD5F1GQ5UEYIGR chip
  *
  * @author Daniel Proano (dproano@purdue.edu)
@@ -9,7 +9,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef enum { FLASH_SUCCESS, FLASH_FAIL, FLASH_TIMED_OUT } flash_error_t;
+typedef enum { FLASH_SUCCESS, FLASH_READY, FLASH_FAIL, FLASH_TIMED_OUT } flash_error_t;
 
 typedef struct __attribute__((packed)) {
   uint8_t OIP : 1;
@@ -34,7 +34,7 @@ bool begin();
 // Reads len bytes from page addr starting at column col (spare area begins at NAND_PAGE_SIZE)
 flash_error_t read(uint32_t addr, uint32_t col, uint8_t *out, size_t len, bool check_ecc = true);
 
-flash_error_t write_to_cache(uint32_t col_addr, uint8_t *data, size_t len);
+flash_error_t write_to_cache(uint8_t *data, size_t len);
 
 flash_error_t program(uint32_t addr);
 

@@ -1,5 +1,5 @@
 /**
- * @file flash_defs.hpp
+ * @file flash_defs.h
  * @brief Bad Page Table Header
  *
  * @author Daniel Proano (dproano@purdue.edu)
