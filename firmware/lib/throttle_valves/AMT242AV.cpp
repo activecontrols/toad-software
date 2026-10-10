@@ -1,138 +1,102 @@
 #include "AMT242AV.h"
 
-// TODO - audit code below and update for EC, optionally break out RS485 funcs
-
 // max reading for a 12 bit encoder
 #define MAX_READING ((1 << 12) - 1)
 
-AMT242AV::AMT242AV(Uart &uart, unsigned int SEL, uint8_t ID) : uart(uart), SEL(SEL), ID(ID) {}
+AMT242AV::AMT242AV(RS485Device &device, uint8_t encoder_address) : device(device), encoder_address_(encoder_address) {}
 
-void AMT242AV::begin() {
-  digitalWrite(SEL, LOW);
-  pinMode(SEL, OUTPUT);
-}
-
-bool AMT242AV::wait_for_avail(unsigned long long delay_micros = 150) {
-  unsigned long long start_time = micros();
-  while (1) {
-    if (uart.available())
-      return true;
-    if (micros() - start_time > delay_micros)
-      return false;
-    delayMicroseconds(10);
-  }
-}
+void AMT242AV::begin() {}
 
 bool AMT242AV::_read_pos(uint16_t *out) {
+  // Send address to get encoder position
+  if (device.bus.write(encoder_address_) != 1)
+    return false;
+
+  // Read data
+  uint8_t data[2];
+  size_t n = device.read(data, sizeof(data), 150);
+
+  // Fail if data is not the correct size
+  if (n != sizeof(data))
+    return false;
+
+  // Define variables
   uint16_t transmission;
   uint16_t pos;
   uint8_t cs_transmission;
   uint8_t cs_real;
 
-  // clear uart receive buffer
-  while (uart.available())
-    uart.read();
+  // Build the transmission from the data
+  transmission = ((uint16_t)data[1] << 8) | data[0];
+  // Remove the top 2 checksum bits
+  transmission &= 0b0011111111111111;
+  // Remove the bottom 2 bits to obtain the 12-bit encoder position
+  pos = transmission >> 2;
 
-  // switch MAX485 to transmit mode
-  digitalWrite(SEL, HIGH);
-  delayMicroseconds(70);
+  // Isolate checksum from transmitted data
+  cs_transmission = (data[1] >> 6) & 0b11;
 
-  // send read position command
-  uart.write(ID);
-  uart.flush();
-
-  //   // wait for uart to finish transmission
-  //   while (!(ll_uart_intf->ISR & USART_ISR_TC))
-  //     ;
-
-  uint16_t res = 0;
-  if (!wait_for_avail()) {
-    goto FAIL;
-  }
-  res |= uart.read();
-  if (!wait_for_avail()) {
-    goto FAIL;
-  }
-  res |= uart.read() << 8;
-
-  digitalWrite(SEL, LOW);
-
-  // lowest 14 bits contain data
-  transmission = res & 0b0011111111111111;
-  pos = transmission >> 2; // we are using 12 bit encoder, datasheet says to throw out lowest two bits
-
-  // bits 15 and 16 are checksum
-  cs_transmission = (res >> 14) & 0b11;
-
+  // Calculate real checksum
   cs_real = 0;
 
-  // highest bit is for odd-numbered bits, second highest is for even
-  // checksums calculated using odd parity
   for (int i = 0; i < 6; ++i) {
     cs_real ^= pos >> (i * 2);
   }
 
-  // odd parity
+  // Odd parity
   cs_real = (~cs_real) & 0b11;
 
   if (cs_real != cs_transmission)
-    goto FAIL;
+    return false;
 
   *out = pos;
 
   return true;
-
-// fail condition could be either transmission timed out or checksum failed
-FAIL:
-  // set MAX485 to inactive state
-  digitalWrite(SEL, LOW);
-  return false;
 }
 
 // read position as a fraction of total range of motion (outputs float between 0.0 and 1.0)
 // (0.0 -> 0 degrees, ..., 1.0 -> 360 degrees)
 // this encoder is 12 bit resolution which is approx. 0.1 degree resolution
 bool AMT242AV::read_pos(float *out, int max_tries) {
+  if (!device.beginTransaction())
+    return false;
+
   uint16_t raw_pos;
   for (int i = 0; i < max_tries; ++i) {
     if (_read_pos(&raw_pos)) {
       *out = (float)raw_pos / MAX_READING;
+      device.endTransaction();
       return true;
     }
 
     delayMicroseconds(150);
   }
 
+  device.endTransaction();
+
   return false;
 }
 
-void AMT242AV::zero() {
-  // switch MAX485 to transmit mode
-  digitalWrite(SEL, HIGH);
+bool AMT242AV::zero() {
+  if (!device.beginTransaction())
+    return false;
 
-  delayMicroseconds(70);
+  uint8_t message = encoder_address_ | 0x02;
+  bool success = device.bus.write(message) == 1;
 
-  uart.write(ID | 0x02);
-  uart.flush(); // flush doesn't do anything on portenta h7 but maybe on other platforms it will
+  device.endTransaction();
 
-  //   // wait for uart to finish transmission
-  //   while (!(ll_uart_intf->ISR & USART_ISR_TC))
-  //     ;
-  digitalWrite(SEL, LOW);
+  return success;
 }
 
-void AMT242AV::reset() {
-  // switch MAX485 to transmit mode
-  digitalWrite(SEL, HIGH);
+bool AMT242AV::reset() {
+  if (!device.beginTransaction())
+    return false;
 
-  delayMicroseconds(70);
+  uint8_t message = encoder_address_ | 0x03;
+  bool success = device.bus.write(message) == 1;
 
-  uart.write(ID | 0x03);
-  uart.flush(); // flush doesn't do anything on portenta h7 but maybe on other platforms it will
+  device.endTransaction();
 
-  //   // wait for uart to finish transmission
-  //   while (!(ll_uart_intf->ISR & USART_ISR_TC))
-  //     ;
-
-  digitalWrite(SEL, LOW);
+  return success;
 }

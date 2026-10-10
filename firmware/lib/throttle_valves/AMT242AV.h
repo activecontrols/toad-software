@@ -1,23 +1,21 @@
 #pragma once
 
+#include "RS485.h"
 #include <Arduino.h>
 
-// library for communicating with an AMT242A-V absolute encoder (over a uart interface -> MAX485 module -> absolute
-// encoder)
+// Library for communicating with a single AMT242A-V absolute encoder using the RS485 bus class
 class AMT242AV {
 public:
-  AMT242AV(Uart &uart, unsigned int SEL, uint8_t ID);
+  AMT242AV(RS485Device &device, uint8_t encoder_address);
   void begin();
 
   bool read_pos(float *out, int max_retries = 10);
-  void zero();
-  void reset();
+  bool zero();
+  bool reset();
 
 private:
-  Uart &uart;
-  unsigned int SEL;
-  uint8_t ID;
+  RS485Device &device;
+  uint8_t encoder_address_;
 
-  bool wait_for_avail(unsigned long long);
   bool _read_pos(uint16_t *);
 };
