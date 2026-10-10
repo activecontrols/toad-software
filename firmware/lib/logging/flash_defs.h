@@ -1,5 +1,5 @@
 /**
- * @file flash_defs.hpp
+ * @file flash_defs.h
  * @brief NAND flash definitions for the GD5F1GQ5xExxG chip
  *
  * @author Daniel Proano (dproano@purdue.edu)
