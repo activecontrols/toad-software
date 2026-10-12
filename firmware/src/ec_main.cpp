@@ -5,13 +5,14 @@
 #include "ErrorCounters.h"
 #include "PressureSensors.h"
 #include "RCS.h"
+#include "RS485.h"
 #include "SolenoidValves.h"
 #include "TVC_Actuators.h"
 #include "TemperatureSensors.h"
 #include "ThrottleValves.h"
 #include "ValveController.h"
 #include "fdcan_toad.h"
-#include "RS485.h"
+
 
 // shared interfaces
 // CommsSerial_t<USBSerial> USB_CommsSerial;
@@ -72,6 +73,7 @@ void loop() {
   while (CommsSerial.available()) {
     CommandRouter::receive_byte(CommsSerial.read());
   }
+  ThrottleValves::update();
 }
 
 // TODO - these?
