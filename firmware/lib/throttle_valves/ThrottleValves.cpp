@@ -48,7 +48,13 @@ void ThrottleValve::set_speed(int16_t speed) {
 }
 
 bool ThrottleValve::read_position(float *pos) {
-  return encoder.read_pos(pos);
+  float *new_pos;
+  if (encoder.read_pos(new_pos) == false) {
+    return false;
+  }
+
+  *pos = 360.0f - *new_pos * 360.0f;
+  return true;
 }
 
 bool ThrottleValve::zero_encoder() {
@@ -68,14 +74,12 @@ void ThrottleValve::update(bool log_csv) {
   if (millis() - last_update_ms < ENCODER_UPDATE_INTERVAL_MS)
     return;
 
-  float current_pos = 0.0f;
+  float current_angle = 0.0f;
 
-  if (!encoder.read_pos(&current_pos)) {
+  if (!read_position(&current_angle)) {
     last_update_ms = millis();
     return; // error occurred while trying to read encoder position
   }
-
-  float current_angle = 360.0f - current_pos * 360.0f; // convert position to deg
 
   float error = wrapAngleDeg(target_angle - current_angle);
   float target_speed = error * K; // proportional controller
@@ -133,7 +137,7 @@ void get_ox_position_cmd(const char *cmd) {
   if (!ox_valve.read_position(&pos)) {
     CommsSerial.println("Failed to read encoder position\n");
   } else {
-    CommsSerial.printf("Position: %.2f deg\n", pos * 360.0f);
+    CommsSerial.printf("Position: %.2f deg\n", pos);
   }
 }
 
