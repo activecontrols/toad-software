@@ -31,8 +31,9 @@ namespace Flash {
 
 bool begin();
 
-// Reads len bytes from page addr starting at column col (spare area begins at NAND_PAGE_SIZE)
-flash_error_t read(uint32_t addr, uint32_t col, uint8_t *out, size_t len, bool check_ecc = true);
+flash_error_t read_main(uint32_t addr, uint32_t offset, uint8_t *out, size_t len, bool check_ecc = true);
+
+flash_error_t read_spare(uint32_t addr, uint32_t offset, uint8_t *out, size_t len, bool check_ecc = true);
 
 flash_error_t write_to_cache(uint8_t *data, size_t len);
 
