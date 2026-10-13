@@ -95,7 +95,7 @@ bool scan_factory_bad_blocks(void) {
     uint32_t cur_page = i * NAND_PAGES_PER_BLOCK;
 
     uint8_t bad_block_mark;
-    if (Flash::read(cur_page, NAND_PAGE_SIZE, &bad_block_mark, 1, false) != FLASH_SUCCESS) {
+    if (Flash::read_spare(cur_page, 0, &bad_block_mark, 1, false) != FLASH_SUCCESS) {
       return false;
     }
 
