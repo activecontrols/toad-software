@@ -109,55 +109,52 @@ namespace ThrottleValves {
 ThrottleValve ox_valve(CAN_ID_STEPPER_OX, RS485s::enc_ox, 0x54);
 ThrottleValve fu_valve(CAN_ID_STEPPER_FU, RS485s::enc_fu, 0x54);
 
-// make those templated functions
-
-void set_ox_position_cmd(const char *cmd) {
+// Templated position command function
+template <ThrottleValve &valve> void set_position_cmd(const char *cmd) {
   float angle = 0.0f;
   if (sscanf(cmd, "%f", &angle) != 1) {
     CommsSerial.println("Usage: motor_set_position <angle>\n");
     return;
   }
-
-  ox_valve.set_position(angle);
-  return;
+  valve.set_position(angle);
 }
 
-void set_ox_speed_cmd(const char *cmd) {
+// Templated speed command function
+template <ThrottleValve &valve> void set_speed_cmd(const char *cmd) {
   int16_t spd;
   if (sscanf(cmd, "%hd", &spd) != 1) {
-    CommsSerial.println("Usage: set_speed rpm");
+    CommsSerial.println("Usage: set_speed rpm\n");
     return;
   }
-  ox_valve.set_speed(spd);
+  valve.set_speed(spd);
 }
 
-void get_ox_position_cmd(const char *cmd) {
+// Templated get position command function
+template <ThrottleValve &valve> void get_position_cmd(const char *cmd) {
+  (void)cmd;
   float pos = 0.0f;
 
-  if (!ox_valve.read_position(&pos)) {
+  if (!valve.read_position(&pos)) {
     CommsSerial.println("Failed to read encoder position\n");
   } else {
     CommsSerial.printf("Position: %.2f deg\n", pos);
   }
 }
 
-void stop_ox_valve_cmd(const char *cmd) {
+// Templated stop command function
+template <ThrottleValve &valve> void stop_valve_cmd(const char *cmd) {
   (void)cmd;
-
-  ox_valve.stop();
-
-  return;
+  valve.stop();
 }
 
-void zero_ox_encder_cmd(const char *cmd) {
+// Templated zero encoder command function
+template <ThrottleValve &valve> void zero_encoder_cmd(const char *cmd) {
   (void)cmd;
-
-  ox_valve.zero_encoder();
-
-  return;
+  valve.zero_encoder();
 }
 
 // This probably won't be used for static test / actual vehicle because control code should go somewhere else
+// This should probably be removed
 void motor_follow_profile_cmd(const char *cmd) {
   csv_time_start_ms = millis();
   CommsSerial.print("Time (s),Error (deg),Target Speed (rpm),Current Angle (deg),Target Angle (deg)\n");
@@ -196,11 +193,17 @@ bool begin() {
   ox_valve.begin();
   fu_valve.begin();
 
-  CommandRouter::add(set_ox_position_cmd, "set_ox_position");
-  CommandRouter::add(set_ox_speed_cmd, "set_ox_speed");
-  CommandRouter::add(get_ox_position_cmd, "get_ox_position");
-  CommandRouter::add(stop_ox_valve_cmd, "stop_ox_valve");
-  CommandRouter::add(zero_ox_encder_cmd, "zero_ox_encoder");
+  CommandRouter::add(set_position_cmd<ox_valve>, "set_ox_position");
+  CommandRouter::add(set_speed_cmd<ox_valve>, "set_ox_speed");
+  CommandRouter::add(get_position_cmd<ox_valve>, "get_ox_position");
+  CommandRouter::add(stop_valve_cmd<ox_valve>, "stop_ox_valve");
+  CommandRouter::add(zero_encoder_cmd<ox_valve>, "zero_ox_encoder");
+
+  CommandRouter::add(set_position_cmd<fu_valve>, "set_fu_position");
+  CommandRouter::add(set_speed_cmd<fu_valve>, "set_fu_speed");
+  CommandRouter::add(get_position_cmd<fu_valve>, "get_fu_position");
+  CommandRouter::add(stop_valve_cmd<fu_valve>, "stop_fu_valve");
+  CommandRouter::add(zero_encoder_cmd<fu_valve>, "zero_fu_encoder");
 
   return true;
 }
