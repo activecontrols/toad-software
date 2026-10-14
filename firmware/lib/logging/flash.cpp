@@ -187,8 +187,7 @@ void HAL_QSPI_MspInit(QSPI_HandleTypeDef *) {
   gpio_init.Mode = GPIO_MODE_AF_PP;
   gpio_init.Pull = GPIO_NOPULL;
 
-  // Should speed be very high or high?
-  gpio_init.Speed = GPIO_SPEED_FREQ_HIGH;
+  gpio_init.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
 
   // PB2, PD11, PD12, PD13, PF7 all under AF9
   gpio_init.Alternate = GPIO_AF9_QUADSPI;
@@ -213,6 +212,10 @@ bool init_qspi_peripheral() {
   uint32_t f_hclk = HAL_RCC_GetHCLKFreq();
 
   hqspi.Instance = QUADSPI;
+
+  // Clock Prescaler here is 32 bits but 
+  // must be a value between 0 and 255 per
+  // stm32h7xx_hal_qspi.h:53
   hqspi.Init.ClockPrescaler = f_hclk / FREQ_MAX;
   if (hqspi.Init.ClockPrescaler > 255)
     hqspi.Init.ClockPrescaler = 255;
@@ -221,8 +224,14 @@ bool init_qspi_peripheral() {
   hqspi.Init.ClockMode = QSPI_CLOCK_MODE_0;
   hqspi.Init.SampleShifting = QSPI_SAMPLE_SHIFTING_NONE;
   hqspi.Init.ChipSelectHighTime = QSPI_CS_HIGH_TIME_8_CYCLE;
+  
+  // 128 MB = 2^27 bytes
+  // Flash size + 1 = # of bits to address whole array
+  // Flash size = 27 - 1 = 26
   hqspi.Init.FlashSize = 26;
   hqspi.Init.FlashID = QSPI_FLASH_ID_1;
+  
+  // Dual flash defaults to disabled
 
   // Internally calls MspInit
   return HAL_QSPI_Init(&hqspi) == HAL_OK;
@@ -238,17 +247,22 @@ bool reset_and_check_id() {
   QSPI_CMD_OR_RETURN(&cmd, false);
 
   // wait for reset to happen
-  delayMicroseconds(500);
+  delayMicroseconds(RESET_MAX_DELAY_US);
 
-  // read id - opcode, 1 dummy byte, then MID/DID data bytes
-  build_cmd({.opcode = CMD_NAND_READ_ID, .data_size = 2, .dummy_cycles = 8});
+  // read ID bytes
+  // read page 14 of DS-00889
+  cmd_spec read_cmd = {
+    .opcode = CMD_NAND_READ_ID,
+    .data_size = 2,
+    .dummy_cycles = 8,
+  };
+  build_cmd(read_cmd);
   QSPI_CMD_OR_RETURN(&cmd, false);
 
   uint8_t id[2];
   QSPI_RECV_OR_RETURN(id, false);
 
-  // MID & DID ID values for GD5F1GQ5UExxG
-  if (id[0] != 0xC8 || id[1] != 0x51) {
+  if (id[0] != MANUFACTURER_ID || id[1] != DEVICE_ID) {
     CommsSerial.print("Bad Chip ID Values");
     return false;
   }
@@ -257,10 +271,13 @@ bool reset_and_check_id() {
 }
 
 bool enable_quad_mode() {
-  QSPI_CommandTypeDef cmd;
-
   // tell registers to send config
-  build_cmd({.opcode = CMD_NAND_GET_FEATURES, .addr = FEATURE_ADDR_CONFIG, .data_size = 1});
+  cmd_spec get_config_cmd = {
+    .opcode = CMD_NAND_GET_FEATURES,
+    .addr = FEATURE_ADDR_CONFIG,
+    .data_size = 1,
+  };
+  QSPI_CommandTypeDef cmd = build_cmd(get_config_cmd);
   QSPI_CMD_OR_RETURN(&cmd, false);
 
   // receive config
@@ -270,43 +287,54 @@ bool enable_quad_mode() {
   config |= CONFIG_QE_BIT;
 
   // write updated config back
-  build_cmd({.opcode = CMD_NAND_SET_FEATURES, .addr = FEATURE_ADDR_CONFIG, .data_size = 1});
+  cmd_spec set_config_cmd = {
+    .opcode = CMD_NAND_SET_FEATURES,
+    .addr = FEATURE_ADDR_CONFIG,
+    .data_size = 1,
+  };
+  build_cmd(set_config_cmd);
   QSPI_CMD_OR_RETURN(&cmd, false);
 
   return HAL_QSPI_Transmit(&hqspi, &config, HAL_TIMEOUT) == HAL_OK;
 }
 
-// Reads len bytes from page addr, starting at column col (spare area begins at NAND_PAGE_SIZE).
-// Callers outside this file go through read_main()/read_spare(), which keep col scoped to one region.
 flash_error_t read_at_col(uint32_t addr, uint32_t col, uint8_t *data_out, size_t len, bool check_ecc) {
-  // main + spare area are addressable as one column range
+  // Don't read past the chip's main page and spare page bounds
   if (col + len > NAND_PAGE_SIZE + NAND_SPARE_PAGE_SIZE) {
     return FLASH_FAIL;
   }
 
   // load page into cache
-  QSPI_CommandTypeDef cmd;
-  build_cmd({.opcode = CMD_NAND_PAGE_READ, .addr = addr, .addr_size = QSPI_ADDRESS_24_BITS});
+  cmd_spec page_load_cmd = {
+    .opcode = CMD_NAND_PAGE_READ, 
+    .addr = addr,
+    .addr_size = QSPI_ADDRESS_24_BITS,
+  };
+  QSPI_CommandTypeDef cmd = build_cmd(page_load_cmd);
   QSPI_CMD_OR_RETURN(&cmd, FLASH_FAIL);
 
   // wait for page to arrive in cache
-  flash_error_t err = wait_until_ready(60);
+  flash_error_t err = wait_until_ready(READ_ARRAY_WITH_ECC_MAX_DELAY_US);
   if (err != FLASH_READY) {
     return err;
   }
 
   // tell cache to send data, starting at the given column offset
-  build_cmd({.opcode = CMD_NAND_READ_FROM_CACHE_QUAD,
-                   .addr = col,
-                   .addr_size = QSPI_ADDRESS_16_BITS,
-                   .data_size = static_cast<uint32_t>(len),
-                   .dummy_cycles = 8,
-                   .data_lines = QSPI_DATA_4_LINES});
+  cmd_spec cache_send_cmd = {
+    .opcode = CMD_NAND_READ_FROM_CACHE_QUAD,
+    .addr = col,
+    .addr_size = QSPI_ADDRESS_16_BITS,
+    .data_size = static_cast<uint32_t>(len),
+    .dummy_cycles = 8,
+    .data_lines = QSPI_DATA_4_LINES
+  };
+  build_cmd(cache_send_cmd);
   QSPI_CMD_OR_RETURN(&cmd, FLASH_FAIL);
 
   // receive data from cache across spi
   QSPI_RECV_OR_RETURN(data_out, FLASH_FAIL);
 
+  // if we dont have to check ecc, end early
   if (!check_ecc) {
     return FLASH_SUCCESS;
   }
@@ -319,7 +347,7 @@ flash_error_t read_at_col(uint32_t addr, uint32_t col, uint8_t *data_out, size_t
   }
 
   // check whether read was ok
-  if (status_a.ECCS != 0) {
+  if (status_a.ECCS == UNCORRECTED_ERROR) {
     return FLASH_FAIL;
   }
 
@@ -327,6 +355,7 @@ flash_error_t read_at_col(uint32_t addr, uint32_t col, uint8_t *data_out, size_t
 }
 
 } // namespace
+
 
 flash_error_t read_main(uint32_t addr, uint32_t offset, uint8_t *out, size_t len, bool check_ecc) {
   if (offset + len > NAND_PAGE_SIZE) {
@@ -355,8 +384,13 @@ flash_error_t write_to_cache(uint8_t *data, size_t len) {
   uint32_t nand_cmd = cache_loaded ? CMD_NAND_PROGRAM_LOAD_RANDOM : CMD_NAND_PROGRAM_LOAD;
 
   // load data into cache
-  QSPI_CommandTypeDef cmd;
-  build_cmd({.opcode = nand_cmd, .addr = cache_offset, .addr_size = QSPI_ADDRESS_16_BITS, .data_size = len});
+  cmd_spec load_cmd = {
+    .opcode = nand_cmd, 
+    .addr = cache_offset, 
+    .addr_size = QSPI_ADDRESS_16_BITS, 
+    .data_size = len
+  };
+  QSPI_CommandTypeDef cmd = build_cmd(load_cmd);
   QSPI_CMD_OR_RETURN(&cmd, FLASH_FAIL);
 
   // send data across spi into cache
@@ -374,13 +408,18 @@ flash_error_t program(uint32_t addr) {
   if (err != FLASH_READY)
     return err;
 
-  // write enable
-  QSPI_CommandTypeDef cmd;
-  build_cmd(&cmd, {.opcode = CMD_NAND_WRITE_ENABLE});
+  cmd_spec write_enable_cmd = {
+    .opcode = CMD_NAND_WRITE_ENABLE
+  };
+  QSPI_CommandTypeDef cmd = build_cmd(write_enable_cmd);
   QSPI_CMD_OR_RETURN(&cmd, FLASH_FAIL);
 
-  // commit cache to memory
-  build_cmd(&cmd, {.opcode = CMD_NAND_PROGRAM_EXECUTE, .addr = addr, .addr_size = QSPI_ADDRESS_24_BITS});
+  cmd_spec commit_cache_cmd = {
+    .opcode = CMD_NAND_PROGRAM_EXECUTE, 
+    .addr = addr, 
+    .addr_size = QSPI_ADDRESS_24_BITS
+  };
+  cmd = build_cmd(commit_cache_cmd);
   QSPI_CMD_OR_RETURN(&cmd, FLASH_FAIL);
 
   // wait for cache to be written
@@ -394,6 +433,7 @@ flash_error_t program(uint32_t addr) {
 
   // ensure successful write
   flash_status_a_t status_a;
+  memset(&status_a, 0, sizeof(status_a));
   if (!get_status_a(&status_a)) {
     return FLASH_FAIL;
   }
@@ -411,13 +451,18 @@ flash_error_t erase_block(uint32_t addr) {
   if (err != FLASH_READY)
     return err;
 
-  // write enable
-  QSPI_CommandTypeDef cmd;
-  build_cmd(&cmd, {.opcode = CMD_NAND_WRITE_ENABLE});
+  cmd_spec enable_write_cmd = {
+    .opcode = CMD_NAND_WRITE_ENABLE,
+  };
+  QSPI_CommandTypeDef cmd = build_cmd(enable_write_cmd);
   QSPI_CMD_OR_RETURN(&cmd, FLASH_FAIL);
 
-  // erase block
-  build_cmd(&cmd, {.opcode = CMD_NAND_BLOCK_ERASE, .addr = addr, .addr_size = QSPI_ADDRESS_24_BITS});
+  cmd_spec erase_cmd = {
+    .opcode = CMD_NAND_BLOCK_ERASE, 
+    .addr = addr, 
+    .addr_size = QSPI_ADDRESS_24_BITS
+  };
+  cmd = build_cmd(erase_cmd);
   QSPI_CMD_OR_RETURN(&cmd, FLASH_FAIL);
 
   // wait for erase to finish
@@ -428,6 +473,7 @@ flash_error_t erase_block(uint32_t addr) {
 
   // ensure erase was successful
   flash_status_a_t status_a;
+  memset(&status_a, 0, sizeof(status_a));
   if (!get_status_a(&status_a)) {
     return FLASH_FAIL;
   }
