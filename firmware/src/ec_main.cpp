@@ -12,6 +12,7 @@
 #include "ValveController.h"
 #include "fdcan_toad.h"
 #include "RS485.h"
+#include "ErrorCounters.h"
 
 // shared interfaces
 // CommsSerial_t<USBSerial> USB_CommsSerial;
