@@ -12,6 +12,7 @@
 
 #define NUM_BITS (NAND_NUM_BLOCKS)
 #define NUM_BYTES_TRACKING_BLOCKS (NUM_BITS / 8)
+#define PAGE_MARKED_GOOD (0xFF)
 
 namespace Bad_Page_Table {
 
@@ -23,4 +24,4 @@ bool is_page_good(uint32_t address);
 
 void mark_page_bad(uint32_t address);
 
-} // namespace Bad_Page_Table
+} 
