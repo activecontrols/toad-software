@@ -45,15 +45,6 @@ uint32_t cache_offset = 0;
       return (fail_ret);                                             \
   } while (0)
 
-// Call a funtion and fail if bad
-#define ACTION_OR_FAIL(function, msg) \
-  do {                                \
-    if (!function()) {                \
-      CommsSerial.println(msg);       \
-      return false;                   \
-    }                                 \
-  } while (0)
-
 typedef struct {
   uint32_t opcode;
   uint32_t addr           = UINT32_MAX; // no address if max address
@@ -238,12 +229,10 @@ bool init_qspi_peripheral() {
 }
 
 bool reset_and_check_id() {
-  QSPI_CommandTypeDef cmd;
-
   cmd_spec reset_cmd = {
     .opcode = CMD_NAND_RESET,
   };
-  build_cmd(reset_cmd);
+  QSPI_CommandTypeDef cmd = build_cmd(reset_cmd);
   QSPI_CMD_OR_RETURN(&cmd, false);
 
   // wait for reset to happen
@@ -256,7 +245,7 @@ bool reset_and_check_id() {
     .data_size = 2,
     .dummy_cycles = 8,
   };
-  build_cmd(read_cmd);
+  cmd = build_cmd(read_cmd);
   QSPI_CMD_OR_RETURN(&cmd, false);
 
   uint8_t id[2];
@@ -292,7 +281,7 @@ bool enable_quad_mode() {
     .addr = FEATURE_ADDR_CONFIG,
     .data_size = 1,
   };
-  build_cmd(set_config_cmd);
+  cmd = build_cmd(set_config_cmd);
   QSPI_CMD_OR_RETURN(&cmd, false);
 
   return HAL_QSPI_Transmit(&hqspi, &config, HAL_TIMEOUT) == HAL_OK;
@@ -328,7 +317,7 @@ flash_error_t read_at_col(uint32_t addr, uint32_t col, uint8_t *data_out, size_t
     .dummy_cycles = 8,
     .data_lines = QSPI_DATA_4_LINES
   };
-  build_cmd(cache_send_cmd);
+  cmd = build_cmd(cache_send_cmd);
   QSPI_CMD_OR_RETURN(&cmd, FLASH_FAIL);
 
   // receive data from cache across spi
