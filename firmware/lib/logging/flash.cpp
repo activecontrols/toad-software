@@ -15,6 +15,41 @@
 #include <stm32h747xx.h>
 #include <string.h>
 
+void HAL_QSPI_MspInit(QSPI_HandleTypeDef *) {
+  __HAL_RCC_QSPI_CLK_ENABLE();
+
+  __HAL_RCC_QSPI_FORCE_RESET();
+  __HAL_RCC_QSPI_RELEASE_RESET();
+
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOD_CLK_ENABLE();
+  __HAL_RCC_GPIOF_CLK_ENABLE();
+  __HAL_RCC_GPIOG_CLK_ENABLE();
+
+  GPIO_InitTypeDef gpio_init{};
+  gpio_init.Mode = GPIO_MODE_AF_PP;
+  gpio_init.Pull = GPIO_NOPULL;
+
+  gpio_init.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+
+  // PB2, PD11, PD12, PD13, PF7 all under AF9
+  gpio_init.Alternate = GPIO_AF9_QUADSPI;
+  
+  gpio_init.Pin = GPIO_PIN_2;
+  HAL_GPIO_Init(GPIOB, &gpio_init);
+
+  gpio_init.Pin = GPIO_PIN_11 | GPIO_PIN_12 | GPIO_PIN_13;
+  HAL_GPIO_Init(GPIOD, &gpio_init);
+
+  gpio_init.Pin = GPIO_PIN_7;
+  HAL_GPIO_Init(GPIOF, &gpio_init);
+
+  // PG6 is under AF10
+  gpio_init.Alternate = GPIO_AF10_QUADSPI;
+  gpio_init.Pin = GPIO_PIN_6;
+  HAL_GPIO_Init(GPIOG, &gpio_init);
+}
+
 namespace Flash {
 
 namespace {
@@ -248,23 +283,26 @@ bool enable_quad_mode() {
   };
   cmd = build_cmd(set_config_cmd);
   QSPI_CMD_OR_RETURN(&cmd, false);
+  
+  if (HAL_QSPI_Transmit(&hqspi, &config, HAL_TIMEOUT) != HAL_OK)
+    return false;
 
   // confirm QE bit was set
   cmd_spec read_status_cmd = {
     .opcode = CMD_NAND_GET_FEATURES,
-    .addr = FEATURE_ADDR_STATUS_A,
+    .addr = FEATURE_ADDR_CONFIG,
     .data_size = 1,
   };
   cmd = build_cmd(read_status_cmd);
   QSPI_CMD_OR_RETURN(&cmd, false);
 
-  uint8_t status_a;
-  QSPI_RECV_OR_RETURN(&status_a, false);
+  uint8_t config;
+  QSPI_RECV_OR_RETURN(&config, false);
 
-  if ((status_a & CONFIG_QE_BIT) != 1)
+  if (!(config & CONFIG_QE_BIT))
     return false;
   
-  return HAL_QSPI_Transmit(&hqspi, &config, HAL_TIMEOUT) == HAL_OK;
+  return true;
 }
 
 flash_error_t read_at_col(uint32_t addr, uint32_t col, uint8_t *data_out, size_t len, bool check_ecc) {
@@ -324,41 +362,6 @@ flash_error_t read_at_col(uint32_t addr, uint32_t col, uint8_t *data_out, size_t
 }
 
 } // namespace
-
-void HAL_QSPI_MspInit(QSPI_HandleTypeDef *) {
-  __HAL_RCC_QSPI_CLK_ENABLE();
-
-  __HAL_RCC_QSPI_FORCE_RESET();
-  __HAL_RCC_QSPI_RELEASE_RESET();
-
-  __HAL_RCC_GPIOB_CLK_ENABLE();
-  __HAL_RCC_GPIOD_CLK_ENABLE();
-  __HAL_RCC_GPIOF_CLK_ENABLE();
-  __HAL_RCC_GPIOG_CLK_ENABLE();
-
-  GPIO_InitTypeDef gpio_init{};
-  gpio_init.Mode = GPIO_MODE_AF_PP;
-  gpio_init.Pull = GPIO_NOPULL;
-
-  gpio_init.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-
-  // PB2, PD11, PD12, PD13, PF7 all under AF9
-  gpio_init.Alternate = GPIO_AF9_QUADSPI;
-  
-  gpio_init.Pin = GPIO_PIN_2;
-  HAL_GPIO_Init(GPIOB, &gpio_init);
-
-  gpio_init.Pin = GPIO_PIN_11 | GPIO_PIN_12 | GPIO_PIN_13;
-  HAL_GPIO_Init(GPIOD, &gpio_init);
-
-  gpio_init.Pin = GPIO_PIN_7;
-  HAL_GPIO_Init(GPIOF, &gpio_init);
-
-  // PG6 is under AF10
-  gpio_init.Alternate = GPIO_AF10_QUADSPI;
-  gpio_init.Pin = GPIO_PIN_6;
-  HAL_GPIO_Init(GPIOG, &gpio_init);
-}
 
 flash_error_t read_main(uint32_t addr, uint32_t offset, uint8_t *out, size_t len, bool check_ecc) {
   if (offset + len > NAND_PAGE_SIZE) {
