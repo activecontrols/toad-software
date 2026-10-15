@@ -69,8 +69,8 @@ bool begin(void) {
     .NbSectors = 1,
     .VoltageRange = FLASH_VOLTAGE_RANGE_3
   };
-
   uint32_t sector_error;
+
   HAL_FLASH_Unlock();
   bool erase_ok = HAL_FLASHEx_Erase(&erase_init, &sector_error) == HAL_OK;
   HAL_FLASH_Lock();
@@ -90,10 +90,17 @@ bool begin(void) {
   uint8_t word_buf[STM32_FLASH_WORD_SIZE];
   memcpy(word_buf, &BPT_MAGIC_NUMBER, sizeof(BPT_MAGIC_NUMBER));
 
+  uint32_t bpt_magic_addr = reinterpret_cast<uint32_t>(bpt_magic);
+  uint32_t word_buf_addr = reinterpret_cast<uint32_t>(word_buf);
+  HAL_StatusTypeDef status;
+
   HAL_FLASH_Unlock();
-  HAL_FLASH_Program(FLASH_TYPEPROGRAM_FLASHWORD, reinterpret_cast<uint32_t>(bpt_magic),
-                    reinterpret_cast<uint32_t>(word_buf));
+  status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_FLASHWORD, bpt_magic_addr, word_buf_addr != HAL_OK);
   HAL_FLASH_Lock();
+
+  if (status != HAL_OK)
+    CommsSerial.println("Flash program failed");
+    return false;
 
   CommsSerial.println("Bad Page Table initialized.");
   return true;
