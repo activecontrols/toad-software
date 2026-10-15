@@ -25,8 +25,6 @@ bool write(uint8_t struct_id, uint8_t *data, size_t len);
 
 bool flush();
 
-flash_error_t read_page(uint32_t page_addr, uint8_t *out);
-
 bool dump();
 
 } // namespace Logging
