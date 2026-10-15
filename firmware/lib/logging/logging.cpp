@@ -102,6 +102,19 @@ bool wait_for_continue() {
   return CommsSerial.read() == DUMP_CONTINUE_CHAR;
 }
 
+flash_error_t read_page(uint32_t page_addr, uint8_t *out) {
+  if (!Bad_Page_Table::is_page_good(page_addr)) {
+    return FLASH_FAIL;
+  }
+
+  flash_error_t err = Flash::read_main(page_addr, 0, out, NAND_PAGE_SIZE);
+  if (err == FLASH_ECC_FAIL) {
+    Bad_Page_Table::mark_page_bad(page_addr);
+  }
+
+  return err;
+}
+
 bool send_page(uint8_t *data) {
   if (!wait_for_continue()) {
     return false;
@@ -189,19 +202,6 @@ bool flush() {
   }
 
   return commit_page();
-}
-
-flash_error_t read_page(uint32_t page_addr, uint8_t *out) {
-  if (!Bad_Page_Table::is_page_good(page_addr)) {
-    return FLASH_FAIL;
-  }
-
-  flash_error_t err = Flash::read_main(page_addr, 0, out, NAND_PAGE_SIZE);
-  if (err == FLASH_ECC_FAIL) {
-    Bad_Page_Table::mark_page_bad(page_addr);
-  }
-
-  return err;
 }
 
 bool dump() {
