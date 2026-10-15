@@ -9,7 +9,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef enum { FLASH_SUCCESS, FLASH_READY, FLASH_FAIL, FLASH_TIMED_OUT } flash_error_t;
+typedef enum { FLASH_SUCCESS, FLASH_READY, FLASH_FAIL, FLASH_TIMED_OUT, FLASH_ECC_FAIL } flash_error_t;
 
 typedef struct __attribute__((packed)) {
   uint8_t OIP : 1;
@@ -35,7 +35,7 @@ flash_error_t read_main(uint32_t addr, uint32_t offset, uint8_t *out, size_t len
 
 flash_error_t read_spare(uint32_t addr, uint32_t offset, uint8_t *out, size_t len, bool check_ecc = true);
 
-flash_error_t write_to_cache(uint8_t *data, size_t len);
+flash_error_t write_to_cache(uint32_t col, uint8_t *data, size_t len);
 
 flash_error_t program(uint32_t addr);
 
