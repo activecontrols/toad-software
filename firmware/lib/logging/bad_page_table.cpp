@@ -95,12 +95,13 @@ bool begin(void) {
   HAL_StatusTypeDef status;
 
   HAL_FLASH_Unlock();
-  status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_FLASHWORD, bpt_magic_addr, word_buf_addr != HAL_OK);
+  status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_FLASHWORD, bpt_magic_addr, word_buf_addr);
   HAL_FLASH_Lock();
 
-  if (status != HAL_OK)
+  if (status != HAL_OK) {
     CommsSerial.println("Flash program failed");
     return false;
+  }
 
   CommsSerial.println("Bad Page Table initialized.");
   return true;
