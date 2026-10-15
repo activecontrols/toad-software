@@ -56,27 +56,24 @@ namespace {
 
 QSPI_HandleTypeDef hqspi;
 
-bool cache_loaded = false;
-uint32_t cache_offset = 0;
-
 // Header phase command
 #define QSPI_CMD_OR_RETURN(cmd_ptr, fail_ret)                       \
   do {                                                              \
-    if (HAL_QSPI_Command(&hqspi, (cmd_ptr), HAL_TIMEOUT) != HAL_OK) \
+    if (HAL_QSPI_Command(&hqspi, (cmd_ptr), QSPI_TIMEOUT_MS) != HAL_OK) \
       return (fail_ret);                                            \
   } while (0)
 
 // Data phase command
 #define QSPI_TRANSMIT_OR_RETURN(data_ptr, fail_ret)                   \
   do {                                                                \
-    if (HAL_QSPI_Transmit(&hqspi, (data_ptr), HAL_TIMEOUT) != HAL_OK) \
+    if (HAL_QSPI_Transmit(&hqspi, (data_ptr), QSPI_TIMEOUT_MS) != HAL_OK) \
       return (fail_ret);                                              \
   } while (0)
 
 // Receives a QSPI data phase
 #define QSPI_RECV_OR_RETURN(data_ptr, fail_ret)                      \
   do {                                                               \
-    if (HAL_QSPI_Receive(&hqspi, (data_ptr), HAL_TIMEOUT) != HAL_OK) \
+    if (HAL_QSPI_Receive(&hqspi, (data_ptr), QSPI_TIMEOUT_MS) != HAL_OK) \
       return (fail_ret);                                             \
   } while (0)
 
@@ -181,7 +178,7 @@ bool disable_block_protection() {
   QSPI_CMD_OR_RETURN(&cmd, false);
 
   uint8_t unlock = 0x00;
-  if (HAL_QSPI_Transmit(&hqspi, &unlock, HAL_TIMEOUT) != HAL_OK) {
+  if (HAL_QSPI_Transmit(&hqspi, &unlock, QSPI_TIMEOUT_MS) != HAL_OK) {
     return false;
   }
 
@@ -284,7 +281,7 @@ bool enable_quad_mode() {
   cmd = build_cmd(set_config_cmd);
   QSPI_CMD_OR_RETURN(&cmd, false);
   
-  if (HAL_QSPI_Transmit(&hqspi, &config, HAL_TIMEOUT) != HAL_OK)
+  if (HAL_QSPI_Transmit(&hqspi, &config, QSPI_TIMEOUT_MS) != HAL_OK)
     return false;
 
   // confirm QE bit was set
@@ -296,10 +293,10 @@ bool enable_quad_mode() {
   cmd = build_cmd(read_status_cmd);
   QSPI_CMD_OR_RETURN(&cmd, false);
 
-  uint8_t config;
-  QSPI_RECV_OR_RETURN(&config, false);
+  uint8_t config_check;
+  QSPI_RECV_OR_RETURN(&config_check, false);
 
-  if (!(config & CONFIG_QE_BIT))
+  if (!(config_check & CONFIG_QE_BIT))
     return false;
   
   return true;
@@ -355,7 +352,7 @@ flash_error_t read_at_col(uint32_t addr, uint32_t col, uint8_t *data_out, size_t
 
   // check whether read was ok
   if (status_a.ECCS == UNCORRECTED_ERROR) {
-    return FLASH_FAIL;
+    return FLASH_ECC_FAIL;
   }
 
   return FLASH_SUCCESS;
@@ -379,20 +376,19 @@ flash_error_t read_spare(uint32_t addr, uint32_t offset, uint8_t *out, size_t le
   return read_at_col(addr, NAND_PAGE_SIZE + offset, out, len, check_ecc);
 }
 
-flash_error_t write_to_cache(uint8_t *data, size_t len) {
+flash_error_t write_to_cache(uint32_t col, uint8_t *data, size_t len) {
   // does cache page have enough space?
-  if (cache_offset + len > NAND_PAGE_SIZE) {
+  if (col + len > NAND_PAGE_SIZE) {
     return FLASH_FAIL;
   }
 
-  // The first write to cache needs to use Program Load to clear cache
-  // and afterwards need to use Load Random to not overwrite content
-  uint32_t nand_cmd = cache_loaded ? CMD_NAND_PROGRAM_LOAD_RANDOM : CMD_NAND_PROGRAM_LOAD;
+  // Program Load at col 0 clears the cache, Load Random keeps existing content
+  uint32_t nand_cmd = col == 0 ? CMD_NAND_PROGRAM_LOAD : CMD_NAND_PROGRAM_LOAD_RANDOM;
 
   // load data into cache
   cmd_spec load_cmd = {
     .opcode = nand_cmd, 
-    .addr = cache_offset, 
+    .addr = col, 
     .addr_size = QSPI_ADDRESS_16_BITS, 
     .data_size = len
   };
@@ -402,8 +398,6 @@ flash_error_t write_to_cache(uint8_t *data, size_t len) {
   // send data across spi into cache
   QSPI_TRANSMIT_OR_RETURN(data, FLASH_FAIL);
 
-  cache_loaded = true;
-  cache_offset += len;
   return FLASH_SUCCESS;
 }
 
@@ -430,8 +424,6 @@ flash_error_t program(uint32_t addr) {
 
   // wait for cache to be written
   err = wait_until_ready(WORST_CASE_MEMORY_TIMEOUT);
-  cache_loaded = false;
-  cache_offset = 0;
 
   if (err != FLASH_READY) {
     return err;
@@ -511,9 +503,6 @@ bool begin() {
     CommsSerial.println("NAND enable quad mode failed");
     return false;
   }
-
-  cache_loaded = false;
-  cache_offset = 0;
 
   CommsSerial.println("NAND flash driver ready");
 
