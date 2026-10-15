@@ -22,6 +22,6 @@ bool scan_factory_bad_blocks(void);
 
 bool is_page_good(uint32_t address);
 
-void mark_page_bad(uint32_t address);
+bool mark_page_bad(uint32_t address);
 
 } 

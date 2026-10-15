@@ -88,6 +88,7 @@ bool begin(void) {
   }
 
   uint8_t word_buf[STM32_FLASH_WORD_SIZE];
+  memset(word_buf, 0, sizeof(word_buf));
   memcpy(word_buf, &BPT_MAGIC_NUMBER, sizeof(BPT_MAGIC_NUMBER));
 
   uint32_t bpt_magic_addr = reinterpret_cast<uint32_t>(bpt_magic);
@@ -117,7 +118,8 @@ bool scan_factory_bad_blocks(void) {
     }
 
     if (bad_block_mark != 0xFF) {
-      mark_page_bad(cur_page);
+      if (mark_page_bad(cur_page) != HAL_OK)
+        return false;
     }
   }
 
@@ -133,7 +135,7 @@ bool is_page_good(uint32_t page_address) {
   return ((*bad_page_byte & bit) != 0);
 };
 
-void mark_page_bad(uint32_t page_address) {
+bool mark_page_bad(uint32_t page_address) {
   uint32_t block_num = page_address / NAND_PAGES_PER_BLOCK;
   uint32_t byte = get_bpt_bad_byte(block_num);
   uint8_t bit = ~(get_bpt_bad_bit(block_num));
@@ -146,10 +148,13 @@ void mark_page_bad(uint32_t page_address) {
   uint8_t word_buf[STM32_FLASH_WORD_SIZE];
   memcpy(word_buf, reinterpret_cast<uint8_t *>(word_addr), STM32_FLASH_WORD_SIZE);
   word_buf[byte_offset_in_word] &= bit;
+  HAL_StatusTypeDef status;
 
   HAL_FLASH_Unlock();
-  HAL_FLASH_Program(FLASH_TYPEPROGRAM_FLASHWORD, word_addr, reinterpret_cast<uint32_t>(word_buf));
+  status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_FLASHWORD, word_addr, reinterpret_cast<uint32_t>(word_buf));
   HAL_FLASH_Lock();
+
+  return status == HAL_OK;
 };
 
 } // namespace Bad_Page_Table
