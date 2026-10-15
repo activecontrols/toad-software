@@ -42,7 +42,7 @@
 
 // chips limit is 104 MHz for 1.8V or 133 MHz for 3.3 V
 #define FREQ_MAX 50'000'000
-#define HAL_TIMEOUT 10000
+#define QSPI_TIMEOUT_MS 10000
 #define WORST_CASE_PROGRAM_TIMEOUT 600
 #define WORST_CASE_MEMORY_TIMEOUT 10'000
 
