@@ -9,7 +9,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef enum { FLASH_SUCCESS, FLASH_READY, FLASH_FAIL, FLASH_TIMED_OUT, FLASH_ECC_FAIL } flash_error_t;
+typedef enum { 
+  FLASH_SUCCESS, 
+  FLASH_READY, 
+  FLASH_FAIL, 
+  FLASH_TIMED_OUT, 
+  FLASH_BAD_BLOCK
+} flash_error_t;
 
 typedef struct __attribute__((packed)) {
   uint8_t OIP : 1;

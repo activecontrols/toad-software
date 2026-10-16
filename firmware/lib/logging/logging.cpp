@@ -22,10 +22,12 @@ namespace {
 uint8_t page_buf[NAND_PAGE_SIZE];
 uint8_t read_buf[NAND_PAGE_SIZE];
 uint32_t page_offset = 0;
-uint32_t cur_page = NAND_NUM_PAGES;
+uint32_t cur_page = NAND_NUM_PAGES; // init to one past the last valid page
 
-uint32_t next_good_page(uint32_t page) {
+uint32_t first_good_page_from(uint32_t page) {
   while (page < NAND_NUM_PAGES && !Bad_Page_Table::is_page_good(page)) {
+    // if one page in a block is bad, then all 64 pages are marked bad
+    // and we can just skip to the nex block
     page = (page / NAND_PAGES_PER_BLOCK + 1) * NAND_PAGES_PER_BLOCK;
   }
 
@@ -46,6 +48,7 @@ bool page_is_empty(uint32_t page) {
   return first_byte == LOG_EMPTY_BYTE;
 }
 
+// Find the first empty good page to resume writing
 uint32_t find_write_page() {
   uint32_t last_used_block = UINT32_MAX;
 
@@ -63,7 +66,7 @@ uint32_t find_write_page() {
   }
 
   if (last_used_block == UINT32_MAX) {
-    return next_good_page(0);
+    return first_good_page_from(0);
   }
 
   uint32_t page = last_used_block * NAND_PAGES_PER_BLOCK;
@@ -72,21 +75,27 @@ uint32_t find_write_page() {
     page++;
   }
 
-  return next_good_page(page);
+  return first_good_page_from(page);
 }
 
 bool commit_page() {
   bool ok = true;
 
-  if (Flash::write_to_cache(0, page_buf, NAND_PAGE_SIZE) != FLASH_SUCCESS) {
+  if (Flash::write_to_cache(0, page_buf, NAND_PAGE_SIZE) != FLASH_SUCCESS)
     ok = false;
-  } else if (Flash::program(cur_page) != FLASH_SUCCESS) {
+  
+  flash_error_t err = Flash::program(cur_page);
+  
+  if (err == FLASH_BAD_BLOCK) {
     Bad_Page_Table::mark_page_bad(cur_page);
+  }
+
+  if (err != FLASH_SUCCESS) {
     ok = false;
   }
 
   reset_page_buf();
-  cur_page = next_good_page(cur_page + 1);
+  cur_page = first_good_page_from(cur_page + 1);
   return ok;
 }
 
@@ -108,7 +117,7 @@ flash_error_t read_page(uint32_t page_addr, uint8_t *out) {
   }
 
   flash_error_t err = Flash::read_main(page_addr, 0, out, NAND_PAGE_SIZE);
-  if (err == FLASH_ECC_FAIL) {
+  if (err == FLASH_BAD_BLOCK) {
     Bad_Page_Table::mark_page_bad(page_addr);
   }
 
@@ -120,16 +129,16 @@ bool send_page(uint8_t *data) {
     return false;
   }
 
-  uint8_t cs_a = 0;
-  uint8_t cs_b = 0;
+  uint8_t checksum_a = 0;
+  uint8_t checksum_b = 0;
   for (uint32_t i = 0; i < NAND_PAGE_SIZE; i++) {
-    cs_a += data[i];
-    cs_b += cs_a;
+    checksum_a += data[i];
+    checksum_b += checksum_a;
   }
 
   CommsSerial.write(data, NAND_PAGE_SIZE);
-  CommsSerial.write(cs_a);
-  CommsSerial.write(cs_b);
+  CommsSerial.write(checksum_a);
+  CommsSerial.write(checksum_b);
   return true;
 }
 
@@ -156,19 +165,26 @@ bool erase() {
 
   CommsSerial.println("Erasing NAND log. This may take a while.");
 
+  // loop through all blocks and erase filled blocks
   for (uint32_t block = 0; block < NAND_NUM_BLOCKS; block++) {
     uint32_t first_page = block * NAND_PAGES_PER_BLOCK;
     if (!Bad_Page_Table::is_page_good(first_page)) {
       continue;
     }
 
-    if (Flash::erase_block(first_page) != FLASH_SUCCESS) {
+    flash_error_t err = Flash::erase_block(first_page);
+    if (err == FLASH_BAD_BLOCK) {
+      // only takes one bad page marking to fail
       ok &= Bad_Page_Table::mark_page_bad(first_page);
+    } 
+    
+    if (err != FLASH_SUCCESS) {
+      ok = false;
     }
   }
 
   reset_page_buf();
-  cur_page = next_good_page(0);
+  cur_page = first_good_page_from(0);
 
   CommsSerial.println("NAND log erased.");
   return ok;
@@ -207,7 +223,7 @@ bool flush() {
 bool dump() {
   flush();
 
-  for (uint32_t page = next_good_page(0); page < NAND_NUM_PAGES; page = next_good_page(page + 1)) {
+  for (uint32_t page = first_good_page_from(0); page < NAND_NUM_PAGES; page = first_good_page_from(page + 1)) {
     if (read_page(page, read_buf) != FLASH_SUCCESS) {
       continue;
     }
