@@ -352,7 +352,7 @@ flash_error_t read_at_col(uint32_t addr, uint32_t col, uint8_t *data_out, size_t
 
   // check whether read was ok
   if (status_a.ECCS == UNCORRECTED_ERROR) {
-    return FLASH_ECC_FAIL;
+    return FLASH_BAD_BLOCK;
   }
 
   return FLASH_SUCCESS;
@@ -437,7 +437,7 @@ flash_error_t program(uint32_t addr) {
   }
 
   if (status_a.P_FAIL) {
-    return FLASH_FAIL;
+    return FLASH_BAD_BLOCK;
   }
 
   return FLASH_SUCCESS;
@@ -477,7 +477,7 @@ flash_error_t erase_block(uint32_t addr) {
   }
 
   if (status_a.E_FAIL) {
-    return FLASH_FAIL;
+    return FLASH_BAD_BLOCK;
   }
 
   return FLASH_SUCCESS;

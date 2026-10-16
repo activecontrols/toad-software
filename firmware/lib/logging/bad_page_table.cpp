@@ -210,9 +210,15 @@ bool mark_page_bad(uint32_t page_address) {
     uint32_t word_buf_addr = reinterpret_cast<uint32_t>(word_buf);
     uint32_t entry_addr = get_entry_addr(i);
 
-    return program_flash_word(entry_addr, word_buf_addr);
+    if (!program_flash_word(entry_addr, word_buf_addr)) {
+      CommsSerial.printf("WARNING: failed to mark block %lu bad.\n", block_num);
+      return false;
+    }
+
+    return true;
   }
 
+  CommsSerial.printf("WARNING: Bad Page Table full, block %lu not marked bad.\n", block_num);
   return false;
 };
 
