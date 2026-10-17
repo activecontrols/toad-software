@@ -2,9 +2,9 @@
 
 #include "CommandRouter.h"
 #include "CommsSerial.h"
-#include "ErrorCounters.h"
 #include "PressureSensors.h"
 #include "RCS.h"
+#include "logging.h"
 #include "SolenoidValves.h"
 #include "TVC_Actuators.h"
 #include "TemperatureSensors.h"
@@ -12,6 +12,7 @@
 #include "ValveController.h"
 #include "fdcan_toad.h"
 #include "RS485.h"
+#include "ErrorCounters.h"
 
 // shared interfaces
 // CommsSerial_t<USBSerial> USB_CommsSerial;
@@ -54,6 +55,7 @@ void setup() {
   all_modules_ok &= SolenoidValves::begin();
   all_modules_ok &= TVC_Actuators::begin();
   all_modules_ok &= ValveController::begin();
+  all_modules_ok &= Logging::begin();
 
   if (!all_modules_ok) {
     while (true) {
