@@ -15,7 +15,7 @@
 
 
 // shared interfaces
-// CommsSerial_t<USBSerial> USB_CommsSerial;
+CommsSerial_t<USBSerial> USB_CommsSerial;
 CommsSerial_t<Uart> HW_CommsSerial(PIN_HW_COMM_SERIAL_RX, PIN_HW_COMM_SERIAL_TX);
 CommsSerial_t<Uart> HW_FallbackSerial(PIN_HW_FALLBACK_SERIAL_RX, PIN_HW_FALLBACK_SERIAL_TX);
 
@@ -30,7 +30,7 @@ void setup() {
   // All shared interfaces are begun here.
 
   // Use same baud rate on all Comm Serials for consistency.
-  // USB_CommsSerial.begin(RADIO_BAUD);
+  USB_CommsSerial.begin(RADIO_BAUD);
   HW_CommsSerial.begin(RADIO_BAUD);
   HW_FallbackSerial.begin(RADIO_BAUD);
 
@@ -48,13 +48,13 @@ void setup() {
   bool all_modules_ok = true;
 
   all_modules_ok &= CAN::init();
-  all_modules_ok &= PressureSensors::begin();
-  all_modules_ok &= TemperatureSensors::begin();
+  // all_modules_ok &= PressureSensors::begin();
+  // all_modules_ok &= TemperatureSensors::begin();
   all_modules_ok &= RS485s::begin();
   all_modules_ok &= ThrottleValves::begin();
-  all_modules_ok &= SolenoidValves::begin();
-  all_modules_ok &= TVC_Actuators::begin();
-  all_modules_ok &= ValveController::begin();
+  // all_modules_ok &= SolenoidValves::begin();
+  // all_modules_ok &= TVC_Actuators::begin();
+  // all_modules_ok &= ValveController::begin();
 
   if (!all_modules_ok) {
     while (true) {
@@ -73,6 +73,8 @@ void loop() {
   while (CommsSerial.available()) {
     CommandRouter::receive_byte(CommsSerial.read());
   }
+
+  ThrottleValves::update();
 }
 
 // TODO - these?
