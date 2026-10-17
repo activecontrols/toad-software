@@ -4,7 +4,7 @@
 #include "CommsSerial.h"
 #include "PressureSensors.h"
 #include "RCS.h"
-#include "flash.h"
+#include "logging.h"
 #include "SolenoidValves.h"
 #include "TVC_Actuators.h"
 #include "TemperatureSensors.h"
@@ -37,8 +37,6 @@ void setup() {
   PT_TC_SPI_1.begin();
   PT_TC_SPI_3.begin();
 
-  Flash::begin();
-
   delay(3000);
 
   CommsSerial.println("Engine Controller Started!");
@@ -57,6 +55,7 @@ void setup() {
   all_modules_ok &= SolenoidValves::begin();
   all_modules_ok &= TVC_Actuators::begin();
   all_modules_ok &= ValveController::begin();
+  all_modules_ok &= Logging::begin();
 
   if (!all_modules_ok) {
     while (true) {
