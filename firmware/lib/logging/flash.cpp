@@ -7,6 +7,7 @@
 
 #include "flash.h"
 #include "CommsSerial.h"
+#include "ec_pins.h"
 #include "flash_defs.h"
 #include "stm32h7xx_hal_qspi.h"
 
@@ -21,33 +22,12 @@ void HAL_QSPI_MspInit(QSPI_HandleTypeDef *) {
   __HAL_RCC_QSPI_FORCE_RESET();
   __HAL_RCC_QSPI_RELEASE_RESET();
 
-  __HAL_RCC_GPIOB_CLK_ENABLE();
-  __HAL_RCC_GPIOD_CLK_ENABLE();
-  __HAL_RCC_GPIOF_CLK_ENABLE();
-  __HAL_RCC_GPIOG_CLK_ENABLE();
-
-  GPIO_InitTypeDef gpio_init{};
-  gpio_init.Mode = GPIO_MODE_AF_PP;
-  gpio_init.Pull = GPIO_NOPULL;
-
-  gpio_init.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-
-  // PB2, PD11, PD12, PD13, PF7 all under AF9
-  gpio_init.Alternate = GPIO_AF9_QUADSPI;
-  
-  gpio_init.Pin = GPIO_PIN_2;
-  HAL_GPIO_Init(GPIOB, &gpio_init);
-
-  gpio_init.Pin = GPIO_PIN_11 | GPIO_PIN_12 | GPIO_PIN_13;
-  HAL_GPIO_Init(GPIOD, &gpio_init);
-
-  gpio_init.Pin = GPIO_PIN_7;
-  HAL_GPIO_Init(GPIOF, &gpio_init);
-
-  // PG6 is under AF10
-  gpio_init.Alternate = GPIO_AF10_QUADSPI;
-  gpio_init.Pin = GPIO_PIN_6;
-  HAL_GPIO_Init(GPIOG, &gpio_init);
+  pinmap_pinout(digitalPinToPinName(PIN_QSPI_CLK), PinMap_QUADSPI_SCLK);
+  pinmap_pinout(digitalPinToPinName(PIN_QSPI_IO0), PinMap_QUADSPI_DATA0);
+  pinmap_pinout(digitalPinToPinName(PIN_QSPI_IO1), PinMap_QUADSPI_DATA1);
+  pinmap_pinout(digitalPinToPinName(PIN_QSPI_IO2), PinMap_QUADSPI_DATA2);
+  pinmap_pinout(digitalPinToPinName(PIN_QSPI_IO3), PinMap_QUADSPI_DATA3);
+  pinmap_pinout(digitalPinToPinName(PIN_QSPI_CS), PinMap_QUADSPI_SSEL);
 }
 
 namespace Flash {
