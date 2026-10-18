@@ -17,6 +17,7 @@
 #include <string.h>
 
 void HAL_QSPI_MspInit(QSPI_HandleTypeDef *) {
+  __HAL_RCC_QSPI_CONFIG(RCC_QSPICLKSOURCE_D1HCLK);
   __HAL_RCC_QSPI_CLK_ENABLE();
 
   __HAL_RCC_QSPI_FORCE_RESET();
