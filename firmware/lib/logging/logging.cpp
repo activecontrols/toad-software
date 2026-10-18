@@ -14,6 +14,7 @@
 
 #define DUMP_CONTINUE_CHAR 'c'
 #define DUMP_TIMEOUT_MS 5000u
+#define DumpSerial SerialUSB
 
 namespace Logging {
 
@@ -29,7 +30,7 @@ uint32_t skip_to_next_block(uint32_t page) {
 }
 
 uint32_t first_good_page_from(uint32_t page) {
-  while (page < NAND_NUM_PAGES && !Bad_Page_Table::is_page_good(page)) {
+  while (page < NAND_NUM_PAGES && Bad_Page_Table::get_page_status(page) != PAGE_GOOD) {
     // if one page in a block is bad, then all 64 pages are marked bad
     // and we can just skip to the next block
     page = skip_to_next_block(page);
@@ -58,7 +59,7 @@ uint32_t find_write_page() {
 
   for (uint32_t block = 0; block < NAND_NUM_BLOCKS; block++) {
     uint32_t first_page = block * NAND_PAGES_PER_BLOCK;
-    if (!Bad_Page_Table::is_page_good(first_page)) {
+    if (Bad_Page_Table::get_page_status(first_page) != PAGE_GOOD) {
       continue;
     }
 
@@ -117,27 +118,17 @@ bool commit_page() {
 bool wait_for_continue() {
   uint32_t start = millis();
 
-  while (!CommsSerial.available()) {
+  while (!DumpSerial.available()) {
     if (millis() - start > DUMP_TIMEOUT_MS) {
       return false;
     }
   }
 
-  return CommsSerial.read() == DUMP_CONTINUE_CHAR;
+  return DumpSerial.read() == DUMP_CONTINUE_CHAR;
 }
 
 flash_error_t read_page(uint32_t page_addr) {
-  if (!Bad_Page_Table::is_page_good(page_addr)) {
-    return FLASH_FAIL;
-  }
-
-  flash_error_t err = Flash::read_main(page_addr, 0, read_buf, NAND_PAGE_SIZE);
-  
-  if (err == FLASH_BAD_BLOCK) {
-    Bad_Page_Table::mark_page_bad(page_addr);
-  }
-
-  return err;
+  return Flash::read_main(page_addr, 0, read_buf, NAND_PAGE_SIZE);
 }
 
 bool send_page() {
@@ -152,10 +143,52 @@ bool send_page() {
     checksum_b += checksum_a;
   }
 
-  CommsSerial.write(read_buf, NAND_PAGE_SIZE);
-  CommsSerial.write(checksum_a);
-  CommsSerial.write(checksum_b);
+  DumpSerial.write(read_buf, NAND_PAGE_SIZE);
+  DumpSerial.write(checksum_a);
+  DumpSerial.write(checksum_b);
   return true;
+}
+
+bool send_end_page() {
+  memset(read_buf, LOG_EMPTY_BYTE, sizeof(read_buf));
+  return send_page();
+}
+
+bool send_log() {
+  uint32_t page = 0;
+  while (page < NAND_NUM_PAGES) {
+    page_status_t status = Bad_Page_Table::get_page_status(page);
+
+    if (status == PAGE_BAD) {
+      page = skip_to_next_block(page);
+      continue;
+    }
+
+    if (read_page(page) != FLASH_SUCCESS) {
+      page++;
+      continue;
+    }
+
+    if (read_buf[0] == LOG_EMPTY_BYTE) {
+      // end of logs found
+      if (status == PAGE_GOOD) {
+        break;
+      }
+
+      // otherwise, page is bad, go to next block
+      page = skip_to_next_block(page);
+      continue;
+    }
+
+    if (!send_page()) {
+      return false;
+    }
+
+    page++;
+  }
+
+  // send an empty page to indicate no more data
+  return send_end_page();
 }
 
 } // namespace
@@ -176,8 +209,7 @@ bool begin() {
   cur_page = find_write_page();
 
   if (cur_page >= NAND_NUM_PAGES) {
-    CommsSerial.println("NAND log is full.");
-    return false;
+    CommsSerial.println("WARNING: NAND log is full, erase it before logging.");
   }
 
   return true;
@@ -191,11 +223,19 @@ bool erase() {
   // loop through all blocks and erase filled blocks
   for (uint32_t block = 0; block < NAND_NUM_BLOCKS; block++) {
     uint32_t first_page = block * NAND_PAGES_PER_BLOCK;
-    if (!Bad_Page_Table::is_page_good(first_page)) {
+    page_status_t status = Bad_Page_Table::get_page_status(first_page);
+    if (status == PAGE_BAD) {
+      continue;
+    }
+
+    if (status == PAGE_READ_ONLY) {
+      Flash::erase_block(first_page);
+      ok &= Bad_Page_Table::retire_block(first_page);
       continue;
     }
 
     flash_error_t err = Flash::erase_block(first_page);
+
     if (err == FLASH_BAD_BLOCK) {
       // only takes one bad page marking to fail
       ok &= Bad_Page_Table::mark_page_bad(first_page);
@@ -256,22 +296,7 @@ bool dump() {
     return false;
   }
 
-  for (uint32_t page = first_good_page_from(0); page < NAND_NUM_PAGES; page = first_good_page_from(page + 1)) {
-    if (read_page(page) != FLASH_SUCCESS) {
-      continue;
-    }
-
-    if (read_buf[0] == LOG_EMPTY_BYTE) {
-      break;
-    }
-
-    if (!send_page()) {
-      return false;
-    }
-  }
-
-  memset(read_buf, LOG_EMPTY_BYTE, sizeof(read_buf));
-  return send_page();
+  return send_log();
 }
 
 } // namespace Logging
