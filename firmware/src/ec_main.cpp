@@ -50,17 +50,17 @@ void cmd_test_read_rs485(void) {
 
   constexpr size_t responseLength = sizeof(kRs485TestMessage) - 1;
   uint8_t response[responseLength];
-  const size_t sent = RS485s::tvc_yaw.bus.write(kRs485TestMessage, responseLength);
+  const size_t sent = RS485s::tvc_pitch.bus.write(kRs485TestMessage, responseLength);
 
   if (sent != responseLength) {
-    RS485s::tvc_yaw.endTransaction();
+    RS485s::tvc_pitch.endTransaction();
     CommsSerial.println("RS485 read test: request was not fully sent");
     return;
   }
 
     // Reading 
-  const size_t received = RS485s::tvc_pitch.read(response, responseLength, 3000);
-  RS485s::tvc_pitch.endTransaction();
+  const size_t received = RS485s::tvc_yaw.read(response, responseLength, 3000);
+  RS485s::tvc_yaw.endTransaction();
 
   if (received != responseLength) {
     CommsSerial.print("RS485 read test: incomplete reply; received ");
