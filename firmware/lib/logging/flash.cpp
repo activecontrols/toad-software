@@ -185,7 +185,7 @@ bool init_qspi_peripheral() {
   // Clock Prescaler here is 32 bits but 
   // must be a value between 0 and 255 per
   // stm32h7xx_hal_qspi.h:53
-  hqspi.Init.ClockPrescaler = (f_hclk / FREQ_MAX) - 1;
+  hqspi.Init.ClockPrescaler = (f_hclk + FREQ_MAX - 1) / FREQ_MAX - 1;
   if (hqspi.Init.ClockPrescaler > 255)
     hqspi.Init.ClockPrescaler = 255;
 
