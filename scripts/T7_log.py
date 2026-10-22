@@ -23,7 +23,12 @@ def main():
     print("Connected to LabJack T7")
     print("Configuring LabJack negative channels...")
     for channel in CHANNELS.keys():
-        ljm.eWriteName(lj_handle, f"AIN{channel}_NEGATIVE_CH", channel + 1)
+
+        # only configure negative channel on channels that support it
+        if channel % 2 == 0:
+            ljm.eWriteName(lj_handle, f"AIN{channel}_NEGATIVE_CH", channel + 1)
+
+            print(f"Configured {channel} to use {channel + 1}")
 
     log_filename = input("Enter output CSV log name (without extension): ").strip()
     if not log_filename:
