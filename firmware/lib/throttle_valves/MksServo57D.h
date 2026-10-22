@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CommsSerial.h"
+#include "ErrorCounters.h"
 #include "fdcan_toad.h"
 
 #include <array>
