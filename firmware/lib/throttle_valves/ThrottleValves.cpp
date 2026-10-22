@@ -51,12 +51,12 @@ void ThrottleValve::set_speed(int16_t speed) {
 }
 
 bool ThrottleValve::read_position(float *pos) {
-  float *new_pos;
-  if (encoder.read_pos(new_pos) == false) {
+  float new_pos = 0.0f;
+  if (encoder.read_pos(&new_pos) == false) {
     return false;
   }
 
-  *pos = 360.0f - *new_pos * 360.0f;
+  *pos = 360.0f - new_pos * 360.0f;
   return true;
 }
 
@@ -88,7 +88,7 @@ void ThrottleValve::update(bool log_csv) {
   float target_speed = error * K; // proportional controller
 
   // clamp target speed to safe values
-  target_speed = clamp(target_speed, -100.0f, 100.0f);
+  target_speed = clamp(target_speed, -300.0f, 300.0f);
 
   // prevent weird jitter
   if (std::fabs(error) < 0.4f)
@@ -212,6 +212,8 @@ bool begin() {
   CommandRouter::add(get_position_cmd<fu_valve>, "get_fu_position");
   CommandRouter::add(stop_valve_cmd<fu_valve>, "stop_fu_valve");
   CommandRouter::add(zero_encoder_cmd<fu_valve>, "zero_fu_encoder");
+
+  CommandRouter::add(motor_follow_profile_cmd, "motor_follow_profile");
 
   return true;
 }
