@@ -59,7 +59,7 @@ private:
 
     // Transmit the frame
     if (can_tvc.write(msg) == 0) {
-      CommsSerial.println("Failed to send throttle valve CAN message");
+      ErrorCounters::increment(ErrorCounters::motor_CAN_tx);
     }
   }
 

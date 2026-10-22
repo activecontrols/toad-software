@@ -5,6 +5,9 @@
 #define ENCODER_UPDATE_INTERVAL_MS 5
 static uint32_t csv_time_start_ms = 0U;
 
+// Encoder RS-485 address, identical for fu and ox because they're on different lines
+constexpr int ENCODER_ID = 0x54;
+
 // Wraps angle in degrees to [-180, 180] using fmod
 static float wrapAngleDeg(float angle) {
   angle = std::fmod(angle + 180.0, 360.0);
@@ -106,32 +109,39 @@ void ThrottleValve::update(bool log_csv) {
 
 namespace ThrottleValves {
 
-ThrottleValve ox_valve(CAN_ID_STEPPER_OX, RS485s::enc_ox, 0x54);
-ThrottleValve fu_valve(CAN_ID_STEPPER_FU, RS485s::enc_fu, 0x54);
+ThrottleValve ox_valve(CAN_ID_STEPPER_OX, RS485s::enc_ox, ENCODER_ID);
+ThrottleValve fu_valve(CAN_ID_STEPPER_FU, RS485s::enc_fu, ENCODER_ID);
 
 // Templated position command function
-template <ThrottleValve &valve> void set_position_cmd(const char *cmd) {
+template <ThrottleValve &valve, bool is_ox> void set_position_cmd(const char *cmd) {
   float angle = 0.0f;
   if (sscanf(cmd, "%f", &angle) != 1) {
-    CommsSerial.println("Usage: motor_set_position <angle>\n");
+    if constexpr (is_ox) {
+      CommsSerial.println("Usage: set_ox_position <angle>");
+    } else {
+      CommsSerial.println("Usage: set_fu_position <angle>");
+    }
     return;
   }
   valve.set_position(angle);
 }
 
 // Templated speed command function
-template <ThrottleValve &valve> void set_speed_cmd(const char *cmd) {
+template <ThrottleValve &valve, bool is_ox> void set_speed_cmd(const char *cmd) {
   int16_t spd;
   if (sscanf(cmd, "%hd", &spd) != 1) {
-    CommsSerial.println("Usage: set_speed rpm\n");
+    if constexpr (is_ox) {
+      CommsSerial.println("Usage: set_ox_speed <rpm>");
+    } else {
+      CommsSerial.println("Usage: set_fu_speed <rpm>");
+    }
     return;
   }
   valve.set_speed(spd);
 }
 
 // Templated get position command function
-template <ThrottleValve &valve> void get_position_cmd(const char *cmd) {
-  (void)cmd;
+template <ThrottleValve &valve> void get_position_cmd() {
   float pos = 0.0f;
 
   if (!valve.read_position(&pos)) {
@@ -142,14 +152,12 @@ template <ThrottleValve &valve> void get_position_cmd(const char *cmd) {
 }
 
 // Templated stop command function
-template <ThrottleValve &valve> void stop_valve_cmd(const char *cmd) {
-  (void)cmd;
+template <ThrottleValve &valve> void stop_valve_cmd() {
   valve.stop();
 }
 
 // Templated zero encoder command function
-template <ThrottleValve &valve> void zero_encoder_cmd(const char *cmd) {
-  (void)cmd;
+template <ThrottleValve &valve> void zero_encoder_cmd() {
   valve.zero_encoder();
 }
 
@@ -193,14 +201,14 @@ bool begin() {
   ox_valve.begin();
   fu_valve.begin();
 
-  CommandRouter::add(set_position_cmd<ox_valve>, "set_ox_position");
-  CommandRouter::add(set_speed_cmd<ox_valve>, "set_ox_speed");
+  CommandRouter::add(set_position_cmd<ox_valve, true>, "set_ox_position");
+  CommandRouter::add(set_speed_cmd<ox_valve, true>, "set_ox_speed");
   CommandRouter::add(get_position_cmd<ox_valve>, "get_ox_position");
   CommandRouter::add(stop_valve_cmd<ox_valve>, "stop_ox_valve");
   CommandRouter::add(zero_encoder_cmd<ox_valve>, "zero_ox_encoder");
 
-  CommandRouter::add(set_position_cmd<fu_valve>, "set_fu_position");
-  CommandRouter::add(set_speed_cmd<fu_valve>, "set_fu_speed");
+  CommandRouter::add(set_position_cmd<fu_valve, false>, "set_fu_position");
+  CommandRouter::add(set_speed_cmd<fu_valve, false>, "set_fu_speed");
   CommandRouter::add(get_position_cmd<fu_valve>, "get_fu_position");
   CommandRouter::add(stop_valve_cmd<fu_valve>, "stop_fu_valve");
   CommandRouter::add(zero_encoder_cmd<fu_valve>, "zero_fu_encoder");
