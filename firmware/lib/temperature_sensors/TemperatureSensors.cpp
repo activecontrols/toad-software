@@ -6,13 +6,14 @@
 
 namespace TemperatureSensors {
 
-Adafruit_MAX31856 tc_chip_1(TC_CHIP_1_SPI_BUS, PIN_TC_CHIP_1_CS, MAX31856_TCTYPE_K);
-Adafruit_MAX31856 tc_chip_2(TC_CHIP_2_SPI_BUS, PIN_TC_CHIP_2_CS, MAX31856_TCTYPE_K);
-Adafruit_MAX31856 tc_chip_3(TC_CHIP_3_SPI_BUS, PIN_TC_CHIP_3_CS, MAX31856_TCTYPE_K);
-Adafruit_MAX31856 tc_chip_4(TC_CHIP_4_SPI_BUS, PIN_TC_CHIP_4_CS, MAX31856_TCTYPE_K);
-Adafruit_MAX31856 tc_chip_5(TC_CHIP_5_SPI_BUS, PIN_TC_CHIP_5_CS, MAX31856_TCTYPE_K);
-Adafruit_MAX31856 tc_chip_6(TC_CHIP_6_SPI_BUS, PIN_TC_CHIP_6_CS, MAX31856_TCTYPE_K);
-Adafruit_MAX31856 tc_chips[NUM_TC_CHIPS] = {tc_chip_1, tc_chip_2, tc_chip_3, tc_chip_4, tc_chip_5, tc_chip_6};
+Adafruit_MAX31856 tc_chips[NUM_TC_CHIPS] = {
+    Adafruit_MAX31856(TC_CHIP_1_SPI_BUS, PIN_TC_CHIP_1_CS, MAX31856_TCTYPE_K),
+    Adafruit_MAX31856(TC_CHIP_2_SPI_BUS, PIN_TC_CHIP_2_CS, MAX31856_TCTYPE_K),
+    Adafruit_MAX31856(TC_CHIP_3_SPI_BUS, PIN_TC_CHIP_3_CS, MAX31856_TCTYPE_K),
+    Adafruit_MAX31856(TC_CHIP_4_SPI_BUS, PIN_TC_CHIP_4_CS, MAX31856_TCTYPE_K),
+    Adafruit_MAX31856(TC_CHIP_5_SPI_BUS, PIN_TC_CHIP_5_CS, MAX31856_TCTYPE_K),
+    Adafruit_MAX31856(TC_CHIP_6_SPI_BUS, PIN_TC_CHIP_6_CS, MAX31856_TCTYPE_K),
+};
 const char *tc_names[NUM_TC_CHIPS] = {STRINGIFY(TC_1), STRINGIFY(TC_2), STRINGIFY(TC_3),
                                       STRINGIFY(TC_4), STRINGIFY(TC_5), STRINGIFY(TC_6)};
 static_assert(NUM_TC_CHIPS == 6);
@@ -40,12 +41,12 @@ temperature_readings_t read_tcs() {
 
   // TODO - for performance, consider parallelizing across the busses (only if needed)
   // TODO - read fault reg and sanity check values
-  tc_readings.TC_1 = tc_chip_1.readThermocoupleTemperature() + C_TO_KELVIN;
-  tc_readings.TC_2 = tc_chip_2.readThermocoupleTemperature() + C_TO_KELVIN;
-  tc_readings.TC_3 = tc_chip_3.readThermocoupleTemperature() + C_TO_KELVIN;
-  tc_readings.TC_4 = tc_chip_4.readThermocoupleTemperature() + C_TO_KELVIN;
-  tc_readings.TC_5 = tc_chip_5.readThermocoupleTemperature() + C_TO_KELVIN;
-  tc_readings.TC_6 = tc_chip_6.readThermocoupleTemperature() + C_TO_KELVIN;
+  tc_readings.TC_1 = tc_chips[0].readThermocoupleTemperature() + C_TO_KELVIN;
+  tc_readings.TC_2 = tc_chips[1].readThermocoupleTemperature() + C_TO_KELVIN;
+  tc_readings.TC_3 = tc_chips[2].readThermocoupleTemperature() + C_TO_KELVIN;
+  tc_readings.TC_4 = tc_chips[3].readThermocoupleTemperature() + C_TO_KELVIN;
+  tc_readings.TC_5 = tc_chips[4].readThermocoupleTemperature() + C_TO_KELVIN;
+  tc_readings.TC_6 = tc_chips[5].readThermocoupleTemperature() + C_TO_KELVIN;
   static_assert(NUM_TC_CHIPS == 6);
 
   return tc_readings;
