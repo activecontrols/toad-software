@@ -1,5 +1,5 @@
 #define IMGUI_DEFINE_MATH_OPERATORS
-#include "fluids_data.h"
+#include "flight_history.h"
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "time.h"
@@ -7,14 +7,18 @@
 #include "ui_components.h"
 #include "ui_graphics.h"
 
-float fill_level = 0.5;
-
 #define VALVE_CLICK_TIME_THRESHOLD 5 // seconds
-int last_clicked_valve = NULL_VALVE;
+std::optional<valve_id> last_clicked_valve = std::nullopt;
 time_t last_clicked_valve_time;
 
 void fluids_panel() {
   ImGui::Begin(FLUIDS_PANEL);
+
+  // Update valves from the telemetry stream (when enabled, clicking on valves won't work)
+  for (int i = 0; i < NUM_SV_BV_VALVES; i++) {
+    // see SolenoidValves.cpp
+    pid_diagram.valves[i].state = fh_now(FlightHistory.ec.valve_states) & (1 << i) ? VALVE_OPEN : VALVE_CLOSE;
+  }
 
   ImGui::PushFont(NULL, 24);
   ImGui::SeparatorText("TOAD Valve Control");
@@ -52,13 +56,16 @@ void fluids_panel() {
     bool should_purge = true;
 
     for (int i = 0; i < 3; i++) {
-      if (ppipe.fill_valves[i] != NULL_VALVE && !valve_states[ppipe.fill_valves[i]]) {
+      if (ppipe.fill_valves[i] != std::nullopt &&
+          pid_diagram.valves[ppipe.fill_valves[i].value()].state == VALVE_CLOSE) {
         can_fill = false;
       }
-      if (ppipe.purge_valves[i] != NULL_VALVE && valve_states[ppipe.purge_valves[i]]) {
+      if (ppipe.purge_valves[i] != std::nullopt &&
+          pid_diagram.valves[ppipe.purge_valves[i].value()].state == VALVE_OPEN) {
         can_purge = true;
       }
-      if (ppipe.purge_valves[i] != NULL_VALVE && !valve_states[ppipe.purge_valves[i]]) {
+      if (ppipe.purge_valves[i] != std::nullopt &&
+          pid_diagram.valves[ppipe.purge_valves[i].value()].state == VALVE_CLOSE) {
         should_purge = false;
       }
     }
@@ -80,11 +87,11 @@ void fluids_panel() {
   }
 
   if (time(NULL) - last_clicked_valve_time > VALVE_CLICK_TIME_THRESHOLD) {
-    last_clicked_valve = NULL_VALVE;
+    last_clicked_valve = std::nullopt;
   }
 
-  for (int i = 0; i < NUMBER_OF_VALVES; i++) {
-    PID_Valve valve = pid_diagram.valves[i];
+  for (int i = 0; i < NUM_SV_BV_VALVES; i++) {
+    PID_Valve &valve = pid_diagram.valves[i];
     ImVec2 center = valve.location + diagram_offset;
 
     bool hovered = MouseInValveHitbox(center, valve.orientation);
@@ -92,10 +99,10 @@ void fluids_panel() {
       ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
       if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && !ImGui::IsMouseDragPastThreshold(ImGuiMouseButton_Left)) {
         if (last_clicked_valve == i) { // TODO - check if state hasn't changed since we clicked
-          valve_states[i] = !valve_states[i];
-          last_clicked_valve = NULL_VALVE;
+          valve.state = valve.state == VALVE_CLOSE ? VALVE_OPEN : VALVE_CLOSE;
+          last_clicked_valve = std::nullopt;
         } else {
-          last_clicked_valve = i;
+          last_clicked_valve = (valve_id)i;
           last_clicked_valve_time = time(NULL);
         }
       }
@@ -106,12 +113,19 @@ void fluids_panel() {
     }
 
     if (valve.valve_type == Valve_Type::Solenoid) {
-      DrawValve(center, valve.orientation, valve.name, valve.label_location + diagram_offset, valve_states[i], hovered);
+      DrawValve(center, valve.orientation, valve.name, valve.label_location + diagram_offset, valve.state, hovered);
     } else if (valve.valve_type == Valve_Type::Ball) {
-      DrawBallValve(center, valve.orientation, valve.name, valve.label_location + diagram_offset, valve_states[i], hovered);
-    } else if (valve.valve_type == Valve_Type::Throttle) {
-      DrawThrottleValve(center, valve.orientation, valve.name, valve.label_location + diagram_offset, valve_states[i], hovered);
+      DrawBallValve(center, valve.orientation, valve.name, valve.label_location + diagram_offset, valve.state, hovered);
     }
+  }
+
+  for (int i = 0; i < 2; i++) {
+    PID_ThrottleValve valve = pid_diagram.throttle_valves[i];
+    ImVec2 center = valve.location + diagram_offset;
+    bool hovered = MouseInValveHitbox(center, valve.orientation);
+    float valve_angle = fh_now(*valve.angle);
+    DrawThrottleValve(center, valve.orientation, valve.name, valve.label_location + diagram_offset, valve_angle > 5,
+                      hovered, valve_angle);
   }
 
   for (int i = 0; i < NUMBER_OF_PID_ITEMS; i++) {
@@ -120,14 +134,23 @@ void fluids_panel() {
     ImVec2 center = pitem.location + diagram_offset;
     if (pitem.pid_type == PID_Type::Tank) {
       ImColor col;
+      float fill_level;
       if (pitem.orientation == 'O') {
         col = PID_COLOR_O2;
+        fill_level = fh_now(FlightHistory.ec.ox_fill_level);
       }
       if (pitem.orientation == 'F') {
         col = PID_COLOR_FU;
+        fill_level = fh_now(FlightHistory.ec.fu_fill_level);
       }
       if (pitem.orientation == 'N') {
         col = PID_COLOR_N2;
+        fill_level = fh_now(FlightHistory.ec.n2_fill_level);
+      }
+
+      // temporary for now to make tanks look nice when UI boots up
+      if (fill_level == 0) {
+        fill_level = 0.5;
       }
 
       DrawTank(center, pitem.name, col, fill_level);
@@ -156,22 +179,23 @@ void fluids_panel() {
       unit = "K";
     }
 
-    DrawReadout(psensor.location + diagram_offset, psensor.attach_location + diagram_offset, psensor.name, unit, sensor_readings[i], psensor.attach_direction);
+    DrawReadout(psensor.location + diagram_offset, psensor.attach_location + diagram_offset, psensor.name, unit,
+                fh_now(*psensor.reading), psensor.attach_direction);
   }
 
   dl->PopClipRect();
   ImGui::PopFont();
 
-  if (last_clicked_valve != NULL_VALVE) {
+  if (last_clicked_valve != std::nullopt) {
     char *new_state;
-    if (valve_states[last_clicked_valve]) {
+    if (pid_diagram.valves[last_clicked_valve.value()].state == VALVE_OPEN) {
       new_state = "CLOSE";
     } else {
       new_state = "OPEN";
     }
     ImGui::Dummy(ImVec2(100, 0));
     ImGui::SameLine();
-    ImGui::Text("Click again to %s %s", new_state, pid_diagram.valves[last_clicked_valve].name);
+    ImGui::Text("Click again to %s %s", new_state, pid_diagram.valves[last_clicked_valve.value()].name);
   }
 
   ImGui::End();
