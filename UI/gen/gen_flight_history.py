@@ -68,7 +68,7 @@ flight_data_h_start = """
 // [E {B C D E} B C D] - rs = 1, wp = 1/5
 
 #define FLIGHT_HISTORY_LENGTH 1000\n
-"""
+""".lstrip()
 
 flight_data_h_end = """
 extern flight_history_t FlightHistory;
@@ -97,7 +97,7 @@ void init_fh() {
   read_start_pos = write_pos;
   read_end_pos = read_start_pos + FLIGHT_HISTORY_LENGTH - 1;
 }
-"""
+""".lstrip()
 
 flight_data_cpp_end = """
 void update_fh_pos() {

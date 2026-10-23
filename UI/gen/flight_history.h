@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include "toad_telemetry.h"
