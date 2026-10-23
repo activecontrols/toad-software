@@ -1,4 +1,3 @@
-
 #include "flight_history.h"
 
 flight_history_t FlightHistory;
