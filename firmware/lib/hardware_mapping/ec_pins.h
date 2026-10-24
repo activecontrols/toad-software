@@ -27,14 +27,14 @@
 #define TVC_PITCH_RS485_BUS RS485s::bus6
 #define PIN_TVC_PITCH_SEL PF8
 #define DRV_OX_RS485_BUS RS485s::bus6 // unused
-#define PIN_DRV_OX_SEL PF9           // unused
+#define PIN_DRV_OX_SEL PF9            // unused
 #define ENC_OX_RS485_BUS RS485s::bus6
 #define PIN_ENC_OX_SEL PF10
 
 #define TVC_YAW_RS485_BUS RS485s::bus2
 #define PIN_TVC_YAW_SEL PD8
 #define DRV_FU_RS485_BUS RS485s::bus2 // unused
-#define PIN_DRV_FU_SEL PD9           // unused
+#define PIN_DRV_FU_SEL PD9            // unused
 #define ENC_FU_RS485_BUS RS485s::bus2
 #define PIN_ENC_FU_SEL PD10
 
@@ -76,7 +76,7 @@
 #define PIN_ZUCROW_BOARD_DI4 PE6
 
 // Valve DOs
-#define PIN_SV_BV_LATCH_ENABLE NC // TODO - flywire and assign
+#define PIN_SV_BV_LATCH_ENABLE PF15
 
 #define NUM_SV_BV_VALVES 16
 #define PIN_SV_DO_1 PA4

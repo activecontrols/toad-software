@@ -25,7 +25,7 @@ bool begin() {
   for (size_t i = 0; i < NUM_TC_CHIPS; i++) {
     bool connected = tc_chips[i].begin();
     if (!connected) {
-      CommsSerial.printf("TC Board %d failed to connect.", i);
+      CommsSerial.printf("TC Board %d failed to connect.\n", i);
     }
     all_chips_connected &= connected;
   }
