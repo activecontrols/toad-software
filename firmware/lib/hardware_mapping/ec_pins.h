@@ -65,6 +65,7 @@
 #define PIN_SPARK_TRIG PC13
 
 // Zucrow Board
+#define ZUCROW_BOARD_SPI_BUS PT_TC_SPI_1
 #define PIN_ZUCROW_BOARD_CS PE3 // TODO - replace with PT board definition
 
 #define PIN_ZUCROW_BOARD_DO1 PF4
