@@ -30,6 +30,9 @@ For debugging, the enviroment (board) should be selected from the VSCode lower t
 
 Just want the latest .exe? - go to https://github.com/activecontrols/toad-software/actions/workflows/ui_build.yml
 
+Run `git submodule update --init --recursive` to pull [imgui](https://github.com/ocornut/imgui), [implot](https://github.com/epezent/implot), and [implot3d](https://github.com/brenocq/implot3d) which are C++ libraries used in the UI application.
+Running `mingw32-make -f UI.mk` in the toad-software folder should build the project once GCC is setup as described below.
+
 #### Setting up gcc on Windows
 Follow the instructions here, including updating PATH: https://code.visualstudio.com/docs/cpp/config-mingw
 
@@ -37,7 +40,7 @@ mingw provides the infrastructure needed to install and run linux tools natively
 
 After restarting VS Code, gcc, gdb, and g++ should work from the VS Code terminal.
 
-Running `mingw32-make -f UI.mk` in the toad-software folder should build the project. `mingw32-make` can be installed with `pacman -S --needed base-devel mingw-w64-ucrt-x86_64-toolchain` in the MinGW terminal.  
+`mingw32-make` can be installed with `pacman -S --needed base-devel mingw-w64-ucrt-x86_64-toolchain` in the MinGW terminal.  
 
 #### Intellisense
 Intellisense should "just work" once you have mingw installed (along with https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools). If it doesn't, make sure that you can run g++ from the command line. If something isn't working, look at [c_cpp_properties.json](UI/.vscode/c_cpp_properties.json) and the intellisense status in the bottom right of the VSCode window.
