@@ -130,7 +130,7 @@ int main(int argc, char **argv) {
   ImFontConfig config;
   config.MergeMode = true; // merge into your base font
   // adds symbols into fonts
-  io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\seguisym.ttf", 16.0f, &config);
+  // io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\seguisym.ttf", 16.0f, &config);
 
   ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 

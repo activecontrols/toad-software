@@ -1,4 +1,10 @@
-CXX      := g++
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+    CXX := x86_64-w64-mingw32-g++
+else
+    CXX := g++
+endif
+
 CXXFLAGS := -IUI/imgui -IUI/imgui/backends -IUI/implot -IUI/implot3d -IUI/include -IUI/gen -Ifirmware/lib/hardware_mapping -Ifirmware/lib/telemetry -MMD -MP
 
 # the majority of this is just windows libraries
@@ -9,18 +15,18 @@ GEN_DIR := UI/gen
 
 # Sources
 SRC := \
-	$(wildcard UI/src/*.cpp) \
-	$(GEN_DIR)/pid_diagram.cpp \
-	$(GEN_DIR)/flight_history.cpp \
-	$(filter-out %demo.cpp,$(wildcard UI/imgui/*.cpp UI/implot/*.cpp UI/implot3d/*.cpp)) \
-	UI/imgui/backends/imgui_impl_win32.cpp \
-	UI/imgui/backends/imgui_impl_dx11.cpp
+    $(wildcard UI/src/*.cpp) \
+    $(GEN_DIR)/pid_diagram.cpp \
+    $(GEN_DIR)/flight_history.cpp \
+    $(filter-out %demo.cpp,$(wildcard UI/imgui/*.cpp UI/implot/*.cpp UI/implot3d/*.cpp)) \
+    UI/imgui/backends/imgui_impl_win32.cpp \
+    UI/imgui/backends/imgui_impl_dx11.cpp
 
 # Build paths
 BUILD_DIR := build
 OBJ := $(patsubst %.cpp,$(BUILD_DIR)/%.o,$(SRC))
 
-TARGET := UI\app.exe
+TARGET := UI/app.exe
 
 .PHONY: all clean
 
@@ -32,22 +38,22 @@ $(TARGET): $(OBJ)
 
 # Compile
 $(OBJ): $(BUILD_DIR)/%.o: %.cpp | $(GEN_DIR)/flight_history.h
-	@if not exist "$(dir $@)" mkdir "$(dir $@)"
+	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(GEN_DIR)/pid_diagram.cpp: $(GEN_DIR)/gen_pid_diagram.py UI/src/toad_flight.pid
 	python $(word 1,$^) $(word 2,$^) $@
 
 FLIGHT_HISTORY_DEPS := \
-	firmware/lib/telemetry/toad_telemetry.h \
-	firmware/lib/hardware_mapping/ec_sensors.h
+    firmware/lib/telemetry/toad_telemetry.h \
+    firmware/lib/hardware_mapping/ec_sensors.h
 
 $(GEN_DIR)/flight_history.cpp $(GEN_DIR)/flight_history.h &: $(GEN_DIR)/gen_flight_history.py $(FLIGHT_HISTORY_DEPS)
 	python $(word 1,$^) $(wordlist 2,$(words $^),$^)
 
 clean:
-	@if exist $(BUILD_DIR) rmdir /s /q $(BUILD_DIR)
-	@if exist $(TARGET) del /q $(TARGET)
+	rm -rf $(BUILD_DIR)
+	rm -f $(TARGET)
 
 # Include dependency files
 -include $(OBJ:.o=.d)
