@@ -116,8 +116,18 @@ public:
         bool success = true;
         
         // TODO - print error for each CAN bus that fails
-        success = success && can_tvc.begin(CanBitRate::BR_500k);
-        success = success && can_fc.begin(CanBitRate::BR_500k);
+        // TEST ONLY: can_tvc stays inside the chip (internal loopback) so the valve motors and TVC
+        // actuators on that bus never see test frames. can_fc drives its TX pin (external loopback)
+        // so frames can be seen on a scope. Both allow FD frames.
+        CAN::config_t tvc_config;
+        tvc_config.mode = FDCAN_MODE_INTERNAL_LOOPBACK;
+        tvc_config.frame_format = FDCAN_FRAME_FD_NO_BRS;
+        success = success && can_tvc.begin(tvc_config);
+
+        CAN::config_t fc_config;
+        fc_config.mode = FDCAN_MODE_EXTERNAL_LOOPBACK;
+        fc_config.frame_format = FDCAN_FRAME_FD_NO_BRS;
+        success = success && can_fc.begin(fc_config);
 
         if (success)
         {
@@ -127,6 +137,12 @@ public:
             CommandRouter::add([]() { CAN::loopback_test_fd(can_tvc); },
             "can_fd_loopback_test",
             "Send FD frames of 8, 10, 20 and 64 bytes on can_tvc and check they come back. Needs an FD frame_format and a loopback mode.");
+            CommandRouter::add([]() { CAN::loopback_test(can_fc); },
+            "can_fc_loopback_test",
+            "TEST ONLY: send a classic frame on can_fc (external loopback, visible on the TX pin) and check it comes back.");
+            CommandRouter::add([]() { CAN::loopback_test_fd(can_fc); },
+            "can_fc_fd_loopback_test",
+            "TEST ONLY: send FD frames on can_fc (external loopback, visible on the TX pin) and check they come back.");
         };
 
         return success;
