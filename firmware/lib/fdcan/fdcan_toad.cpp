@@ -91,9 +91,17 @@ CAN::CAN(uint32_t _tx_pin, uint32_t _rx_pin)
 
 
 // jhillman adapted from https://github.com/STMicroelectronics/STM32CubeH7/blob/master/Projects/STM32H743I-EVAL/Examples/FDCAN/FDCAN_Classic_Frame_Networking/Src/main.c
+// Arduino HardwareCAN entry point: normal mode at the given bit rate.
 bool CAN::begin(CanBitRate _bitrate)
 {
-  uint32_t bit_rate = (uint32_t)_bitrate;
+  config_t config;
+  config.nominal_bit_rate = _bitrate;
+  return begin(config);
+}
+
+bool CAN::begin(const config_t& config)
+{
+  uint32_t bit_rate = (uint32_t)config.nominal_bit_rate;
 
   FDCAN_GlobalTypeDef* inst_1 = static_cast<FDCAN_GlobalTypeDef*>(pinmap_find_peripheral(digitalPinToPinName(tx_pin), PinMap_CAN_TD));
   FDCAN_GlobalTypeDef* inst_2 = static_cast<FDCAN_GlobalTypeDef*>(pinmap_find_peripheral(digitalPinToPinName(rx_pin), PinMap_CAN_RD));
@@ -168,7 +176,7 @@ bool CAN::begin(CanBitRate _bitrate)
   // FDCAN_FilterTypeDef sFilterConfig;
 
   this->hfdcan.Init.FrameFormat = FDCAN_FRAME_CLASSIC;
-  this->hfdcan.Init.Mode = FDCAN_MODE_NORMAL;
+  this->hfdcan.Init.Mode = config.mode;
   this->hfdcan.Init.AutoRetransmission = ENABLE;
   this->hfdcan.Init.TransmitPause = DISABLE;
   this->hfdcan.Init.ProtocolException = ENABLE;
@@ -459,4 +467,52 @@ void CAN::error_update_from_isr(void)
 
   memcpy(&(this->error_counts), &new_error_counts, sizeof(new_error_counts));
   return;
+}
+
+
+void CAN::loopback_test(CAN& bus)
+{
+  // Empty the receive queue first, so we only check our own frame.
+  while (bus.available() > 0)
+  {
+    bus.read();
+  }
+
+  const uint8_t tx_data[8] = {'h', 'e', 'l', 'l', 'o', '1', '2', '3'};
+  CanMsg tx_msg(0x55, sizeof(tx_data), tx_data);
+
+  if (bus.write(tx_msg) == 0)
+  {
+    CommsSerial.println("loopback test FAIL: write() failed");
+    return;
+  }
+
+  // An 8 byte frame at 500k takes about a quarter of a millisecond, so 10 ms is plenty.
+  uint32_t start_ms = millis();
+  while (bus.available() == 0)
+  {
+    if (millis() - start_ms > 10)
+    {
+      CommsSerial.println("loopback test FAIL: nothing received (is the bus in internal loopback?)");
+      return;
+    }
+  }
+
+  CanMsg rx_msg = bus.read();
+  CommsSerial.print("received: ");
+  CommsSerial.println(rx_msg);
+
+  bool id_ok = (rx_msg.id == tx_msg.id);
+  bool len_ok = (rx_msg.data_length == tx_msg.data_length);
+  bool data_ok = len_ok && (memcmp(rx_msg.data, tx_msg.data, tx_msg.data_length) == 0);
+
+  if (id_ok && len_ok && data_ok)
+  {
+    CommsSerial.println("loopback test PASS");
+  }
+  else
+  {
+    CommsSerial.printf("loopback test FAIL: id %s, length %s, data %s\n", id_ok ? "ok" : "BAD",
+                       len_ok ? "ok" : "BAD", data_ok ? "ok" : "BAD");
+  }
 }

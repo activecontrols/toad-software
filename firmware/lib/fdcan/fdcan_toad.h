@@ -30,6 +30,22 @@ public:
     // Returns true on success, false on failure.
     bool begin(CanBitRate bit_rate) override;
 
+    
+    // Settings for starting a bus. CAN-FD fields will be added here later.
+    struct config_t
+    {
+        CanBitRate nominal_bit_rate = CanBitRate::BR_500k;
+        uint32_t mode = FDCAN_MODE_NORMAL; // or FDCAN_MODE_INTERNAL_LOOPBACK for testing
+    };
+
+    // Initialize with full control over the settings.
+    // Returns true on success, false on failure.
+    bool begin(const config_t& config);
+
+    // Sends a known frame and checks that it comes back unchanged.
+    // Only passes when the bus was started in FDCAN_MODE_INTERNAL_LOOPBACK.
+    static void loopback_test(CAN& bus);
+
     // Get number of messages waiting in the receive FIFO.
     // Conforms to arduino::HardwareCAN interface.
     size_t available(void) override;
@@ -83,15 +99,9 @@ public:
 
         if (success)
         {
-            CommandRouter::add([]()
-            {
-                CAN& test_can = can_tvc;
-
-                const uint8_t str[] = "hello123";
-                arduino::CanMsg msg(0x55, 8, str);
-                
-                test_can.write(msg);
-            }, "can_loopback_test");
+            CommandRouter::add([]() { CAN::loopback_test(can_tvc); }, 
+            "can_loopback_test",
+            "Send a frame on can_tvc and check it comes back. Needs internal loopback mode.");
         };
 
         return success;
