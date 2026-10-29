@@ -47,10 +47,13 @@ public:
         uint8_t data[64] = {0};
     };
 
-    // Returns 1 on success, 0 on error or timeout
+    // Transmit a CAN-FD frame. The bus must have been started with an FD frame_format.
+    // Lengths that are not a valid FD size are padded with zeros to the next valid size (e.g. 10 -> 12).
+    // Returns 1 on success, 0 on error or timeout.
     int write_fd(const fd_msg_t& msg);
 
-    // Returns true and fills msg if a frame was waiting, false if not
+    // Take the next received frame (classic or FD) out of the receive FIFO.
+    // Returns true and fills msg if a frame was waiting, false if not.
     bool read_fd(fd_msg_t& msg);
 
     // Initialize with full control over the settings.
@@ -60,6 +63,10 @@ public:
     // Sends a known frame and checks that it comes back unchanged.
     // Only passes when the bus was started in FDCAN_MODE_INTERNAL_LOOPBACK or FDCAN_MODE_EXTERNAL_LOOPBACK.
     static void loopback_test(CAN& bus);
+
+    // Sends FD frames of 8, 10, 20 and 64 bytes and checks each comes back with the right length,
+    // data and zero padding. Needs an FD frame_format and a loopback mode.
+    static void loopback_test_fd(CAN& bus);
 
     // Get number of messages waiting in the receive FIFO.
     // Conforms to arduino::HardwareCAN interface.
@@ -117,6 +124,9 @@ public:
             CommandRouter::add([]() { CAN::loopback_test(can_tvc); }, 
             "can_loopback_test",
             "Send a frame on can_tvc and check it comes back. Needs a loopback mode.");
+            CommandRouter::add([]() { CAN::loopback_test_fd(can_tvc); },
+            "can_fd_loopback_test",
+            "Send FD frames of 8, 10, 20 and 64 bytes on can_tvc and check they come back. Needs an FD frame_format and a loopback mode.");
         };
 
         return success;

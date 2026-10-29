@@ -137,9 +137,9 @@ bool CAN::begin(const config_t& config)
     return false;
   }
 
-  
   if (config.frame_format == FDCAN_FRAME_FD_BRS)
   {
+    // The data phase timing is not set up yet, so bit rate switching would run at an undefined speed.
     CommsSerial.println("Error: FDCAN_FRAME_FD_BRS is not supported yet");
     return false;
   }
@@ -204,9 +204,11 @@ bool CAN::begin(const config_t& config)
 
   // FDCAN_FilterTypeDef sFilterConfig;
 
+  // FD frames can carry up to 64 bytes, so each receive and transmit slot needs room for that. Classic needs 8.
   const uint32_t elmt_size = (config.frame_format == FDCAN_FRAME_CLASSIC) ? FDCAN_DATA_BYTES_8 : FDCAN_DATA_BYTES_64;
   this->frame_format = config.frame_format;
-  this->hfdcan.Init.FrameFormat = config.frame_format;  
+
+  this->hfdcan.Init.FrameFormat = config.frame_format;
   this->hfdcan.Init.Mode = config.mode;
   this->hfdcan.Init.AutoRetransmission = ENABLE;
   this->hfdcan.Init.TransmitPause = DISABLE;
@@ -629,4 +631,74 @@ void CAN::loopback_test(CAN& bus)
     CommsSerial.printf("loopback test FAIL: id %s, length %s, data %s\n", id_ok ? "ok" : "BAD",
                        len_ok ? "ok" : "BAD", data_ok ? "ok" : "BAD");
   }
+}
+
+// Sends one FD frame of tx_len bytes and checks it comes back with the padded length,
+// the same data, and zeros in any padding. Prints one result line and returns true on pass.
+static bool check_fd_frame(CAN& bus, uint8_t tx_len)
+{
+  CAN::fd_msg_t tx_msg;
+  tx_msg.id = 0x56;
+  tx_msg.len = tx_len;
+  for (uint8_t i = 0; i < tx_len; i++)
+  {
+    tx_msg.data[i] = i + 1; // 1, 2, 3, ... so every byte differs and none are zero
+  }
+
+  if (bus.write_fd(tx_msg) == 0)
+  {
+    CommsSerial.printf("  %2u bytes: FAIL, write_fd() failed (is the bus in an FD mode?)\n", tx_len);
+    return false;
+  }
+
+  // a 64 byte FD frame at 500k takes about 1.2 ms, so 10 ms is plenty
+  uint32_t start_ms = millis();
+  while (bus.available() == 0)
+  {
+    if (millis() - start_ms > 10)
+    {
+      CommsSerial.printf("  %2u bytes: FAIL, nothing received\n", tx_len);
+      return false;
+    }
+  }
+
+  CAN::fd_msg_t rx_msg;
+  bus.read_fd(rx_msg);
+
+  uint8_t expected_len = DLC_TO_BYTES[bytes_to_dlc(tx_len)];
+  bool id_ok = (rx_msg.id == tx_msg.id);
+  bool len_ok = (rx_msg.len == expected_len);
+  bool data_ok = (memcmp(rx_msg.data, tx_msg.data, tx_len) == 0);
+  bool padding_ok = true;
+  for (uint8_t i = tx_len; i < rx_msg.len; i++)
+  {
+    if (rx_msg.data[i] != 0)
+    {
+      padding_ok = false;
+    }
+  }
+
+  bool pass = id_ok && len_ok && data_ok && padding_ok;
+  CommsSerial.printf("  %2u bytes -> received %2u: %s (id %s, length %s, data %s, padding %s)\n", tx_len, rx_msg.len,
+                     pass ? "PASS" : "FAIL", id_ok ? "ok" : "BAD", len_ok ? "ok" : "BAD", data_ok ? "ok" : "BAD",
+                     padding_ok ? "ok" : "BAD");
+  return pass;
+}
+
+void CAN::loopback_test_fd(CAN& bus)
+{
+  // Empty the receive queue first, so we only check our own frames.
+  CAN::fd_msg_t discard;
+  while (bus.read_fd(discard))
+  {
+  }
+
+  const uint8_t lengths[] = {8, 10, 20, 64};
+  bool all_pass = true;
+  for (uint8_t len : lengths)
+  {
+    all_pass = check_fd_frame(bus, len) && all_pass; // call first so every length runs even after a failure
+  }
+
+  CommsSerial.println(all_pass ? "FD loopback test PASS" : "FD loopback test FAIL");
 }
