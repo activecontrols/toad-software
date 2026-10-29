@@ -493,7 +493,7 @@ void CAN::loopback_test(CAN& bus)
   {
     if (millis() - start_ms > 10)
     {
-      CommsSerial.println("loopback test FAIL: nothing received (is the bus in internal loopback?)");
+      CommsSerial.println("loopback test FAIL: nothing received (is the bus in a loopback mode?)");
       return;
     }
   }

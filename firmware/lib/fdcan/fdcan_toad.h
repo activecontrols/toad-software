@@ -42,7 +42,7 @@ public:
     bool begin(const config_t& config);
 
     // Sends a known frame and checks that it comes back unchanged.
-    // Only passes when the bus was started in FDCAN_MODE_INTERNAL_LOOPBACK.
+    // Only passes when the bus was started in FDCAN_MODE_INTERNAL_LOOPBACK or FDCAN_MODE_EXTERNAL_LOOPBACK.
     static void loopback_test(CAN& bus);
 
     // Get number of messages waiting in the receive FIFO.
@@ -100,7 +100,7 @@ public:
         {
             CommandRouter::add([]() { CAN::loopback_test(can_tvc); }, 
             "can_loopback_test",
-            "Send a frame on can_tvc and check it comes back. Needs internal loopback mode.");
+            "Send a frame on can_tvc and check it comes back. Needs a loopback mode.");
         };
 
         return success;
