@@ -90,7 +90,6 @@ CAN::CAN(uint32_t _tx_pin, uint32_t _rx_pin)
 }
 
 
-// jhillman adapted from https://github.com/STMicroelectronics/STM32CubeH7/blob/master/Projects/STM32H743I-EVAL/Examples/FDCAN/FDCAN_Classic_Frame_Networking/Src/main.c
 // Arduino HardwareCAN entry point: normal mode at the given bit rate.
 bool CAN::begin(CanBitRate _bitrate)
 {
@@ -99,6 +98,7 @@ bool CAN::begin(CanBitRate _bitrate)
   return begin(config);
 }
 
+// jhillman adapted from https://github.com/STMicroelectronics/STM32CubeH7/blob/master/Projects/STM32H743I-EVAL/Examples/FDCAN/FDCAN_Classic_Frame_Networking/Src/main.c
 bool CAN::begin(const config_t& config)
 {
   uint32_t bit_rate = (uint32_t)config.nominal_bit_rate;

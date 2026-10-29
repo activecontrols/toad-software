@@ -30,7 +30,6 @@ public:
     // Returns true on success, false on failure.
     bool begin(CanBitRate bit_rate) override;
 
-    
     // Settings for starting a bus. CAN-FD fields will be added here later.
     struct config_t
     {
