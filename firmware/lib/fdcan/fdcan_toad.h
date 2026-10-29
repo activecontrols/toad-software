@@ -35,7 +35,23 @@ public:
     {
         CanBitRate nominal_bit_rate = CanBitRate::BR_500k;
         uint32_t mode = FDCAN_MODE_NORMAL; // or FDCAN_MODE_INTERNAL_LOOPBACK for testing
+        uint32_t frame_format = FDCAN_FRAME_CLASSIC; // or FDCAN_FRAME_FD_NO_BRS
     };
+
+
+    // CAN-FD message type
+    struct fd_msg_t
+    {
+        uint32_t id = 0;
+        uint8_t len = 0; // number of data bytes, 0-64
+        uint8_t data[64] = {0};
+    };
+
+    // Returns 1 on success, 0 on error or timeout
+    int write_fd(const fd_msg_t& msg);
+
+    // Returns true and fills msg if a frame was waiting, false if not
+    bool read_fd(fd_msg_t& msg);
 
     // Initialize with full control over the settings.
     // Returns true on success, false on failure.
@@ -115,4 +131,5 @@ private:
     uint32_t rx_pin = 0;
     uint8_t rx_data[64] = {0};
     CAN_error_cbk_t error_cbk = nullptr;
+    uint32_t frame_format = FDCAN_FRAME_CLASSIC;
 };

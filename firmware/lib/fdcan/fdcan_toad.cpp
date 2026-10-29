@@ -27,6 +27,22 @@ inline CAN* resolve_can(FDCAN_GlobalTypeDef* inst)
   return nullptr;
 }
 
+// CAN-FD payload sizes, indexed by DLC (data length code).
+static const uint8_t DLC_TO_BYTES[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48, 64};
+
+// Smallest DLC whose payload holds len bytes. len must be 0-64.
+static uint32_t bytes_to_dlc(uint8_t len)
+{
+  for (uint32_t dlc = 0; dlc < 16; dlc++)
+  {
+    if (DLC_TO_BYTES[dlc] >= len)
+    {
+      return dlc;
+    }
+  }
+  return 15; // not reached when len <= 64
+}
+
 /* enable GPIO clock and configure pin (must pass a bit mask for which pin(s) to configure on the specific port) */
 static void CAN_init_gpio_dynamic(uint32_t pin, const PinMap pin_map[])
 {
@@ -121,6 +137,19 @@ bool CAN::begin(const config_t& config)
     return false;
   }
 
+  
+  if (config.frame_format == FDCAN_FRAME_FD_BRS)
+  {
+    CommsSerial.println("Error: FDCAN_FRAME_FD_BRS is not supported yet");
+    return false;
+  }
+
+  if (config.frame_format != FDCAN_FRAME_CLASSIC && config.frame_format != FDCAN_FRAME_FD_NO_BRS)
+  {
+    CommsSerial.println("Error: invalid CAN frame format");
+    return false;
+  }
+
   const uint32_t can_ker_ck = HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_FDCAN);
 
   if (can_ker_ck != 120'000'000)
@@ -175,7 +204,9 @@ bool CAN::begin(const config_t& config)
 
   // FDCAN_FilterTypeDef sFilterConfig;
 
-  this->hfdcan.Init.FrameFormat = FDCAN_FRAME_CLASSIC;
+  const uint32_t elmt_size = (config.frame_format == FDCAN_FRAME_CLASSIC) ? FDCAN_DATA_BYTES_8 : FDCAN_DATA_BYTES_64;
+  this->frame_format = config.frame_format;
+  this->hfdcan.Init.FrameFormat = config.frame_format;  
   this->hfdcan.Init.Mode = config.mode;
   this->hfdcan.Init.AutoRetransmission = ENABLE;
   this->hfdcan.Init.TransmitPause = DISABLE;
@@ -188,14 +219,14 @@ bool CAN::begin(const config_t& config)
   this->hfdcan.Init.StdFiltersNbr = 0; // not using any filters on this bus - that way CPU receives all messages (since we are just talking to actuators anyway, this is fine)
   this->hfdcan.Init.ExtFiltersNbr = 0;
   this->hfdcan.Init.RxFifo0ElmtsNbr = 8;
-  this->hfdcan.Init.RxFifo0ElmtSize = FDCAN_DATA_BYTES_8;
+  this->hfdcan.Init.RxFifo0ElmtSize = elmt_size;
   this->hfdcan.Init.RxFifo1ElmtsNbr = 0;
   this->hfdcan.Init.RxBuffersNbr = 0;
   this->hfdcan.Init.TxEventsNbr = 0;
   this->hfdcan.Init.TxBuffersNbr = 1;
   this->hfdcan.Init.TxFifoQueueElmtsNbr = 0;
   this->hfdcan.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION; // other option is queue operation; with fifo messages are sent in the order they are placed in the fifo, with queue they are sent in order of priority. i think we want fifo
-  this->hfdcan.Init.TxElmtSize = FDCAN_DATA_BYTES_8;
+  this->hfdcan.Init.TxElmtSize = elmt_size;
   this->hfdcan.ErrorCallback = fdcan_error_cbk;
   this->hfdcan.ErrorStatusCallback = fdcan_error_status_cbk;
 
@@ -410,6 +441,89 @@ CanMsg CAN::read(void)
   uint8_t len = (this->rx_header.DataLength > FDCAN_DLC_BYTES_8) ? 8 : (uint8_t)this->rx_header.DataLength;
 
   return CanMsg(arduino_msg_id, len, this->rx_data);
+}
+
+// The bus must have been started with an FD frame_format.
+// Lengths that are not a valid FD size are padded with zeros (e.g. 10 -> 12).
+int CAN::write_fd(const fd_msg_t& msg)
+{
+  if (this->hfdcan.Instance == nullptr)
+  {
+    return 0;
+  }
+
+  if (this->frame_format == FDCAN_FRAME_CLASSIC)
+  {
+    return 0; // this bus was started in classic mode and cannot send FD frames
+  }
+
+  if (msg.len > 64)
+  {
+    return 0;
+  }
+
+  // wait for the single transmit slot to be free
+  if (this->flush(4U) == false)
+  {
+    return 0;
+  }
+
+  // The HAL copies the whole padded frame from our buffer (12 bytes for a 10 byte message),
+  // so copy into a zeroed buffer to make sure the padding bytes are zero.
+  uint8_t tx_buf[64] = {0};
+  memcpy(tx_buf, msg.data, msg.len);
+
+  FDCAN_TxHeaderTypeDef tx_header = {0};
+
+  if (msg.id & CanMsg::CAN_EFF_FLAG)
+  {
+    tx_header.Identifier = msg.id & CanMsg::CAN_EFF_MASK;
+    tx_header.IdType = FDCAN_EXTENDED_ID;
+  }
+  else
+  {
+    tx_header.Identifier = msg.id & CanMsg::CAN_SFF_MASK;
+    tx_header.IdType = FDCAN_STANDARD_ID;
+  }
+
+  tx_header.TxFrameType = FDCAN_DATA_FRAME;
+  tx_header.DataLength = bytes_to_dlc(msg.len);
+  tx_header.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+  tx_header.BitRateSwitch = FDCAN_BRS_OFF; // bit rate switching comes in step 3
+  tx_header.FDFormat = FDCAN_FD_CAN;
+  tx_header.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
+  tx_header.MessageMarker = 0;
+
+  if (HAL_FDCAN_AddMessageToTxBuffer(&(this->hfdcan), &tx_header, tx_buf, FDCAN_TX_BUFFER0) != HAL_OK)
+  {
+    return 0;
+  }
+
+  return (HAL_FDCAN_EnableTxBufferRequest(&(this->hfdcan), FDCAN_TX_BUFFER0) == HAL_OK) ? 1 : 0;
+}
+
+bool CAN::read_fd(fd_msg_t& msg)
+{
+  if (this->hfdcan.Instance == nullptr || this->available() == 0)
+  {
+    return false;
+  }
+
+  if (HAL_FDCAN_GetRxMessage(&(this->hfdcan), FDCAN_RX_FIFO0, &(this->rx_header), this->rx_data) != HAL_OK)
+  {
+    return false;
+  }
+
+  msg.id = this->rx_header.Identifier;
+  if (this->rx_header.IdType == FDCAN_EXTENDED_ID)
+  {
+    msg.id |= CanMsg::CAN_EFF_FLAG;
+  }
+
+  // DataLength holds the DLC code (0-15), not a byte count, so convert it.
+  msg.len = DLC_TO_BYTES[this->rx_header.DataLength & 0xF];
+  memcpy(msg.data, this->rx_data, msg.len);
+  return true;
 }
 
 void CAN::end(void)
