@@ -137,14 +137,8 @@ bool CAN::begin(const config_t& config)
     return false;
   }
 
-  if (config.frame_format == FDCAN_FRAME_FD_BRS)
-  {
-    // The data phase timing is not set up yet, so bit rate switching would run at an undefined speed.
-    CommsSerial.println("Error: FDCAN_FRAME_FD_BRS is not supported yet");
-    return false;
-  }
-
-  if (config.frame_format != FDCAN_FRAME_CLASSIC && config.frame_format != FDCAN_FRAME_FD_NO_BRS)
+  if (config.frame_format != FDCAN_FRAME_CLASSIC && config.frame_format != FDCAN_FRAME_FD_NO_BRS &&
+      config.frame_format != FDCAN_FRAME_FD_BRS)
   {
     CommsSerial.println("Error: invalid CAN frame format");
     return false;
@@ -202,6 +196,60 @@ bool CAN::begin(const config_t& config)
     return false;
   }
 
+  // Data phase timing, only used when bit rate switching is on.
+  // Same idea as the nominal timing above, but the registers are smaller (DataTimeSeg1 1-32,
+  // DataTimeSeg2 1-16), so a data bit can be at most 1 + 32 + 16 = 49 tq. Use the smallest prescaler
+  // that fits: more tq per bit places the sample point more precisely, and TDC only works with a
+  // data prescaler of 1 or 2. At 8 Mbit/s: prescaler 1, 15 tq per bit.
+  uint32_t data_prescaler = 0;
+  uint32_t data_seg_1_tq = 0;
+  uint32_t data_seg_2_tq = 0;
+
+  if (config.frame_format == FDCAN_FRAME_FD_BRS)
+  {
+    const uint32_t data_bit_rate = config.data_bit_rate;
+
+    if (data_bit_rate <= bit_rate || data_bit_rate > 8'000'000U)
+    {
+      CommsSerial.println("Error: CAN data bit rate must be faster than the nominal rate and at most 8 Mbit/s");
+      return false;
+    }
+
+    uint32_t data_bit_time_tq = 0;
+    for (uint32_t p = 1; p <= 32; p++)
+    {
+      if ((can_ker_ck % (p * data_bit_rate)) != 0)
+      {
+        continue; // this prescaler can't produce the rate exactly
+      }
+
+      uint32_t tq = can_ker_ck / (p * data_bit_rate);
+      if (tq <= 49)
+      {
+        data_prescaler = p;
+        data_bit_time_tq = tq;
+        break;
+      }
+    }
+
+    if (data_prescaler == 0)
+    {
+      CommsSerial.println("Error: CAN data bit rate can't be made exactly from the 120 MHz clock");
+      return false;
+    }
+
+    // place the data phase sample point at approx. 75% (at 8 Mbit/s: 11 of 15 tq, 73%)
+    uint32_t data_tq_before_sample = 75 * data_bit_time_tq / 100;
+    data_seg_1_tq = data_tq_before_sample - 1; // minus the 1 tq sync segment, same as nominal
+    data_seg_2_tq = data_bit_time_tq - data_tq_before_sample;
+
+    if (data_tq_before_sample < 2 || data_seg_1_tq > 32 || data_seg_2_tq < 1 || data_seg_2_tq > 16)
+    {
+      CommsSerial.println("Error: CAN data phase seg_1 or seg_2 calculated values are invalid");
+      return false;
+    }
+  }
+
   // FDCAN_FilterTypeDef sFilterConfig;
 
   // FD frames can carry up to 64 bytes, so each receive and transmit slot needs room for that. Classic needs 8.
@@ -217,6 +265,11 @@ bool CAN::begin(const config_t& config)
   this->hfdcan.Init.NominalSyncJumpWidth = 8U < seg_2_tq ? 8U : seg_2_tq;
   this->hfdcan.Init.NominalTimeSeg1 = seg_1_tq;
   this->hfdcan.Init.NominalTimeSeg2 = seg_2_tq;
+  // The HAL only writes these when FrameFormat is FDCAN_FRAME_FD_BRS; otherwise they are ignored.
+  this->hfdcan.Init.DataPrescaler = data_prescaler;
+  this->hfdcan.Init.DataSyncJumpWidth = data_seg_2_tq;
+  this->hfdcan.Init.DataTimeSeg1 = data_seg_1_tq;
+  this->hfdcan.Init.DataTimeSeg2 = data_seg_2_tq;
   this->hfdcan.Init.MessageRAMOffset = (this->hfdcan.Instance == FDCAN1 ? 0 : 1280); // FDCAN1 gets 0-1279, FDCAN2 gets 1280-2559
   this->hfdcan.Init.StdFiltersNbr = 0; // not using any filters on this bus - that way CPU receives all messages (since we are just talking to actuators anyway, this is fine)
   this->hfdcan.Init.ExtFiltersNbr = 0;
@@ -264,6 +317,21 @@ bool CAN::begin(const config_t& config)
   // step 1 end
 
   // step 2: configure the FDCAN peripheral
+
+  // Transmitter delay compensation (TDC). A node checks every bit it sends by reading it back
+  // through the transceiver. At fast data rates that echo arrives after the normal check point,
+  // so TDC moves the check point later. Offset = DataPrescaler * DataTimeSeg1 (about where the
+  // sample point is), filter 0, as in ST's FDCAN examples. Must be set after Init and before Start.
+  if (config.frame_format == FDCAN_FRAME_FD_BRS && data_prescaler <= 2)
+  {
+    if (HAL_FDCAN_ConfigTxDelayCompensation(&(this->hfdcan), data_prescaler * data_seg_1_tq, 0) != HAL_OK ||
+        HAL_FDCAN_EnableTxDelayCompensation(&(this->hfdcan)) != HAL_OK)
+    {
+      CommsSerial.println("Error: could not configure CAN transmitter delay compensation");
+      return false;
+    }
+  }
+
   // filter creation should go around here, but we are not using any (no filtering)
 
   /* Configure global filter to accept all 11 bit ID frames (and reject remote frames); jhillman todo: confirm the hardware on the bus does not use remote frames */
@@ -491,7 +559,8 @@ int CAN::write_fd(const fd_msg_t& msg)
   tx_header.TxFrameType = FDCAN_DATA_FRAME;
   tx_header.DataLength = bytes_to_dlc(msg.len);
   tx_header.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
-  tx_header.BitRateSwitch = FDCAN_BRS_OFF; // bit rate switching comes in step 3
+  // switch to data_bit_rate for the data phase if this bus was started with bit rate switching
+  tx_header.BitRateSwitch = (this->frame_format == FDCAN_FRAME_FD_BRS) ? FDCAN_BRS_ON : FDCAN_BRS_OFF;
   tx_header.FDFormat = FDCAN_FD_CAN;
   tx_header.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
   tx_header.MessageMarker = 0;

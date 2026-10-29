@@ -30,12 +30,13 @@ public:
     // Returns true on success, false on failure.
     bool begin(CanBitRate bit_rate) override;
 
-    // Settings for starting a bus. CAN-FD fields will be added here later.
+    // Settings for starting a bus.
     struct config_t
     {
-        CanBitRate nominal_bit_rate = CanBitRate::BR_500k;
-        uint32_t mode = FDCAN_MODE_NORMAL; // or FDCAN_MODE_INTERNAL_LOOPBACK for testing
-        uint32_t frame_format = FDCAN_FRAME_CLASSIC; // or FDCAN_FRAME_FD_NO_BRS
+        CanBitRate nominal_bit_rate = CanBitRate::BR_500k; // arbitration phase (and the whole frame without BRS)
+        uint32_t mode = FDCAN_MODE_NORMAL; // or FDCAN_MODE_INTERNAL_LOOPBACK / FDCAN_MODE_EXTERNAL_LOOPBACK for testing
+        uint32_t frame_format = FDCAN_FRAME_CLASSIC; // or FDCAN_FRAME_FD_NO_BRS / FDCAN_FRAME_FD_BRS
+        uint32_t data_bit_rate = 8'000'000; // data phase in bit/s, only used with FDCAN_FRAME_FD_BRS
     };
 
 
@@ -48,6 +49,7 @@ public:
     };
 
     // Transmit a CAN-FD frame. The bus must have been started with an FD frame_format.
+    // On an FDCAN_FRAME_FD_BRS bus the data phase is sent at data_bit_rate.
     // Lengths that are not a valid FD size are padded with zeros to the next valid size (e.g. 10 -> 12).
     // Returns 1 on success, 0 on error or timeout.
     int write_fd(const fd_msg_t& msg);
