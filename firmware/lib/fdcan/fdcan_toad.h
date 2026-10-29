@@ -119,8 +119,9 @@ public:
         
         // TODO - print error for each CAN bus that fails
         // TEST ONLY: can_tvc stays inside the chip (internal loopback) so the valve motors and TVC
-        // actuators on that bus never see test frames. can_fc drives its TX pin (external loopback)
-        // so frames can be seen on a scope. Both allow FD frames.
+        // actuators on that bus never see test frames; it runs FD without bit rate switching (step 2).
+        // can_fc drives its TX pin (external loopback) so frames can be seen on a scope; it runs FD with
+        // bit rate switching (step 3), so the data phase is sent at data_bit_rate (default 8 Mbit/s).
         CAN::config_t tvc_config;
         tvc_config.mode = FDCAN_MODE_INTERNAL_LOOPBACK;
         tvc_config.frame_format = FDCAN_FRAME_FD_NO_BRS;
@@ -128,7 +129,7 @@ public:
 
         CAN::config_t fc_config;
         fc_config.mode = FDCAN_MODE_EXTERNAL_LOOPBACK;
-        fc_config.frame_format = FDCAN_FRAME_FD_NO_BRS;
+        fc_config.frame_format = FDCAN_FRAME_FD_BRS;
         success = success && can_fc.begin(fc_config);
 
         if (success)
