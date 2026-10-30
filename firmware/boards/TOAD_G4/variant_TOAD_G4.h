@@ -203,6 +203,10 @@
 #define HAL_QSPI_MODULE_ENABLED
 #endif
 
+#if !defined(HAL_FDCAN_MODULE_DISABLED) // enable FDCAN HAL definitions
+#define HAL_FDCAN_MODULE_ENABLED
+#endif
+
 /*----------------------------------------------------------------------------
  *        Arduino objects - C++ only
  *----------------------------------------------------------------------------*/

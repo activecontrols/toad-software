@@ -3,6 +3,7 @@
 #include "CommsSerial.h"
 #include "ErrorCounters.h"
 #include "fdcan_toad.h"
+#include "ec_pins.h" // for can_tvc
 
 #include <array>
 #include <stdint.h>

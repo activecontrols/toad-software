@@ -2,17 +2,20 @@
 
 #include "Arduino.h"
 
+#if defined(TOAD_ENGINE_CONTROLLER_ONLY)
 #include "stm32h7xx_hal.h"
 #include "variant_TOAD_H7.h"
+#include "ec_pins.h"
+#elif defined(TOAD_PROGRAMMER_ONLY)
+#include "stm32g474xx.h"
+#include "variant_TOAD_G4.h"
+#include "prog_pins.h"
+#endif
+
 #include "ec_pins.h"
 #include "CommsSerial.h"
 
 using namespace arduino;
-
-CAN can_tvc(PIN_CAN_TVC_TX, PIN_CAN_TVC_RX);
-CAN can_fc(PIN_CAN_FC_TX, PIN_CAN_FC_RX);
-
-std::array<CAN*, 2> can_list = {&can_tvc, &can_fc};
 
 inline CAN* resolve_can(FDCAN_GlobalTypeDef* inst)
 {
@@ -176,9 +179,16 @@ bool CAN::begin(CanBitRate _bitrate)
   this->hfdcan.Init.NominalSyncJumpWidth = 8U < seg_2_tq ? 8U : seg_2_tq;
   this->hfdcan.Init.NominalTimeSeg1 = seg_1_tq;
   this->hfdcan.Init.NominalTimeSeg2 = seg_2_tq;
-  this->hfdcan.Init.MessageRAMOffset = (this->hfdcan.Instance == FDCAN1 ? 0 : 1280); // FDCAN1 gets 0-1279, FDCAN2 gets 1280-2559
   this->hfdcan.Init.StdFiltersNbr = 0; // not using any filters on this bus - that way CPU receives all messages (since we are just talking to actuators anyway, this is fine)
   this->hfdcan.Init.ExtFiltersNbr = 0;
+  this->hfdcan.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION; // other option is queue operation; with fifo messages are sent in the order they are placed in the fifo, with queue they are sent in order of priority. i think we want fifo
+
+
+  // platform-dependent options:
+  // H7 forces the user to determine these values; on the G4 the HAL automatically decides RAM start address and buffer/fifo sizes
+  // see FDCAN_CalcultateRamBlockAddresses() of stm32g4xx_hal_fdcan.c
+  #if defined(TOAD_ENGINE_CONTROLLER_ONLY)
+  this->hfdcan.Init.MessageRAMOffset = (this->hfdcan.Instance == FDCAN1 ? 0 : 1280); // FDCAN1 gets 0-1279, FDCAN2 gets 1280-2559
   this->hfdcan.Init.RxFifo0ElmtsNbr = 8;
   this->hfdcan.Init.RxFifo0ElmtSize = FDCAN_DATA_BYTES_8;
   this->hfdcan.Init.RxFifo1ElmtsNbr = 0;
@@ -186,10 +196,10 @@ bool CAN::begin(CanBitRate _bitrate)
   this->hfdcan.Init.TxEventsNbr = 0;
   this->hfdcan.Init.TxBuffersNbr = 1;
   this->hfdcan.Init.TxFifoQueueElmtsNbr = 0;
-  this->hfdcan.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION; // other option is queue operation; with fifo messages are sent in the order they are placed in the fifo, with queue they are sent in order of priority. i think we want fifo
   this->hfdcan.Init.TxElmtSize = FDCAN_DATA_BYTES_8;
   this->hfdcan.ErrorCallback = fdcan_error_cbk;
   this->hfdcan.ErrorStatusCallback = fdcan_error_status_cbk;
+  #endif
 
 
   // step (1) refers to steps as they are defined by the HAL reference
@@ -355,15 +365,25 @@ int CAN::write(CanMsg const & msg)
   tx_header.TxEventFifoControl = FDCAN_NO_TX_EVENTS; // do not store transmission events in the TX event FIFO
   tx_header.MessageMarker = 0;
 
+  HAL_StatusTypeDef status;
+
+  #if defined(TOAD_ENGINE_CONTROLLER_ONLY)
+  // NOTE: on the H7 this is done in two steps: (1) place the message in the buffer, (2) activate the transmission request
   // place the message in the first buffer
-  HAL_StatusTypeDef status = HAL_FDCAN_AddMessageToTxBuffer(&(this->hfdcan), &tx_header, msg.data, FDCAN_TX_BUFFER0);
+  status = HAL_FDCAN_AddMessageToTxBuffer(&(this->hfdcan), &tx_header, msg.data, FDCAN_TX_BUFFER0);
 
   if (status != HAL_OK)
   {
     return 0;
   }
 
+  // enable transmission request
   status = HAL_FDCAN_EnableTxBufferRequest(&(this->hfdcan), FDCAN_TX_BUFFER0);
+
+  #elif defined(TOAD_PROGRAMMER_ONLY)
+  // On the G4 the HAL function HAL_FDCAN_AddMessageToTxFifoQ() both adds the message to the buffer or queue and activates the transmission request
+  status = HAL_FDCAN_AddMessageToTxFifoQ(&(this->hfdcan), &tx_header, msg.data);
+  #endif
 
   return (status == HAL_OK) ? 1 : 0;
 }

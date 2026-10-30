@@ -6,6 +6,7 @@
 #include "SPI.h"
 #include "ec_sensors.h"
 #include "ec_valves.h"
+#include "fdcan_toad.h"
 
 // UARTS
 // Primary serial output (UART5)
@@ -61,6 +62,10 @@
 #define PIN_CAN_TVC_TX PB6
 #define PIN_CAN_FC_RX PH14
 #define PIN_CAN_FC_TX PH13
+
+extern CAN can_tvc;
+extern CAN can_fc;
+inline constexpr std::array<CAN*, 2> can_list = {&can_tvc, &can_fc};
 
 // PWM (spark)
 #define PIN_SPARK_PWM PC6

@@ -21,6 +21,9 @@ CommsSerial_t<Uart> HW_FallbackSerial(PIN_HW_FALLBACK_SERIAL_RX, PIN_HW_FALLBACK
 SPIClass PT_TC_SPI_1(PIN_PT_TC_SPI_1_MOSI, PIN_PT_TC_SPI_1_MISO, PIN_PT_TC_SPI_1_SCK);
 SPIClass PT_TC_SPI_3(PIN_PT_TC_SPI_3_MOSI, PIN_PT_TC_SPI_3_MISO, PIN_PT_TC_SPI_3_SCK);
 
+CAN can_tvc(PIN_CAN_TVC_TX, PIN_CAN_TVC_RX);
+CAN can_fc(PIN_CAN_FC_TX, PIN_CAN_FC_RX);
+
 bool kill_flag;
 bool arm_flag;
 void flight_loop();
@@ -46,7 +49,7 @@ void setup() {
 
   bool all_modules_ok = true;
 
-  all_modules_ok &= CAN::init();
+  
   all_modules_ok &= PressureSensors::begin();
   all_modules_ok &= TemperatureSensors::begin();
   all_modules_ok &= RS485s::begin();
@@ -54,6 +57,8 @@ void setup() {
   all_modules_ok &= SolenoidValves::begin();
   all_modules_ok &= TVC_Actuators::begin();
   all_modules_ok &= ValveController::begin();
+  all_modules_ok &= can_tvc.begin(CanBitRate::BR_500k);
+  all_modules_ok &= can_fc.begin(CanBitRate::BR_500k);
 
   if (!all_modules_ok) {
     while (true) {
@@ -66,6 +71,16 @@ void setup() {
   CommandRouter::add(flight_loop, "start_flight_loop");
   CommandRouter::add_flag(&kill_flag, "k", "terminate the flight loop early");
   CommandRouter::add_flag(&arm_flag, "arm", "start following a trajectory");
+
+  CommandRouter::add([]()
+  {
+      CAN& test_can = can_tvc;
+
+      const uint8_t str[] = "hello123";
+      arduino::CanMsg msg(0x55, 8, str);
+      
+      test_can.write(msg);
+  }, "can_loopback_test");
 }
 
 void loop() {

@@ -4,6 +4,8 @@
 
 #include "SPI.h"
 
+#include "fdcan_toad.h"
+
 // TODO - audit these once EC design is finalized
 
 // UARTS
@@ -24,6 +26,9 @@
 // FDCAN
 #define PIN_CAN_GSE_RX PB12
 #define PIN_CAN_GSE_TX PB13
+
+extern CAN can_gse;
+inline constexpr std::array<CAN*, 1> can_list = {&can_gse};
 
 // ID Pin
 #define PIN_PROG_ID PB1

@@ -240,9 +240,22 @@
 
 // #include "CommsSerial.h"
 #include <Arduino.h>
+#include "prog_pins.h"
+
+CAN can_gse(PIN_CAN_GSE_TX, PIN_CAN_GSE_RX);
 
 void setup() {
   Serial.begin(9600);
+
+  if (!can_gse.begin(CanBitRate::BR_500k))
+  {
+    for (;;)
+    {
+      Serial.println("CAN failed to begin()");
+
+      delay(1000);
+    }
+  }
 
   Serial.println("init"); // had to add this; for some reason without it we don't pull in Print.cpp which causes a
                           // linker error because _write is not defined

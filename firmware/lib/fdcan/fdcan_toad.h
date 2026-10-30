@@ -2,14 +2,15 @@
 #include <stdint.h>
 #include "api/HardwareCAN.h"
 #include "Arduino.h"
-#include "stm32h7xx_hal.h"
 #include "CommandRouter.h"
 
-class CAN;
+#if defined(TOAD_ENGINE_CONTROLLER_ONLY)
+#include "stm32h7xx_hal.h"
+#elif defined(TOAD_PROGRAMMER_ONLY)
+#include "stm32g474xx.h"
+#endif
 
-// instantiated in fdcan_toad.cpp
-extern CAN can_tvc;
-extern CAN can_fc;
+class CAN;
 
 class CAN : public arduino::HardwareCAN
 {
@@ -72,31 +73,6 @@ public:
     {
         return &hfdcan;
     }
-
-    static bool init(void)
-    {
-        bool success = true;
-        
-        // TODO - print error for each CAN bus that fails
-        success = success && can_tvc.begin(CanBitRate::BR_500k);
-        success = success && can_fc.begin(CanBitRate::BR_500k);
-
-        if (success)
-        {
-            CommandRouter::add([]()
-            {
-                CAN& test_can = can_tvc;
-
-                const uint8_t str[] = "hello123";
-                arduino::CanMsg msg(0x55, 8, str);
-                
-                test_can.write(msg);
-            }, "can_loopback_test");
-        };
-
-        return success;
-    }
-
     
 private:
     FDCAN_Handle_Wrapper hfdcan = {0};
