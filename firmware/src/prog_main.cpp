@@ -1,5 +1,6 @@
 #include <Arduino.h>
 
+#include "CommandRouter.h"
 #include "CommsSerial.h"
 #include "prog_pins.h"
 #include "toad_can_bus.h"
@@ -47,6 +48,9 @@ uint32_t active_pg_addr;
 uint8_t page_cache[PAGE_CACHE_SIZE];
 bool chunk_rcv[NUM_CAN_CHUNKS_PER_PAGE];
 
+void reset_h7();
+void enter_bootloader_cmd();
+
 void setup() {
   // All shared interfaces are begun here.
 
@@ -60,11 +64,10 @@ void setup() {
   digitalWrite(PIN_PROG_SPI_CS, HIGH);
 
   // Configure BOOT and NRST to default the STM32H7 into normal code execution
-  digitalWrite(PIN_H7_BOOT, BOOT_MODE_RUN);
-  pinMode(PIN_H7_BOOT, OUTPUT);
+  pinMode(PIN_H7_BOOT, BOOT_MODE_RUN);
 
-  digitalWrite(PIN_H7_NRST, NRST_MODE_RUN);
-  pinMode(PIN_H7_NRST, OUTPUT);
+  digitalWrite(PIN_H7_NRST, NRST_OUTPUT_RUN);
+  pinMode(PIN_H7_NRST, OUTPUT_OPENDRAIN);
 
   pinMode(PIN_PROG_ID, INPUT);
   prog_type = (digitalRead(PIN_PROG_ID) == PROG_ID_FLIGHT_CONTROLLER) ? PROG_FLIGHT_CONTROLLER : PROG_ENGINE_CONTROLLER;
@@ -77,13 +80,18 @@ void setup() {
     CommsSerial.println("Engine Controller Programmer Started!");
   }
 
+  CommandRouter::begin();
+  CommandRouter::add(reset_h7, "reset_h7");
+  CommandRouter::add(enter_bootloader_cmd, "enter_bootloader_cmd");
+
   prog_state = STATE_IDLE;
 }
 
 void reset_h7() {
-  digitalWrite(PIN_H7_NRST, NRST_MODE_RST);
-  delay(1000);
-  digitalWrite(PIN_H7_NRST, NRST_MODE_RUN);
+  digitalWrite(PIN_H7_NRST, NRST_OUTPUT_RST);
+  delay(50);
+  digitalWrite(PIN_H7_NRST, NRST_OUTPUT_RUN);
+  delay(50);
 }
 
 // Sends ACK frame, returns true if bootloader
@@ -94,6 +102,8 @@ bool spi_ack_frame() {
   uint8_t resp = Prog_SPI.transfer(0x00);
   Prog_SPI.transfer(ACK);
 
+  CommsSerial.printf("\nACK BITS: %d\n", resp);
+
   if (resp == ACK) {
     return true;
   } else if (resp == NACK) {
@@ -103,16 +113,27 @@ bool spi_ack_frame() {
   }
 }
 
+void exit_bootloader() {
+  pinMode(PIN_H7_BOOT, BOOT_MODE_RUN);
+  reset_h7();
+}
+
 bool enter_bootloader() {
   // Reset the H7 into the bootloader
-  digitalWrite(PIN_H7_BOOT, BOOT_MODE_FLASH);
+  digitalWrite(PIN_H7_BOOT, BOOT_OUTPUT_FLASH);
+  pinMode(PIN_H7_BOOT, BOOT_MODE_FLASH);
   reset_h7();
 
   // Send SYNC byte and get ACK [6]
   digitalWrite(PIN_PROG_SPI_CS, LOW);
-
+  Prog_SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
   Prog_SPI.transfer(SYNC);
-  ExitOnFail(spi_ack_frame());
+  if (!spi_ack_frame()) {
+    Prog_SPI.endTransaction();
+    exit_bootloader();
+    return false;
+  }
+  Prog_SPI.endTransaction();
 
   return true;
 }
@@ -162,78 +183,92 @@ bool write_memory(uint32_t addr, const uint8_t *bytes, size_t len) {
   return true;
 }
 
+void enter_bootloader_cmd() {
+  CommsSerial.print("Entering bootloader...");
+  bool result = enter_bootloader();
+  if (result) {
+    CommsSerial.println("Success...");
+  } else {
+    CommsSerial.println("Failure");
+  }
+}
+
 void loop() {
-  // TODO - prog state machine
-  // Wait for CAN cmds, control reset and boot
-  // Load flash files and flash over SPI
-
-  // can.pump_events() or similar
-  // process commands - note that each command must be guaranteed to not halt
-  // TODO - figure out how to parse the incoming cmd and payload
-  uint8_t *raw_bytes;
-  size_t raw_msg_len;
-
-  CAN_Msg_Decoder<prog_state_t> raw_msg(raw_bytes, raw_msg_len, prog_state);
-
-  if (const auto msg = raw_msg.decode<can_msg_heartbeat_t>()) {
-    // TODO - this
-
-  } else if (const auto msg = raw_msg.decode<can_msg_reset_controller_t>()) {
-    // TODO - enforce state
-    reset_h7();
-
-  } else if (const auto msg = raw_msg.decode_and_enforce_state<can_msg_enter_bootloader_t>(STATE_IDLE)) {
-    if (enter_bootloader()) {
-      prog_state = STATE_PRE_ERASE;
-    } else {
-      // TODO - handle error
-    }
-
-  } else if (const auto msg = raw_msg.decode_and_enforce_state<can_msg_erase_flash_t>(STATE_PRE_ERASE)) {
-    if (erase_memory()) {
-      prog_state = STATE_READY;
-    } else {
-      // TODO - handle error
-    }
-
-  } else if (const auto msg = raw_msg.decode_and_enforce_state<can_msg_select_page_t>(STATE_READY)) {
-    prog_state = STATE_PAGE_SELECTED;
-    active_pg_addr = msg->page_addr;
-    for (size_t i = 0; i < NUM_CAN_CHUNKS_PER_PAGE; i++) {
-      chunk_rcv[i] = false;
-    }
-
-  } else if (const auto msg = raw_msg.decode_and_enforce_state<can_msg_mem_packet_t>(STATE_PAGE_SELECTED)) {
-    if (msg->page_addr == active_pg_addr) {
-      static_assert(sizeof(msg->flash_bytes) == CAN_CHUNK_SIZE);
-      memcpy(&page_cache[msg->chunk_addr * CAN_CHUNK_SIZE], msg->flash_bytes, CAN_CHUNK_SIZE);
-      chunk_rcv[msg->chunk_addr] = true;
-    } else {
-      // TODO - handle wrong page addr
-    }
-
-  } else if (const auto msg = raw_msg.decode_and_enforce_state<can_msg_write_flash_t>(STATE_PAGE_SELECTED)) {
-    bool all_chunk_rcv = true;
-    for (size_t i = 0; i < NUM_CAN_CHUNKS_PER_PAGE; i++) {
-      if (!chunk_rcv) {
-        can_msg_request_mem_packet_t resp;
-        resp.chunk_addr = i;
-        resp.page_addr = active_pg_addr;
-        // TODO - send request message
-        all_chunk_rcv = false;
-      }
-    }
-
-    if (all_chunk_rcv) {
-      for (size_t i = 0; i < NUM_WRITE_CHUNKS_PER_PAGE; i++) {
-        static_assert(WRITE_CHUNK_SIZE <= 256);
-        write_memory(active_pg_addr * PAGE_CACHE_SIZE + WRITE_CHUNK_SIZE * i, &page_cache[WRITE_CHUNK_SIZE * i],
-                     WRITE_CHUNK_SIZE);
-        // TODO - send ok
-      }
-      prog_state = STATE_READY;
-    }
+  while (CommsSerial.available()) {
+    CommandRouter::receive_byte(CommsSerial.read());
   }
 
-  raw_msg.send_error_if_not_decoded();
+  // // TODO - prog state machine
+  // // Wait for CAN cmds, control reset and boot
+  // // Load flash files and flash over SPI
+
+  // // can.pump_events() or similar
+  // // process commands - note that each command must be guaranteed to not halt
+  // // TODO - figure out how to parse the incoming cmd and payload
+  // uint8_t *raw_bytes;
+  // size_t raw_msg_len;
+
+  // CAN_Msg_Decoder<prog_state_t> raw_msg(raw_bytes, raw_msg_len, prog_state);
+
+  // if (const auto msg = raw_msg.decode<can_msg_heartbeat_t>()) {
+  //   // TODO - this
+
+  // } else if (const auto msg = raw_msg.decode<can_msg_reset_controller_t>()) {
+  //   // TODO - enforce state
+  //   reset_h7();
+
+  // } else if (const auto msg = raw_msg.decode_and_enforce_state<can_msg_enter_bootloader_t>(STATE_IDLE)) {
+  //   if (enter_bootloader()) {
+  //     prog_state = STATE_PRE_ERASE;
+  //   } else {
+  //     // TODO - handle error
+  //   }
+
+  // } else if (const auto msg = raw_msg.decode_and_enforce_state<can_msg_erase_flash_t>(STATE_PRE_ERASE)) {
+  //   if (erase_memory()) {
+  //     prog_state = STATE_READY;
+  //   } else {
+  //     // TODO - handle error
+  //   }
+
+  // } else if (const auto msg = raw_msg.decode_and_enforce_state<can_msg_select_page_t>(STATE_READY)) {
+  //   prog_state = STATE_PAGE_SELECTED;
+  //   active_pg_addr = msg->page_addr;
+  //   for (size_t i = 0; i < NUM_CAN_CHUNKS_PER_PAGE; i++) {
+  //     chunk_rcv[i] = false;
+  //   }
+
+  // } else if (const auto msg = raw_msg.decode_and_enforce_state<can_msg_mem_packet_t>(STATE_PAGE_SELECTED)) {
+  //   if (msg->page_addr == active_pg_addr) {
+  //     static_assert(sizeof(msg->flash_bytes) == CAN_CHUNK_SIZE);
+  //     memcpy(&page_cache[msg->chunk_addr * CAN_CHUNK_SIZE], msg->flash_bytes, CAN_CHUNK_SIZE);
+  //     chunk_rcv[msg->chunk_addr] = true;
+  //   } else {
+  //     // TODO - handle wrong page addr
+  //   }
+
+  // } else if (const auto msg = raw_msg.decode_and_enforce_state<can_msg_write_flash_t>(STATE_PAGE_SELECTED)) {
+  //   bool all_chunk_rcv = true;
+  //   for (size_t i = 0; i < NUM_CAN_CHUNKS_PER_PAGE; i++) {
+  //     if (!chunk_rcv) {
+  //       can_msg_request_mem_packet_t resp;
+  //       resp.chunk_addr = i;
+  //       resp.page_addr = active_pg_addr;
+  //       // TODO - send request message
+  //       all_chunk_rcv = false;
+  //     }
+  //   }
+
+  //   if (all_chunk_rcv) {
+  //     for (size_t i = 0; i < NUM_WRITE_CHUNKS_PER_PAGE; i++) {
+  //       static_assert(WRITE_CHUNK_SIZE <= 256);
+  //       write_memory(active_pg_addr * PAGE_CACHE_SIZE + WRITE_CHUNK_SIZE * i, &page_cache[WRITE_CHUNK_SIZE * i],
+  //                    WRITE_CHUNK_SIZE);
+  //       // TODO - send ok
+  //     }
+  //     prog_state = STATE_READY;
+  //   }
+  // }
+
+  // raw_msg.send_error_if_not_decoded();
 }

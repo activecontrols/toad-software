@@ -33,12 +33,13 @@ enum prog_id_t { PROG_FLIGHT_CONTROLLER, PROG_ENGINE_CONTROLLER };
 
 // BOOT / RESET Control
 #define PIN_H7_BOOT PC0
-#define BOOT_MODE_RUN LOW    // default: don't enter bootloader on STM32H7
-#define BOOT_MODE_FLASH HIGH // enter the STM32H7 bootloader for firmware flashing
+#define BOOT_MODE_RUN INPUT    // default - high impedance input to give physical switch control
+#define BOOT_MODE_FLASH OUTPUT // enter the STM32H7 bootloader for firmware flashing
+#define BOOT_OUTPUT_FLASH HIGH // enter the STM32H7 bootloader for firmware flashing
 
 #define PIN_H7_NRST PC1
-#define NRST_MODE_RUN HIGH // default: don't reset the STM32H7
-#define NRST_MODE_RST LOW  // reset the STM32H7
+#define NRST_OUTPUT_RUN HIGH // default: don't reset the STM32H7
+#define NRST_OUTPUT_RST LOW  // reset the STM32H7
 
 // Unused
 #define PIN_EXPOSED_GPIO_B3 PB3
