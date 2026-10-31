@@ -170,4 +170,14 @@ WEAK void SystemClock_Config(void) {
   /* Peripheral interrupt init */
   HAL_NVIC_SetPriority(USB_LP_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(USB_LP_IRQn);
+
+  /* Select FDCAN Clock Source */
+  PeriphClkInit = {0};
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_FDCAN;
+  PeriphClkInit.FdcanClockSelection = RCC_FDCANCLKSOURCE_PLL;
+  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK) {
+    Error_Handler();
+  }
+  /* Enable FDCAN Peripheral Clock */
+  __HAL_RCC_FDCAN_CLK_ENABLE();
 }
