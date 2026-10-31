@@ -12,7 +12,6 @@
 #include "prog_pins.h"
 #endif
 
-#include "ec_pins.h"
 #include "CommsSerial.h"
 
 using namespace arduino;

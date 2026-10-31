@@ -241,24 +241,49 @@
 // #include "CommsSerial.h"
 #include <Arduino.h>
 #include "prog_pins.h"
+#include "CommsSerial.h"
+
+#define RADIO_BAUD 57600
+
 
 CAN can_gse(PIN_CAN_GSE_TX, PIN_CAN_GSE_RX);
 
+CommsSerial_t<USBSerial> USB_CommsSerial;
+CommsSerial_t<Uart> HW_CommsSerial(PIN_HW_COMM_SERIAL_RX, PIN_HW_COMM_SERIAL_TX);
+CommsSerial_t<Uart> HW_FallbackSerial(PIN_HW_FALLBACK_SERIAL_RX, PIN_HW_FALLBACK_SERIAL_TX);
+
 void setup() {
-  Serial.begin(9600);
+
+  USB_CommsSerial.begin(RADIO_BAUD);
+  HW_CommsSerial.begin(RADIO_BAUD);
+  HW_FallbackSerial.begin(RADIO_BAUD);
+
+  // delay(5000);
+
+  // while (!CommsSerial.available())
+  // {
+  //   CommsSerial.println("Press enter to .begin() CAN");
+  //   delay(1000);
+  // }
 
   if (!can_gse.begin(CanBitRate::BR_500k))
   {
     for (;;)
     {
-      Serial.println("CAN failed to begin()");
+      CommsSerial.println("CAN failed to begin()");
 
       delay(1000);
     }
   }
 
-  Serial.println("init"); // had to add this; for some reason without it we don't pull in Print.cpp which causes a
+  CommsSerial.println("init"); // had to add this; for some reason without it we don't pull in Print.cpp which causes a
                           // linker error because _write is not defined
 }
 
-void loop() {}
+void loop() 
+{
+  
+  CommsSerial.println("Hello, world!");
+
+  delay(1000);
+}

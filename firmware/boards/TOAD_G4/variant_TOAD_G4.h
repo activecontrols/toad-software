@@ -207,6 +207,8 @@
 #define HAL_FDCAN_MODULE_ENABLED
 #endif
 
+#define HSE_VALUE (8000000UL) /*!< Value of the External oscillator in Hz */
+
 /*----------------------------------------------------------------------------
  *        Arduino objects - C++ only
  *----------------------------------------------------------------------------*/
