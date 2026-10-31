@@ -258,14 +258,6 @@ void setup() {
   HW_CommsSerial.begin(RADIO_BAUD);
   HW_FallbackSerial.begin(RADIO_BAUD);
 
-  // delay(5000);
-
-  // while (!CommsSerial.available())
-  // {
-  //   CommsSerial.println("Press enter to .begin() CAN");
-  //   delay(1000);
-  // }
-
   if (!can_gse.begin(CanBitRate::BR_500k))
   {
     for (;;)
@@ -282,8 +274,19 @@ void setup() {
 
 void loop() 
 {
-  
-  CommsSerial.println("Hello, world!");
+  static int count = 0;
+  if (can_gse.available())
+  {
+    // receive and print out message
+    CanMsg msg = can_gse.read();
 
-  delay(1000);
+    CommsSerial.printf("(%3d) Received message (0x%08X): %.*s\n", count++, msg.id, msg.data_length, msg.data);
+
+    // send a reply
+    CanMsg reply(0x01, 8, (const uint8_t*)"PROG->EC");
+
+    can_gse.write(reply);
+  }
+
+  delay(50);
 }
