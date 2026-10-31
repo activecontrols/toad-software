@@ -57,7 +57,7 @@ void setup() {
   // all_modules_ok &= SolenoidValves::begin();
   // all_modules_ok &= TVC_Actuators::begin();
   // all_modules_ok &= ValveController::begin();
-  // all_modules_ok &= can_tvc.begin(CanBitRate::BR_500k);
+  all_modules_ok &= can_tvc.begin(CanBitRate::BR_500k);
   all_modules_ok &= can_fc.begin(CanBitRate::BR_500k);
 
   if (!all_modules_ok) {
@@ -72,51 +72,10 @@ void setup() {
   CommandRouter::add_flag(&kill_flag, "k", "terminate the flight loop early");
   CommandRouter::add_flag(&arm_flag, "arm", "start following a trajectory");
 
-  CommandRouter::add([]()
-  {
-      CAN& test_can = can_tvc;
-
-      const uint8_t str[] = "hello123";
-      arduino::CanMsg msg(0x55, 8, str);
-      
-      test_can.write(msg);
-  }, "can_loopback_test");
-
-
-  CommandRouter::add([]()
-  {
-    static int count = 0;
-    while (!CommsSerial.available())
-    {
-      CanMsg to_send(0x00, 8, (const uint8_t*)"EC->PROG");
-
-      if (can_fc.write(to_send) != 1)
-      {
-        CommsSerial.println("can_fc.write() failed");
-        return;
-      }
-
-      uint32_t start_ms = millis();
-
-      while (!can_fc.available())
-      {
-        if (millis() - start_ms > 500)
-        {
-          CommsSerial.println("Error: reply timed out");
-          return;
-        }
-      }
-
-      while (can_fc.available())
-      {
-        CanMsg msg = can_fc.read();
-
-        CommsSerial.printf("(%3d) Received message (0x%08X): %.*s\n", count++, msg.id, msg.data_length, msg.data);
-      }
-
-      delay(1000);
-    }
-  }, "gse_can_test");
+  CommandRouter::add(cmd_can_loopback<can_tvc, can_fc>, "tvc_to_fc_test");
+  CommandRouter::add(cmd_can_loopback<can_fc, can_tvc>, "fc_to_tvc_test");
+  CommandRouter::add([](){can_fc.cmd_can_send_test();}, "can_send_test");
+  CommandRouter::add([](){can_tvc.cmd_can_receive_test();}, "can_receive_test");
 }
 
 void loop() {

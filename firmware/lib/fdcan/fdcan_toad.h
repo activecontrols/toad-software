@@ -4,9 +4,9 @@
 #include "Arduino.h"
 #include "CommandRouter.h"
 
-#if defined(TOAD_ENGINE_CONTROLLER_ONLY)
+#if defined(STM32H7)
 #include "stm32h7xx_hal.h"
-#elif defined(TOAD_PROGRAMMER_ONLY)
+#elif defined(STM32G4)
 #include "stm32g474xx.h"
 #endif
 
@@ -24,8 +24,6 @@ public:
         RX_ERROR_PASSIVE 
     };
     
-    typedef void (*CAN_error_cbk_t)(error_type_t error_type, uint32_t new_count);
-
     // Initialize using standard Arduino CanBitRate enum.
     // Conforms to arduino::HardwareCAN interface.
     // Returns true on success, false on failure.
@@ -52,16 +50,15 @@ public:
     // Conforms to arduino::HardwareCAN interface.
     void end(void) override;
 
-    // Register a callback for CAN bus error updates.
-    void set_error_cbk(CAN_error_cbk_t error_cbk);
-    
-    // Internal handler called from interrupt service routine.
-    // Note: Must only be called from an interrupt context, without nested interrupts.
-    void error_update_from_isr(void);
-
     // Wait for ongoing transmission in TX buffer 0 to complete.
     // Returns true if buffer is free, false if timed out.
     bool flush(uint32_t timeout_ms = UINT32_MAX);
+
+    /* Test sending data on one CAN, and expect to receive data after every message */
+    void cmd_can_send_test(void);
+    
+    /* Test receiving data on one CAN, and send a frame after every received message */
+    void cmd_can_receive_test(void);
 
     struct FDCAN_Handle_Wrapper : public FDCAN_HandleTypeDef
     {
@@ -81,5 +78,39 @@ private:
     uint32_t tx_pin = 0;
     uint32_t rx_pin = 0;
     uint8_t rx_data[64] = {0};
-    CAN_error_cbk_t error_cbk = nullptr;
 };
+
+
+template <CAN& sender, CAN& receiver>
+void cmd_can_loopback(void)
+{
+  // repeat until the user presses a button
+  while (!CommsSerial.available())
+  {
+    unsigned long count = 0;
+    CommsSerial.printf("Test %u:\n", count);
+    CanMsg test_msg(0x123, 8, (const uint8_t*)"HELLO123");
+
+    sender.write(test_msg);
+
+    uint32_t start_ms = millis();
+    while (!receiver.available())
+    {
+      if (millis() - start_ms > 500)
+      {
+        CommsSerial.println("Receive timed out");
+        return;
+      }
+    }
+
+    while (receiver.available())
+    {
+      CanMsg received = receiver.read();
+
+      CommsSerial.printf("Received message: ID: 0x%04X\tDLC: %2d\tData: %.*s\n", received.id, received.data_length, received.data_length, (const char*)received.data);
+    }
+
+    delay(500);
+    ++count;
+  }
+}

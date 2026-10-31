@@ -2,13 +2,17 @@
 
 #include "Arduino.h"
 
-#if defined(TOAD_ENGINE_CONTROLLER_ONLY)
+#if defined(STM32H7)
 #include "stm32h7xx_hal.h"
 #include "variant_TOAD_H7.h"
-#include "ec_pins.h"
-#elif defined(TOAD_PROGRAMMER_ONLY)
+#elif defined(STM32G4)
 #include "stm32g474xx.h"
 #include "variant_TOAD_G4.h"
+#endif
+
+#if defined(TOAD_ENGINE_CONTROLLER_ONLY)
+#include "ec_pins.h"
+#elif defined(TOAD_PROGRAMMER_ONLY)
 #include "prog_pins.h"
 #endif
 
@@ -38,49 +42,6 @@ static void CAN_init_gpio_dynamic(uint32_t pin, const PinMap pin_map[])
   // jhillman: I confirmed this enables GPIO clock in the RCC, also sets GPIO speed to very high
   pin_function(pin_name, pinmap_function(pin_name, pin_map));
 }
-
-extern "C" 
-{
-
-void fdcan_error_cbk(FDCAN_HandleTypeDef* hfdcan)
-{
-  // FDCAN_Handle_Wrapper inherits FDCAN_HandleTypeDef and all our hfdcans are defined as FDCAN_Handle_Wrapper
-  // therefore this cast is safe 
-  auto target = static_cast<CAN::FDCAN_Handle_Wrapper*>(hfdcan);
-
-  if (target == nullptr)
-  {
-    return;
-  }
-
-  target->obj->error_update_from_isr();
-  return;
-}
-
-void fdcan_error_status_cbk(FDCAN_HandleTypeDef* hfdcan, uint32_t ErrorStatusITs)
-{
-  fdcan_error_cbk(hfdcan);
-}
-
-
-void FDCAN1_IT0_IRQHandler(void)
-{
-  if (auto can_ptr = resolve_can(FDCAN1); can_ptr != nullptr)
-  {
-    HAL_FDCAN_IRQHandler(can_ptr->handle());
-  }
-}
-
-
-void FDCAN2_IT0_IRQHandler(void)
-{
-  if (auto can_ptr = resolve_can(FDCAN2); can_ptr != nullptr)
-  {
-    HAL_FDCAN_IRQHandler(can_ptr->handle());
-  }
-}
-
-} // extern "C"
 
 
 CAN::CAN(uint32_t _tx_pin, uint32_t _rx_pin)
@@ -186,7 +147,7 @@ bool CAN::begin(CanBitRate _bitrate)
   // platform-dependent options:
   // H7 forces the user to determine these values; on the G4 the HAL automatically decides RAM start address and buffer/fifo sizes
   // see FDCAN_CalcultateRamBlockAddresses() of stm32g4xx_hal_fdcan.c
-  #if defined(TOAD_ENGINE_CONTROLLER_ONLY)
+  #if defined(STM32H7)
   this->hfdcan.Init.MessageRAMOffset = (this->hfdcan.Instance == FDCAN1 ? 0 : 1280); // FDCAN1 gets 0-1279, FDCAN2 gets 1280-2559
   this->hfdcan.Init.RxFifo0ElmtsNbr = 8;
   this->hfdcan.Init.RxFifo0ElmtSize = FDCAN_DATA_BYTES_8;
@@ -196,8 +157,6 @@ bool CAN::begin(CanBitRate _bitrate)
   this->hfdcan.Init.TxBuffersNbr = 1;
   this->hfdcan.Init.TxFifoQueueElmtsNbr = 0;
   this->hfdcan.Init.TxElmtSize = FDCAN_DATA_BYTES_8;
-  this->hfdcan.ErrorCallback = fdcan_error_cbk;
-  this->hfdcan.ErrorStatusCallback = fdcan_error_status_cbk;
   #endif
 
 
@@ -217,18 +176,6 @@ bool CAN::begin(CanBitRate _bitrate)
   CAN_init_gpio_dynamic(tx_pin, PinMap_CAN_TD);
   CAN_init_gpio_dynamic(rx_pin, PinMap_CAN_RD);
 
-
-  IRQn_Type irqn = FDCAN1_IT0_IRQn; // each FDCAN has two interrupt lines but we can just use line 0
-
-  if (hfdcan.Instance == FDCAN2) 
-  {
-    irqn = FDCAN2_IT0_IRQn;
-  }
-
-  /* FDCAN interrupt Init */
-  HAL_NVIC_SetPriority(irqn, 0, 0);
-  HAL_NVIC_EnableIRQ(irqn);
-
   // step 1 end
 
   // step 2: configure the FDCAN peripheral
@@ -236,22 +183,6 @@ bool CAN::begin(CanBitRate _bitrate)
 
   /* Configure global filter to accept all 11 bit ID frames (and reject remote frames); jhillman todo: confirm the hardware on the bus does not use remote frames */
   if (HAL_FDCAN_ConfigGlobalFilter(&(this->hfdcan), FDCAN_ACCEPT_IN_RX_FIFO0, FDCAN_ACCEPT_IN_RX_FIFO0, FDCAN_REJECT_REMOTE, FDCAN_REJECT_REMOTE) != HAL_OK)
-  {
-    return false;
-  }
-
-  constexpr uint32_t it_list = FDCAN_IT_ERROR_PASSIVE | FDCAN_IT_ERROR_WARNING;
-
-  if (HAL_FDCAN_ConfigInterruptLines(&(this->hfdcan), it_list, FDCAN_INTERRUPT_LINE0) != HAL_OK)
-  {
-    return false;
-  }
-
-  if (HAL_FDCAN_ActivateNotification(
-      &(this->hfdcan),
-      it_list, // enables error passive and error warning interrupt notifications
-      0x00
-    ) != HAL_OK)
   {
     return false;
   }
@@ -366,7 +297,7 @@ int CAN::write(CanMsg const & msg)
 
   HAL_StatusTypeDef status;
 
-  #if defined(TOAD_ENGINE_CONTROLLER_ONLY)
+  #if defined(STM32H7)
   // NOTE: on the H7 this is done in two steps: (1) place the message in the buffer, (2) activate the transmission request
   // place the message in the first buffer
   status = HAL_FDCAN_AddMessageToTxBuffer(&(this->hfdcan), &tx_header, msg.data, FDCAN_TX_BUFFER0);
@@ -379,7 +310,7 @@ int CAN::write(CanMsg const & msg)
   // enable transmission request
   status = HAL_FDCAN_EnableTxBufferRequest(&(this->hfdcan), FDCAN_TX_BUFFER0);
 
-  #elif defined(TOAD_PROGRAMMER_ONLY)
+  #elif defined(STM32G4)
   // On the G4 the HAL function HAL_FDCAN_AddMessageToTxFifoQ() both adds the message to the buffer or queue and activates the transmission request
   status = HAL_FDCAN_AddMessageToTxFifoQ(&(this->hfdcan), &tx_header, msg.data);
   #endif
@@ -436,46 +367,74 @@ void CAN::end(void)
   return;
 }
 
-void CAN::set_error_cbk(CAN_error_cbk_t error_cbk)
+
+void CAN::cmd_can_send_test(void)
 {
-  // this should be an atomic operation, so there is no need to guard
-  this->error_cbk = error_cbk;
-  return;
+  static int count = 0;
+  while (!CommsSerial.available())
+  {
+    CanMsg to_send(0x00, 8, (const uint8_t*)"HELLO123");
+
+    if (this->write(to_send) != 1)
+    {
+      CommsSerial.println("can.write() failed");
+      return;
+    }
+
+    uint32_t start_ms = millis();
+
+    while (!this->available())
+    {
+      if (millis() - start_ms > 500)
+      {
+        CommsSerial.println("Error: reply timed out");
+        return;
+      }
+    }
+
+    while (this->available())
+    {
+      CanMsg msg = this->read();
+
+      CommsSerial.printf("(%3d) Received message (0x%08X): %.*s\n", count++, msg.id, msg.data_length, msg.data);
+    }
+
+    delay(1000);
+  }
 }
 
-// note: must only be called from an interrupt context, from a single isr
-void CAN::error_update_from_isr(void)
+void CAN::cmd_can_receive_test(void)
 {
-  if (this->hfdcan.Instance == nullptr)
+  static int count = 0;
+  while (!CommsSerial.available())
   {
-    return;
+    uint32_t start_ms = millis();
+
+    while (!this->available())
+    {
+      if (millis() - start_ms > 5000)
+      {
+        CommsSerial.println("Error: receive timed out");
+        return;
+      }
+    }
+
+    while (this->available())
+    {
+      CanMsg msg = this->read();
+
+      CommsSerial.printf("(%3d) Received message (0x%08X): %.*s\n", count++, msg.id, msg.data_length, msg.data);
+    }
+
+
+    CanMsg to_send(0x00, 8, (const uint8_t*)"REPLY123");
+
+    if (this->write(to_send) != 1)
+    {
+      CommsSerial.println("can.write() failed");
+      return;
+    }
+
+    delay(100);
   }
-
-  FDCAN_ErrorCountersTypeDef new_error_counts = {0};
-
-  HAL_FDCAN_GetErrorCounters(&(this->hfdcan), &new_error_counts);
-
-  if (this->error_cbk == nullptr)
-  {
-    memcpy(&(this->error_counts), &new_error_counts, sizeof(new_error_counts));
-    return;
-  }
-
-  if (new_error_counts.RxErrorCnt != this->error_counts.RxErrorCnt)
-  {
-    this->error_cbk(CAN::error_type_t::RX_ERROR, new_error_counts.RxErrorCnt);
-  }
-
-  if (new_error_counts.RxErrorPassive != this->error_counts.RxErrorPassive)
-  {
-    this->error_cbk(CAN::error_type_t::RX_ERROR_PASSIVE, new_error_counts.RxErrorPassive);
-  }
-
-  if (new_error_counts.TxErrorCnt != this->error_counts.TxErrorCnt)
-  {
-    this->error_cbk(CAN::error_type_t::TX_ERROR, new_error_counts.TxErrorCnt);
-  }
-
-  memcpy(&(this->error_counts), &new_error_counts, sizeof(new_error_counts));
-  return;
 }

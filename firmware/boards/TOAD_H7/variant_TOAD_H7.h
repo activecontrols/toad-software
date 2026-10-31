@@ -299,9 +299,6 @@
 #if !defined (HAL_FDCAN_MODULE_ENABLED)
 #define HAL_FDCAN_MODULE_ENABLED
 #endif
-#if !defined (USE_HAL_FDCAN_REGISTER_CALLBACKS)
-#define USE_HAL_FDCAN_REGISTER_CALLBACKS 1 
-#endif
 
 
 #if !defined(HSE_VALUE)
