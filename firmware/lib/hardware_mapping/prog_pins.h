@@ -28,7 +28,6 @@
 #define PIN_CAN_GSE_TX PB13
 
 extern CAN can_gse;
-inline constexpr std::array<CAN*, 1> can_list = {&can_gse};
 
 // ID Pin
 #define PIN_PROG_ID PB1

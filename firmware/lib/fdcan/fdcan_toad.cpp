@@ -10,28 +10,9 @@
 #include "variant_TOAD_G4.h"
 #endif
 
-#if defined(TOAD_ENGINE_CONTROLLER_ONLY)
-#include "ec_pins.h"
-#elif defined(TOAD_PROGRAMMER_ONLY)
-#include "prog_pins.h"
-#endif
-
 #include "CommsSerial.h"
 
 using namespace arduino;
-
-inline CAN* resolve_can(FDCAN_GlobalTypeDef* inst)
-{
-  for (auto c : can_list)
-  {
-    if (c->handle()->Instance == inst)
-    {
-      return c;
-    }
-  }
-
-  return nullptr;
-}
 
 /* enable GPIO clock and configure pin (must pass a bit mask for which pin(s) to configure on the specific port) */
 static void CAN_init_gpio_dynamic(uint32_t pin, const PinMap pin_map[])

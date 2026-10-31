@@ -65,7 +65,6 @@
 
 extern CAN can_tvc;
 extern CAN can_fc;
-inline constexpr std::array<CAN*, 2> can_list = {&can_tvc, &can_fc};
 
 // PWM (spark)
 #define PIN_SPARK_PWM PC6
