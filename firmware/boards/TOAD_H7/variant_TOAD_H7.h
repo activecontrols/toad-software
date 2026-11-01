@@ -296,10 +296,9 @@
 #endif
 
 // added by jhillman - do compile FDCAN HAL
-#if !defined (HAL_FDCAN_MODULE_ENABLED)
+#if !defined(HAL_FDCAN_MODULE_ENABLED)
 #define HAL_FDCAN_MODULE_ENABLED
 #endif
-
 
 #if !defined(HSE_VALUE)
 // our HSE is 8MHz

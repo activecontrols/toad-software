@@ -50,7 +50,6 @@ void setup() {
 
   bool all_modules_ok = true;
 
-  
   all_modules_ok &= can_begin();
   all_modules_ok &= RS485s::begin();
   all_modules_ok &= PressureSensors::begin();
@@ -59,7 +58,6 @@ void setup() {
   all_modules_ok &= SolenoidValves::begin();
   all_modules_ok &= TVC_Actuators::begin();
   all_modules_ok &= ValveController::begin();
-  
 
   if (!all_modules_ok) {
     while (true) {
@@ -72,7 +70,6 @@ void setup() {
   CommandRouter::add(flight_loop, "start_flight_loop");
   CommandRouter::add_flag(&kill_flag, "k", "terminate the flight loop early");
   CommandRouter::add_flag(&arm_flag, "arm", "start following a trajectory");
-
 }
 
 void loop() {
@@ -128,20 +125,19 @@ void flight_loop() {
   RCS::close();
 }
 
-
-bool can_begin(void)
-{
+bool can_begin(void) {
   bool is_ok = true;
 
   is_ok &= can_tvc.begin(CanBitRate::BR_500k);
   is_ok &= can_fc.begin(CanBitRate::BR_500k);
 
-  if (is_ok)
-  {
+  if (is_ok) {
     CommandRouter::add(cmd_can_loopback<can_tvc, can_fc>, "tvc_to_fc_test");
     CommandRouter::add(cmd_can_loopback<can_fc, can_tvc>, "fc_to_tvc_test");
-    CommandRouter::add([](){can_fc.cmd_can_send_test();}, "can_send_test");
-    CommandRouter::add([](){can_tvc.cmd_can_receive_test();}, "can_receive_test");
+    CommandRouter::add([]() { can_fc.cmd_can_send_test(); }, "can_fc_send_test");
+    CommandRouter::add([]() { can_tvc.cmd_can_send_test(); }, "can_tvc_send_test");
+    CommandRouter::add([]() { can_fc.cmd_can_receive_test(); }, "can_fc_receive_test");
+    CommandRouter::add([]() { can_tvc.cmd_can_receive_test(); }, "can_tvc_receive_test");
   }
 
   return is_ok;

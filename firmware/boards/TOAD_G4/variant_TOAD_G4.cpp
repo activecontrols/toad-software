@@ -104,9 +104,10 @@ const uint32_t analogInputPin[] = {
  * @retval None
  */
 void SystemClock_Config(void) {
-  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
-  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
-  RCC_CRSInitTypeDef pInit = {0};
+  RCC_OscInitTypeDef RCC_OscInitStruct = {};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {};
+  RCC_CRSInitTypeDef pInit = {};
+  RCC_PeriphCLKInitTypeDef PeriphClkInit = {};
 
   /** Configure the main internal regulator output voltage
    */
@@ -145,8 +146,6 @@ void SystemClock_Config(void) {
    */
   __HAL_RCC_CRS_CLK_ENABLE();
 
-  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
-
   /** Configures CRS
    */
   pInit.Prescaler = RCC_CRS_SYNC_DIV1;
@@ -166,10 +165,6 @@ void SystemClock_Config(void) {
 
   /* Peripheral clock enable */
   __HAL_RCC_USB_CLK_ENABLE();
-
-  /* Peripheral interrupt init */
-  HAL_NVIC_SetPriority(USB_LP_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(USB_LP_IRQn);
 
   /* Select FDCAN Clock Source */
   PeriphClkInit = {0};
