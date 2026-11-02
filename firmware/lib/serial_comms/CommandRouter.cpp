@@ -1,5 +1,6 @@
 #include "CommandRouter.h"
 #include "ErrorCounters.h"
+#include "logging.h"
 #include <string.h>
 #include <vector>
 
@@ -136,6 +137,14 @@ void add(std::function<void()> fvoid, const char *name, const char *help) {
 void add_flag(bool *flag, const char *name, const char *help) {
   std::function<void(const uint8_t *, size_t)> f = [flagcap = flag](const uint8_t *str, size_t) { *flagcap = true; };
   commands.push_back({f, name, help});
+}
+
+bool erase_flash() {
+  return Logging::erase() ? true : false;
+}
+
+bool dump_flash() {
+  return Logging::dump() ? true : false;
 }
 
 } // namespace CommandRouter

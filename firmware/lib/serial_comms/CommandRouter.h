@@ -52,4 +52,8 @@ void add(std::function<void()> fvoid, const char *name, const char *help = "no h
 // add a flag that will be set to true when the command is called
 void add_flag(bool *flag, const char *name, const char *help);
 
+bool erase_flash();
+
+bool dump_flash();
+
 } // namespace CommandRouter
