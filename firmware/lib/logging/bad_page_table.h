@@ -14,11 +14,11 @@
 #define NUM_BYTES_TRACKING_BLOCKS (NUM_BITS / 8)
 #define PAGE_MARKED_GOOD (0xFF)
 
-typedef enum {
+enum page_status_t {
   PAGE_GOOD,
   PAGE_READ_ONLY,
   PAGE_BAD
-} page_status_t;
+};
 
 namespace Bad_Page_Table {
 

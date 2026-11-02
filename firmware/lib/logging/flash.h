@@ -9,29 +9,29 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef enum { 
+enum flash_error_t { 
   FLASH_SUCCESS, 
   FLASH_READY, 
   FLASH_FAIL, 
   FLASH_TIMED_OUT, 
   FLASH_BAD_BLOCK
-} flash_error_t;
+};
 
-typedef struct __attribute__((packed)) {
+struct __attribute__((packed)) flash_status_a_t {
   uint8_t OIP : 1;
   uint8_t WEL : 1;
   uint8_t E_FAIL : 1;
   uint8_t P_FAIL : 1;
   uint8_t ECCS : 2;
   uint8_t RESERVED1 : 2;
-} flash_status_a_t;
+};
 
-typedef struct __attribute__((packed)) {
+struct __attribute__((packed)) flash_status_b_t {
   uint8_t RESERVED1 : 3;
   uint8_t BPS : 1;
   uint8_t ECCSE : 2;
   uint8_t RESERVED2 : 2;
-} flash_status_b_t;
+};
 
 namespace Flash {
 
