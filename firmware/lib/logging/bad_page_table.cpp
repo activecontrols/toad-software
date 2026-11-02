@@ -23,6 +23,11 @@ extern uint32_t _bpt_start;
 
 #define STM32_FLASH_WORD_SIZE 32u
 #define BPT_EMPTY_ENTRY 0xFFFFFFFFu
+#define TYPE_ERASE FLASH_TYPEERASE_SECTORS
+#define BANK_NUM FLASH_BANK_2
+#define SECTOR_NUM FLASH_SECTOR_7
+#define NUM_OF_SECTORS 1
+#define VOLTAGE_RANGE FLASH_VOLTAGE_RANGE_3
 
 namespace Bad_Page_Table {
 
@@ -171,11 +176,11 @@ bool begin(void) {
 
   // erase bad page table
   FLASH_EraseInitTypeDef erase_init = {
-    .TypeErase = FLASH_TYPEERASE_SECTORS,
-    .Banks = FLASH_BANK_2,
-    .Sector = FLASH_SECTOR_7,
-    .NbSectors = 1,
-    .VoltageRange = FLASH_VOLTAGE_RANGE_3
+    .TypeErase = TYPE_ERASE,
+    .Banks = BANK_NUM,
+    .Sector = SECTOR_NUM,
+    .NbSectors = NUM_OF_SECTORS,
+    .VoltageRange = VOLTAGE_RANGE
   };
   uint32_t sector_error;
 
