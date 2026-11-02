@@ -32,9 +32,9 @@ constexpr uint32_t BPT_MAGIC_NUMBER = 0x0123ABCDu;
 constexpr uint32_t BPT_MAX_ENTRIES =
     (FLASH_SECTOR_SIZE - STM32_FLASH_WORD_SIZE - NUM_BYTES_TRACKING_BLOCKS) / STM32_FLASH_WORD_SIZE;
 
-uint32_t *bpt_magic = &_bpt_start;
-uint8_t *bpt_table = reinterpret_cast<uint8_t *>(&_bpt_start) + STM32_FLASH_WORD_SIZE;
-uint8_t *bpt_entries = bpt_table + NUM_BYTES_TRACKING_BLOCKS;
+const uint32_t *bpt_magic = &_bpt_start;
+const uint8_t *bpt_table = reinterpret_cast<uint8_t *>(&_bpt_start) + STM32_FLASH_WORD_SIZE;
+const uint8_t *bpt_entries = bpt_table + NUM_BYTES_TRACKING_BLOCKS;
 
 bool program_flash_word(uint32_t flash_addr, uint32_t word_addr) {
   HAL_StatusTypeDef status;
@@ -123,7 +123,7 @@ bool add_entry(uint32_t page_address) {
 }
 
 bool scan_factory_bad_blocks() {
-  uint8_t table_buf[NUM_BYTES_TRACKING_BLOCKS];
+  static uint8_t table_buf[NUM_BYTES_TRACKING_BLOCKS];
   memset(table_buf, PAGE_MARKED_GOOD, sizeof(table_buf));
 
   for (uint32_t i = 0; i < NAND_NUM_BLOCKS; i++) {
@@ -195,7 +195,7 @@ bool begin(void) {
     return false;
   }
 
-  uint8_t word_buf[STM32_FLASH_WORD_SIZE];
+  static uint8_t word_buf[STM32_FLASH_WORD_SIZE];
   memset(word_buf, 0, sizeof(word_buf));
   memcpy(word_buf, &BPT_MAGIC_NUMBER, sizeof(BPT_MAGIC_NUMBER));
 
