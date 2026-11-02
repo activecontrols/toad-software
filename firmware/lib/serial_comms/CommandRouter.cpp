@@ -139,12 +139,4 @@ void add_flag(bool *flag, const char *name, const char *help) {
   commands.push_back({f, name, help});
 }
 
-bool erase_flash() {
-  return Logging::erase() ? true : false;
-}
-
-bool dump_flash() {
-  return Logging::dump() ? true : false;
-}
-
 } // namespace CommandRouter
