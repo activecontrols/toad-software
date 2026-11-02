@@ -29,25 +29,15 @@ void flight_loop();
 static bool in_flight = false;
 
 static void dump_log_cmd() {
-  if (in_flight) {
-    CommsSerial.println("Refusing to dump logs during flight loop");
-    return;
-  }
- 
-  if (Logging::dump()) {
+  if (!in_flight && Logging::dump()) {
     CommsSerial.println("Log dump finished");
-  } else {
-    CommsSerial.println("Log dump failed or was aborted");
   }
 }
 
 static void erase_log_cmd() {
-  if (in_flight) {
-    CommsSerial.println("Refusing to erase logs during flight loop");
-    return;
+  if (!in_flight) {
+    Logging::erase();
   }
- 
-  Logging::erase();
 }
 
 void setup() {
