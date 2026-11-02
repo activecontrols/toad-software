@@ -26,6 +26,30 @@ bool kill_flag;
 bool arm_flag;
 void flight_loop();
 
+static bool in_flight = false;
+
+static void dump_log_cmd() {
+  if (in_flight) {
+    CommsSerial.println("Refusing to dump logs during flight loop");
+    return;
+  }
+ 
+  if (Logging::dump()) {
+    CommsSerial.println("Log dump finished");
+  } else {
+    CommsSerial.println("Log dump failed or was aborted");
+  }
+}
+
+static void erase_log_cmd() {
+  if (in_flight) {
+    CommsSerial.println("Refusing to erase logs during flight loop");
+    return;
+  }
+ 
+  Logging::erase();
+}
+
 void setup() {
   // All shared interfaces are begun here.
 
@@ -66,6 +90,8 @@ void setup() {
   }
 
   CommandRouter::add(flight_loop, "start_flight_loop");
+  CommandRouter::add(dump_log_cmd, "dump logs");
+  CommandRouter::add(erase_log_cmd, "erase logs");
   CommandRouter::add_flag(&kill_flag, "k", "terminate the flight loop early");
   CommandRouter::add_flag(&arm_flag, "arm", "start following a trajectory");
 }
@@ -81,6 +107,7 @@ void loop() {
 #define STARTING_VALVE_ANGLE_FU 30
 
 void flight_loop() {
+  in_flight = true;
   kill_flag = false;
   arm_flag = false;
 
@@ -121,4 +148,6 @@ void flight_loop() {
   // TODO - safe remaining valves
   ThrottleValves::stop();
   RCS::close();
+  Logging::flush();
+  in_flight = false;
 }

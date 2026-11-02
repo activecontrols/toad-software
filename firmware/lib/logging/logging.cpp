@@ -12,9 +12,10 @@
 
 #include <string.h>
 
-#define DUMP_CONTINUE_CHAR 'c'
-#define DUMP_TIMEOUT_MS 5000u
-#define DumpSerial SerialUSB
+#define DUMP_CONTINUE_CHAR  'c'
+#define DUMP_KILL_CHAR      'k'
+#define DUMP_TIMEOUT_MS     5000u
+#define DumpSerial          SerialUSB
 
 namespace Logging {
 
@@ -131,7 +132,7 @@ flash_error_t read_page(uint32_t page_addr) {
   return Flash::read_main(page_addr, 0, read_buf, NAND_PAGE_SIZE);
 }
 
-bool send_page() {
+bool send_page(uint32_t page_num) {
   if (!wait_for_continue()) {
     return false;
   }
@@ -143,15 +144,18 @@ bool send_page() {
     checksum_b += checksum_a;
   }
 
+  DumpSerial.write(DUMP_CONTINUE_CHAR);
+  DumpSerial.write(reinterpret_cast<uint8_t *>(&page_num), sizeof(page_num));
   DumpSerial.write(read_buf, NAND_PAGE_SIZE);
   DumpSerial.write(checksum_a);
   DumpSerial.write(checksum_b);
   return true;
 }
 
-bool send_end_page() {
-  memset(read_buf, LOG_EMPTY_BYTE, sizeof(read_buf));
-  return send_page();
+void send_end_page() {
+  if (wait_for_continue()) {
+    DumpSerial.write(DUMP_KILL_CHAR);
+  }
 }
 
 bool send_log() {
@@ -180,15 +184,15 @@ bool send_log() {
       continue;
     }
 
-    if (!send_page()) {
+    if (!send_page(page)) {
       return false;
     }
 
     page++;
   }
 
-  // send an empty page to indicate no more data
-  return send_end_page();
+  send_end_page();
+  return true;
 }
 
 } // namespace
