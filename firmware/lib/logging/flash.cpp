@@ -16,21 +16,6 @@
 #include <stm32h747xx.h>
 #include <string.h>
 
-void HAL_QSPI_MspInit(QSPI_HandleTypeDef *) {
-  __HAL_RCC_QSPI_CONFIG(RCC_QSPICLKSOURCE_D1HCLK);
-  __HAL_RCC_QSPI_CLK_ENABLE();
-
-  __HAL_RCC_QSPI_FORCE_RESET();
-  __HAL_RCC_QSPI_RELEASE_RESET();
-
-  pinmap_pinout(digitalPinToPinName(PIN_QSPI_CLK), PinMap_QUADSPI_SCLK);
-  pinmap_pinout(digitalPinToPinName(PIN_QSPI_IO0), PinMap_QUADSPI_DATA0);
-  pinmap_pinout(digitalPinToPinName(PIN_QSPI_IO1), PinMap_QUADSPI_DATA1);
-  pinmap_pinout(digitalPinToPinName(PIN_QSPI_IO2), PinMap_QUADSPI_DATA2);
-  pinmap_pinout(digitalPinToPinName(PIN_QSPI_IO3), PinMap_QUADSPI_DATA3);
-  pinmap_pinout(digitalPinToPinName(PIN_QSPI_CS), PinMap_QUADSPI_SSEL);
-}
-
 namespace Flash {
 
 namespace {
@@ -465,6 +450,13 @@ flash_error_t erase_block(uint32_t addr) {
 }
 
 bool begin() {
+  pinmap_pinout(digitalPinToPinName(PIN_QSPI_CLK), PinMap_QUADSPI_SCLK);
+  pinmap_pinout(digitalPinToPinName(PIN_QSPI_IO0), PinMap_QUADSPI_DATA0);
+  pinmap_pinout(digitalPinToPinName(PIN_QSPI_IO1), PinMap_QUADSPI_DATA1);
+  pinmap_pinout(digitalPinToPinName(PIN_QSPI_IO2), PinMap_QUADSPI_DATA2);
+  pinmap_pinout(digitalPinToPinName(PIN_QSPI_IO3), PinMap_QUADSPI_DATA3);
+  pinmap_pinout(digitalPinToPinName(PIN_QSPI_CS), PinMap_QUADSPI_SSEL);
+
   if (!init_qspi_peripheral()) {
     CommsSerial.println("QSPI Init Failed");
     return false;
