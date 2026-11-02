@@ -54,36 +54,6 @@ bool page_is_empty(uint32_t page) {
   return first_byte == LOG_EMPTY_BYTE;
 }
 
-// Find the first empty good page to resume writing
-uint32_t find_write_page() {
-  uint32_t last_used_block = UINT32_MAX;
-
-  for (uint32_t block = 0; block < NAND_NUM_BLOCKS; block++) {
-    uint32_t first_page = block * NAND_PAGES_PER_BLOCK;
-    if (Bad_Page_Table::get_page_status(first_page) != PAGE_GOOD) {
-      continue;
-    }
-
-    if (page_is_empty(first_page)) {
-      break;
-    }
-
-    last_used_block = block;
-  }
-
-  if (last_used_block == UINT32_MAX) {
-    return first_good_page_from(0);
-  }
-
-  uint32_t page = last_used_block * NAND_PAGES_PER_BLOCK;
-  uint32_t block_end = page + NAND_PAGES_PER_BLOCK;
-  while (page < block_end && !page_is_empty(page)) {
-    page++;
-  }
-
-  return first_good_page_from(page);
-}
-
 bool commit_page() {
   if (Flash::write_to_cache(0, page_buf, NAND_PAGE_SIZE) != FLASH_SUCCESS) {
     CommsSerial.println("Write to cache failed");
@@ -210,7 +180,7 @@ bool begin() {
 
   reset_page_buf();
   
-  cur_page = find_write_page();
+  cur_page = first_good_page_from(0);
 
   if (cur_page >= NAND_NUM_PAGES) {
     CommsSerial.println("WARNING: NAND log is full, erase it before logging.");
