@@ -1,6 +1,5 @@
 #include "CommandRouter.h"
 #include "ErrorCounters.h"
-#include "logging.h"
 #include <string.h>
 #include <vector>
 
