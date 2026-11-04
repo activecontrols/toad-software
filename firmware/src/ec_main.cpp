@@ -125,6 +125,8 @@ void flight_loop() {
   RCS::close();
 }
 
+/* Platform-dependent can_begin(); because fdcan lib is used by multiple platforms, it's best to keep platform-dependent
+ * init here */
 bool can_begin(void) {
   bool is_ok = true;
 

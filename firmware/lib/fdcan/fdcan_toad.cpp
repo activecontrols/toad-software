@@ -19,7 +19,6 @@ CAN::CAN(uint32_t _tx_pin, uint32_t _rx_pin) {
   this->tx_pin = _tx_pin;
   this->rx_pin = _rx_pin;
   this->hfdcan = {0};
-  this->hfdcan.obj = this;
 }
 
 // jhillman adapted from

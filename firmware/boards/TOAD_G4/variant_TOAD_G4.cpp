@@ -106,26 +106,30 @@ const uint32_t analogInputPin[] = {
 void SystemClock_Config(void) {
   RCC_OscInitTypeDef RCC_OscInitStruct = {};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {};
-  RCC_CRSInitTypeDef pInit = {};
+  RCC_CRSInitTypeDef CRS_Init = {};
   RCC_PeriphCLKInitTypeDef PeriphClkInit = {};
 
   /** Configure the main internal regulator output voltage
    */
+  /* */
   HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1);
 
   /** Initializes the RCC Oscillators according to the specified parameters
    * in the RCC_OscInitTypeDef structure.
    */
+
+  /* See RM[275] for clock tree */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI48 | RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
+  RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS; /* Our HSE is 8MHz; we use a MEMS oscillator instead of crystal
+                                                  oscillator, hence BYPASS (RM[277]) */
   RCC_OscInitStruct.HSI48State = RCC_HSI48_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-  RCC_OscInitStruct.PLL.PLLM = RCC_PLLM_DIV2;
-  RCC_OscInitStruct.PLL.PLLN = 60;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
-  RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE; /* PLL Source is HSE */
+  RCC_OscInitStruct.PLL.PLLM = RCC_PLLM_DIV2;          /* Prescaler; scales down to 4MHz */
+  RCC_OscInitStruct.PLL.PLLN = 60;                     /* Multiplier; scales up to 240MHz */
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;          /* PLLPCLK = 120MHz */
+  RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;          /* PLLQCLK = 120MHz */
+  RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;          /* PLLRCLK = 120MHz */
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
     Error_Handler();
   }
@@ -133,11 +137,12 @@ void SystemClock_Config(void) {
   /** Initializes the CPU, AHB and APB buses clocks
    */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK; /* SYSCLK = PLLRCLK = 120MHz */
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;        /* AHB = 120MHz */
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;         /* APB1 = AHB = 120MHz */
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;         /* APB2 = AHB = 120MHz */
 
+  /* Note: from RM[75] stm32g474 is a category 3 device */
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3) != HAL_OK) {
     Error_Handler();
   }
@@ -148,14 +153,14 @@ void SystemClock_Config(void) {
 
   /** Configures CRS
    */
-  pInit.Prescaler = RCC_CRS_SYNC_DIV1;
-  pInit.Source = RCC_CRS_SYNC_SOURCE_USB;
-  pInit.Polarity = RCC_CRS_SYNC_POLARITY_RISING;
-  pInit.ReloadValue = __HAL_RCC_CRS_RELOADVALUE_CALCULATE(48000000, 1000);
-  pInit.ErrorLimitValue = 34;
-  pInit.HSI48CalibrationValue = 32;
+  CRS_Init.Prescaler = RCC_CRS_SYNC_DIV1;
+  CRS_Init.Source = RCC_CRS_SYNC_SOURCE_USB;
+  CRS_Init.Polarity = RCC_CRS_SYNC_POLARITY_RISING;
+  CRS_Init.ReloadValue = __HAL_RCC_CRS_RELOADVALUE_CALCULATE(48000000, 1000);
+  CRS_Init.ErrorLimitValue = 34;
+  CRS_Init.HSI48CalibrationValue = 32;
 
-  HAL_RCCEx_CRSConfig(&pInit);
+  HAL_RCCEx_CRSConfig(&CRS_Init);
 
   PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USB;
   PeriphClkInit.UsbClockSelection = RCC_USBCLKSOURCE_HSI48;

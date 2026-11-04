@@ -54,20 +54,13 @@ public:
   /* Test receiving data on one CAN, and send a frame after every received message */
   void cmd_can_receive_test(void);
 
-  struct FDCAN_Handle_Wrapper : public FDCAN_HandleTypeDef {
-    CAN *obj; // pointer back to the CAN object that owns this peripheral
-  };
-
-  FDCAN_Handle_Wrapper *handle(void) {
-    return &hfdcan;
-  }
-
 private:
-  FDCAN_Handle_Wrapper hfdcan = {0};
-  FDCAN_ErrorCountersTypeDef error_counts = {0};
-  FDCAN_RxHeaderTypeDef rx_header = {0};
+  FDCAN_HandleTypeDef hfdcan = {0};
   uint32_t tx_pin = 0;
   uint32_t rx_pin = 0;
+
+  /* Used by CAN::read(); stores data here about the incoming packet without large stack frame */
+  FDCAN_RxHeaderTypeDef rx_header = {0};
   uint8_t rx_data[64] = {0};
 };
 
