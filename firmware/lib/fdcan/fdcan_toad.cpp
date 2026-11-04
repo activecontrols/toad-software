@@ -268,6 +268,9 @@ int CAN::write(CanMsg const &msg) {
 }
 
 CanMsg CAN::read(void) {
+  FDCAN_RxHeaderTypeDef rx_header = {0};
+  uint8_t rx_data[64] = {0};
+
   if (this->hfdcan.Instance == nullptr) {
     return CanMsg();
   }
@@ -279,23 +282,23 @@ CanMsg CAN::read(void) {
     return CanMsg(); // return empty message
   }
 
-  HAL_StatusTypeDef status = HAL_FDCAN_GetRxMessage(&(this->hfdcan), FDCAN_RX_FIFO0, &(this->rx_header), this->rx_data);
+  HAL_StatusTypeDef status = HAL_FDCAN_GetRxMessage(&(this->hfdcan), FDCAN_RX_FIFO0, &(rx_header), rx_data);
 
   if (status != HAL_OK) {
     return CanMsg();
   }
 
-  uint32_t arduino_msg_id = this->rx_header.Identifier;
+  uint32_t arduino_msg_id = rx_header.Identifier;
 
-  if (this->rx_header.IdType == FDCAN_EXTENDED_ID) {
+  if (rx_header.IdType == FDCAN_EXTENDED_ID) {
     arduino_msg_id |=
         CanMsg::CAN_EFF_FLAG; // bit 31 marks it as extended ID format according to the comment in CanMsg.h
   }
 
   // For classic CAN messages, clamp payload length to 8 bytes maximum (DLC 9-15 indicate 8 bytes in CAN 2.0B)
-  uint8_t len = (this->rx_header.DataLength > FDCAN_DLC_BYTES_8) ? 8 : (uint8_t)this->rx_header.DataLength;
+  uint8_t len = (rx_header.DataLength > FDCAN_DLC_BYTES_8) ? 8 : (uint8_t)rx_header.DataLength;
 
-  return CanMsg(arduino_msg_id, len, this->rx_data);
+  return CanMsg(arduino_msg_id, len, rx_data);
 }
 
 void CAN::end(void) {

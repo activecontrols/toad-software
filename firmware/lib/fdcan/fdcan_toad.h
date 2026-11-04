@@ -58,10 +58,6 @@ private:
   FDCAN_HandleTypeDef hfdcan = {0};
   uint32_t tx_pin = 0;
   uint32_t rx_pin = 0;
-
-  /* Used by CAN::read(); stores data here about the incoming packet without large stack frame */
-  FDCAN_RxHeaderTypeDef rx_header = {0};
-  uint8_t rx_data[64] = {0};
 };
 
 template <CAN &sender, CAN &receiver> void cmd_can_loopback(void) {
