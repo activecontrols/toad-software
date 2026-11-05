@@ -3,8 +3,8 @@
 #include "ec_pins.h"
 
 constexpr uint32_t pwm_res = 16;         // 16 bit resolution
-constexpr uint32_t spark_freq_hz = 50;   // 20 ms period
-constexpr float spark_duty_cycle = 0.16; // 16% duty cycle results in 3.2 ms T_on
+constexpr uint32_t spark_freq_hz = 133;  // 7.5 ms period
+constexpr float spark_duty_cycle = 0.40; // 40% duty cycle results in 3 ms T_on
 
 namespace Spark {
 
