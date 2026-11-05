@@ -7,6 +7,7 @@
 #include "RCS.h"
 #include "RS485.h"
 #include "SolenoidValves.h"
+#include "Spark.h"
 #include "TVC_Actuators.h"
 #include "TemperatureSensors.h"
 #include "ThrottleValves.h"
@@ -54,6 +55,7 @@ void setup() {
   all_modules_ok &= SolenoidValves::begin();
   all_modules_ok &= TVC_Actuators::begin();
   all_modules_ok &= ValveController::begin();
+  all_modules_ok &= Spark::begin();
 
   if (!all_modules_ok) {
     while (true) {
