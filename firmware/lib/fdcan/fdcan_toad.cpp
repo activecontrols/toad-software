@@ -10,12 +10,9 @@ using namespace arduino;
 static const uint8_t DLC_TO_BYTES[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48, 64};
 
 // Smallest DLC whose payload holds len bytes. len must be 0-64.
-static uint32_t bytes_to_dlc(uint8_t len)
-{
-  for (uint32_t dlc = 0; dlc < 16; dlc++)
-  {
-    if (DLC_TO_BYTES[dlc] >= len)
-    {
+static uint32_t bytes_to_dlc(uint8_t len) {
+  for (uint32_t dlc = 0; dlc < 16; dlc++) {
+    if (DLC_TO_BYTES[dlc] >= len) {
       return dlc;
     }
   }
@@ -37,18 +34,16 @@ CAN::CAN(uint32_t _tx_pin, uint32_t _rx_pin) {
   this->hfdcan = {0};
 }
 
-
 // Arduino HardwareCAN entry point: normal mode at the given bit rate.
-bool CAN::begin(CanBitRate _bitrate)
-{
+bool CAN::begin(CanBitRate _bitrate) {
   config_t config;
   config.nominal_bit_rate = _bitrate;
   return begin(config);
 }
 
-// jhillman adapted from https://github.com/STMicroelectronics/STM32CubeH7/blob/master/Projects/STM32H743I-EVAL/Examples/FDCAN/FDCAN_Classic_Frame_Networking/Src/main.c
-bool CAN::begin(const config_t& config)
-{
+// jhillman adapted from
+// https://github.com/STMicroelectronics/STM32CubeH7/blob/master/Projects/STM32H743I-EVAL/Examples/FDCAN/FDCAN_Classic_Frame_Networking/Src/main.c
+bool CAN::begin(const config_t &config) {
   uint32_t bit_rate = (uint32_t)config.nominal_bit_rate;
 
   FDCAN_GlobalTypeDef *inst_1 =
@@ -70,8 +65,7 @@ bool CAN::begin(const config_t& config)
   }
 
   if (config.frame_format != FDCAN_FRAME_CLASSIC && config.frame_format != FDCAN_FRAME_FD_NO_BRS &&
-      config.frame_format != FDCAN_FRAME_FD_BRS)
-  {
+      config.frame_format != FDCAN_FRAME_FD_BRS) {
     CommsSerial.println("Error: invalid CAN frame format");
     return false;
   }
@@ -132,35 +126,29 @@ bool CAN::begin(const config_t& config)
   uint32_t data_seg_1_tq = 0;
   uint32_t data_seg_2_tq = 0;
 
-  if (config.frame_format == FDCAN_FRAME_FD_BRS)
-  {
+  if (config.frame_format == FDCAN_FRAME_FD_BRS) {
     const uint32_t data_bit_rate = config.data_bit_rate;
 
-    if (data_bit_rate <= bit_rate || data_bit_rate > 8'000'000U)
-    {
+    if (data_bit_rate <= bit_rate || data_bit_rate > 8'000'000U) {
       CommsSerial.println("Error: CAN data bit rate must be faster than the nominal rate and at most 8 Mbit/s");
       return false;
     }
 
     uint32_t data_bit_time_tq = 0;
-    for (uint32_t p = 1; p <= 32; p++)
-    {
-      if ((can_ker_ck % (p * data_bit_rate)) != 0)
-      {
+    for (uint32_t p = 1; p <= 32; p++) {
+      if ((can_ker_ck % (p * data_bit_rate)) != 0) {
         continue; // this prescaler can't produce the rate exactly
       }
 
       uint32_t tq = can_ker_ck / (p * data_bit_rate);
-      if (tq <= 49)
-      {
+      if (tq <= 49) {
         data_prescaler = p;
         data_bit_time_tq = tq;
         break;
       }
     }
 
-    if (data_prescaler == 0)
-    {
+    if (data_prescaler == 0) {
       CommsSerial.println("Error: CAN data bit rate can't be made exactly from the 120 MHz clock");
       return false;
     }
@@ -170,8 +158,7 @@ bool CAN::begin(const config_t& config)
     data_seg_1_tq = data_tq_before_sample - 1; // minus the 1 tq sync segment, same as nominal
     data_seg_2_tq = data_bit_time_tq - data_tq_before_sample;
 
-    if (data_tq_before_sample < 2 || data_seg_1_tq > 32 || data_seg_2_tq < 1 || data_seg_2_tq > 16)
-    {
+    if (data_tq_before_sample < 2 || data_seg_1_tq > 32 || data_seg_2_tq < 1 || data_seg_2_tq > 16) {
       CommsSerial.println("Error: CAN data phase seg_1 or seg_2 calculated values are invalid");
       return false;
     }
@@ -195,7 +182,8 @@ bool CAN::begin(const config_t& config)
   this->hfdcan.Init.DataSyncJumpWidth = data_seg_2_tq;
   this->hfdcan.Init.DataTimeSeg1 = data_seg_1_tq;
   this->hfdcan.Init.DataTimeSeg2 = data_seg_2_tq;
-  this->hfdcan.Init.StdFiltersNbr = 0; // not using any filters on this bus - that way CPU receives all messages (since we are just talking to actuators anyway, this is fine)
+  this->hfdcan.Init.StdFiltersNbr = 0; // not using any filters on this bus - that way CPU receives all messages (since
+                                       // we are just talking to actuators anyway, this is fine)
   this->hfdcan.Init.ExtFiltersNbr = 0;
   this->hfdcan.Init.TxFifoQueueMode =
       FDCAN_TX_FIFO_OPERATION; // other option is queue operation; with fifo messages are sent in the order they are
@@ -244,11 +232,9 @@ bool CAN::begin(const config_t& config)
   // through the transceiver. At fast data rates that echo arrives after the normal check point,
   // so TDC moves the check point later. Offset = DataPrescaler * DataTimeSeg1 (about where the
   // sample point is), filter 0, as in ST's FDCAN examples. Must be set after Init and before Start.
-  if (config.frame_format == FDCAN_FRAME_FD_BRS && data_prescaler <= 2)
-  {
+  if (config.frame_format == FDCAN_FRAME_FD_BRS && data_prescaler <= 2) {
     if (HAL_FDCAN_ConfigTxDelayCompensation(&(this->hfdcan), data_prescaler * data_seg_1_tq, 0) != HAL_OK ||
-        HAL_FDCAN_EnableTxDelayCompensation(&(this->hfdcan)) != HAL_OK)
-    {
+        HAL_FDCAN_EnableTxDelayCompensation(&(this->hfdcan)) != HAL_OK) {
       CommsSerial.println("Error: could not configure CAN transmitter delay compensation");
       return false;
     }
@@ -413,26 +399,21 @@ CanMsg CAN::read(void) {
 
 // The bus must have been started with an FD frame_format.
 // Lengths that are not a valid FD size are padded with zeros (e.g. 10 -> 12).
-int CAN::write_fd(const fd_msg_t& msg)
-{
-  if (this->hfdcan.Instance == nullptr)
-  {
+int CAN::write_fd(const fd_msg_t &msg) {
+  if (this->hfdcan.Instance == nullptr) {
     return 0;
   }
 
-  if (this->frame_format == FDCAN_FRAME_CLASSIC)
-  {
+  if (this->frame_format == FDCAN_FRAME_CLASSIC) {
     return 0; // this bus was started in classic mode and cannot send FD frames
   }
 
-  if (msg.len > 64)
-  {
+  if (msg.len > 64) {
     return 0;
   }
 
   // wait for the single transmit slot to be free
-  if (this->flush(4U) == false)
-  {
+  if (this->flush(4U) == false) {
     return 0;
   }
 
@@ -443,13 +424,10 @@ int CAN::write_fd(const fd_msg_t& msg)
 
   FDCAN_TxHeaderTypeDef tx_header = {0};
 
-  if (msg.id & CanMsg::CAN_EFF_FLAG)
-  {
+  if (msg.id & CanMsg::CAN_EFF_FLAG) {
     tx_header.Identifier = msg.id & CanMsg::CAN_EFF_MASK;
     tx_header.IdType = FDCAN_EXTENDED_ID;
-  }
-  else
-  {
+  } else {
     tx_header.Identifier = msg.id & CanMsg::CAN_SFF_MASK;
     tx_header.IdType = FDCAN_STANDARD_ID;
   }
@@ -468,8 +446,7 @@ int CAN::write_fd(const fd_msg_t& msg)
 #if defined(STM32H7)
   // H7: (1) place the message in transmit buffer 0, (2) request its transmission
   status = HAL_FDCAN_AddMessageToTxBuffer(&(this->hfdcan), &tx_header, tx_buf, FDCAN_TX_BUFFER0);
-  if (status != HAL_OK)
-  {
+  if (status != HAL_OK) {
     return 0;
   }
   status = HAL_FDCAN_EnableTxBufferRequest(&(this->hfdcan), FDCAN_TX_BUFFER0);
@@ -483,24 +460,20 @@ int CAN::write_fd(const fd_msg_t& msg)
   return (status == HAL_OK) ? 1 : 0;
 }
 
-bool CAN::read_fd(fd_msg_t& msg)
-{
+bool CAN::read_fd(fd_msg_t &msg) {
   FDCAN_RxHeaderTypeDef rx_header = {0};
-  uint8_t rx_data[64] = {0}; 
+  uint8_t rx_data[64] = {0};
 
-  if (this->hfdcan.Instance == nullptr || this->available() == 0)
-  {
+  if (this->hfdcan.Instance == nullptr || this->available() == 0) {
     return false;
   }
 
-  if (HAL_FDCAN_GetRxMessage(&(this->hfdcan), FDCAN_RX_FIFO0, &(rx_header), rx_data) != HAL_OK)
-  {
+  if (HAL_FDCAN_GetRxMessage(&(this->hfdcan), FDCAN_RX_FIFO0, &(rx_header), rx_data) != HAL_OK) {
     return false;
   }
 
   msg.id = rx_header.Identifier;
-  if (rx_header.IdType == FDCAN_EXTENDED_ID)
-  {
+  if (rx_header.IdType == FDCAN_EXTENDED_ID) {
     msg.id |= CanMsg::CAN_EFF_FLAG;
   }
 
@@ -510,10 +483,8 @@ bool CAN::read_fd(fd_msg_t& msg)
   return true;
 }
 
-void CAN::end(void)
-{
-  if (this->hfdcan.Instance == nullptr)
-  {
+void CAN::end(void) {
+  if (this->hfdcan.Instance == nullptr) {
     return;
   }
 
@@ -583,30 +554,24 @@ void CAN::cmd_can_receive_test(void) {
   return;
 }
 
-
-void CAN::loopback_test(CAN& bus)
-{
+void CAN::loopback_test(CAN &bus) {
   // Empty the receive queue first, so we only check our own frame.
-  while (bus.available() > 0)
-  {
+  while (bus.available() > 0) {
     bus.read();
   }
 
   const uint8_t tx_data[8] = {'h', 'e', 'l', 'l', 'o', '1', '2', '3'};
   CanMsg tx_msg(0x55, sizeof(tx_data), tx_data);
 
-  if (bus.write(tx_msg) == 0)
-  {
+  if (bus.write(tx_msg) == 0) {
     CommsSerial.println("loopback test FAIL: write() failed");
     return;
   }
 
   // An 8 byte frame at 500k takes about a quarter of a millisecond, so 10 ms is plenty.
   uint32_t start_ms = millis();
-  while (bus.available() == 0)
-  {
-    if (millis() - start_ms > 10)
-    {
+  while (bus.available() == 0) {
+    if (millis() - start_ms > 10) {
       CommsSerial.println("loopback test FAIL: nothing received (is the bus in a loopback mode?)");
       return;
     }
@@ -620,41 +585,33 @@ void CAN::loopback_test(CAN& bus)
   bool len_ok = (rx_msg.data_length == tx_msg.data_length);
   bool data_ok = len_ok && (memcmp(rx_msg.data, tx_msg.data, tx_msg.data_length) == 0);
 
-  if (id_ok && len_ok && data_ok)
-  {
+  if (id_ok && len_ok && data_ok) {
     CommsSerial.println("loopback test PASS");
-  }
-  else
-  {
-    CommsSerial.printf("loopback test FAIL: id %s, length %s, data %s\n", id_ok ? "ok" : "BAD",
-                       len_ok ? "ok" : "BAD", data_ok ? "ok" : "BAD");
+  } else {
+    CommsSerial.printf("loopback test FAIL: id %s, length %s, data %s\n", id_ok ? "ok" : "BAD", len_ok ? "ok" : "BAD",
+                       data_ok ? "ok" : "BAD");
   }
 }
 
 // Sends one FD frame of tx_len bytes and checks it comes back with the padded length,
 // the same data, and zeros in any padding. Prints one result line and returns true on pass.
-static bool check_fd_frame(CAN& bus, uint8_t tx_len)
-{
+static bool check_fd_frame(CAN &bus, uint8_t tx_len) {
   CAN::fd_msg_t tx_msg;
   tx_msg.id = 0x56;
   tx_msg.len = tx_len;
-  for (uint8_t i = 0; i < tx_len; i++)
-  {
+  for (uint8_t i = 0; i < tx_len; i++) {
     tx_msg.data[i] = i + 1; // 1, 2, 3, ... so every byte differs and none are zero
   }
 
-  if (bus.write_fd(tx_msg) == 0)
-  {
+  if (bus.write_fd(tx_msg) == 0) {
     CommsSerial.printf("  %2u bytes: FAIL, write_fd() failed (is the bus in an FD mode?)\n", tx_len);
     return false;
   }
 
   // a 64 byte FD frame at 500k takes about 1.2 ms, so 10 ms is plenty
   uint32_t start_ms = millis();
-  while (bus.available() == 0)
-  {
-    if (millis() - start_ms > 10)
-    {
+  while (bus.available() == 0) {
+    if (millis() - start_ms > 10) {
       CommsSerial.printf("  %2u bytes: FAIL, nothing received\n", tx_len);
       return false;
     }
@@ -668,10 +625,8 @@ static bool check_fd_frame(CAN& bus, uint8_t tx_len)
   bool len_ok = (rx_msg.len == expected_len);
   bool data_ok = (memcmp(rx_msg.data, tx_msg.data, tx_len) == 0);
   bool padding_ok = true;
-  for (uint8_t i = tx_len; i < rx_msg.len; i++)
-  {
-    if (rx_msg.data[i] != 0)
-    {
+  for (uint8_t i = tx_len; i < rx_msg.len; i++) {
+    if (rx_msg.data[i] != 0) {
       padding_ok = false;
     }
   }
@@ -683,18 +638,15 @@ static bool check_fd_frame(CAN& bus, uint8_t tx_len)
   return pass;
 }
 
-void CAN::loopback_test_fd(CAN& bus)
-{
+void CAN::loopback_test_fd(CAN &bus) {
   // Empty the receive queue first, so we only check our own frames.
   CAN::fd_msg_t discard;
-  while (bus.read_fd(discard))
-  {
+  while (bus.read_fd(discard)) {
   }
 
   const uint8_t lengths[] = {8, 10, 20, 64};
   bool all_pass = true;
-  for (uint8_t len : lengths)
-  {
+  for (uint8_t len : lengths) {
     all_pass = check_fd_frame(bus, len) && all_pass; // call first so every length runs even after a failure
   }
 
