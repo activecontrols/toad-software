@@ -140,6 +140,11 @@ bool can_begin(void) {
     CommandRouter::add([]() { can_tvc.cmd_can_send_test(); }, "can_tvc_send_test");
     CommandRouter::add([]() { can_fc.cmd_can_receive_test(); }, "can_fc_receive_test");
     CommandRouter::add([]() { can_tvc.cmd_can_receive_test(); }, "can_tvc_receive_test");
+    CommandRouter::add([]() { CAN::loopback_test(can_tvc); }, "can_loopback_test",
+                       "Send a frame on can_tvc and check it comes back. Needs a loopback mode.");
+    CommandRouter::add([]() { CAN::loopback_test_fd(can_tvc); }, "can_fd_loopback_test",
+                       "Send FD frames of 8, 10, 20 and 64 bytes on can_tvc and check they come back. Needs an FD "
+                       "frame_format and a loopback mode.");
   }
 
   return is_ok;
