@@ -131,7 +131,11 @@ bool can_begin(void) {
   bool is_ok = true;
 
   is_ok &= can_tvc.begin(CanBitRate::BR_500k);
-  is_ok &= can_fc.begin(CanBitRate::BR_500k);
+
+  CAN::config_t fc_config;
+  fc_config.frame_format = FDCAN_FRAME_FD_BRS;
+  fc_config.data_bit_rate = 8'000'000;
+  is_ok &= can_fc.begin(fc_config);
 
   if (is_ok) {
     CommandRouter::add(cmd_can_loopback<can_tvc, can_fc>, "tvc_to_fc_test");
