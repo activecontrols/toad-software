@@ -70,6 +70,11 @@ public:
     // data and zero padding. Needs an FD frame_format and a loopback mode.
     static void loopback_test_fd(CAN& bus);
 
+    // Sends FD frames of 8, 10, 20 and 64 bytes from tx_bus and checks each arrives on rx_bus with the right
+    // length, data and zero padding, then prints both buses' error counters and protocol status.
+    // Needs the two buses wired to each other, both in normal mode with an FD frame_format.
+    static void node_test(CAN& tx_bus, CAN& rx_bus);
+
     // Get number of messages waiting in the receive FIFO.
     // Conforms to arduino::HardwareCAN interface.
     size_t available(void) override;
@@ -118,18 +123,21 @@ public:
         bool success = true;
         
         // TODO - print error for each CAN bus that fails
-        // TEST ONLY: can_tvc stays inside the chip (internal loopback) so the valve motors and TVC
-        // actuators on that bus never see test frames; it runs FD without bit rate switching (step 2).
-        // can_fc drives its TX pin (external loopback) so frames can be seen on a scope; it runs FD with
-        // bit rate switching (step 3), so the data phase is sent at data_bit_rate (default 8 Mbit/s).
+        // TEST ONLY: two-node test. can_tvc and can_fc are wired to each other (CANH to CANH, CANL to CANL,
+        // 120 ohm termination at each end) with nothing else on that wire. The TVC actuators and valve motors
+        // must be unplugged, because they only speak classic CAN and would reject FD frames with error frames.
+        // Both buses run in normal mode with FD frames and bit rate switching, so each one acknowledges the
+        // other's frames like a real second node. Both buses must use the same nominal and data bit rates.
         CAN::config_t tvc_config;
-        tvc_config.mode = FDCAN_MODE_INTERNAL_LOOPBACK;
-        tvc_config.frame_format = FDCAN_FRAME_FD_NO_BRS;
+        tvc_config.mode = FDCAN_MODE_NORMAL;
+        tvc_config.frame_format = FDCAN_FRAME_FD_BRS;
+        tvc_config.data_bit_rate = 8'000'000; // if the node test fails at 8 Mbit/s, try 2'000'000 on both buses
         success = success && can_tvc.begin(tvc_config);
 
         CAN::config_t fc_config;
-        fc_config.mode = FDCAN_MODE_EXTERNAL_LOOPBACK;
+        fc_config.mode = FDCAN_MODE_NORMAL;
         fc_config.frame_format = FDCAN_FRAME_FD_BRS;
+        fc_config.data_bit_rate = 8'000'000;
         success = success && can_fc.begin(fc_config);
 
         if (success)
@@ -140,12 +148,12 @@ public:
             CommandRouter::add([]() { CAN::loopback_test_fd(can_tvc); },
             "can_fd_loopback_test",
             "Send FD frames of 8, 10, 20 and 64 bytes on can_tvc and check they come back. Needs an FD frame_format and a loopback mode.");
-            CommandRouter::add([]() { CAN::loopback_test(can_fc); },
-            "can_fc_loopback_test",
-            "TEST ONLY: send a classic frame on can_fc (external loopback, visible on the TX pin) and check it comes back.");
-            CommandRouter::add([]() { CAN::loopback_test_fd(can_fc); },
-            "can_fc_fd_loopback_test",
-            "TEST ONLY: send FD frames on can_fc (external loopback, visible on the TX pin) and check they come back.");
+            CommandRouter::add([]() { CAN::node_test(can_tvc, can_fc); },
+            "can_node_test_tvc_to_fc",
+            "TEST ONLY: send FD frames from can_tvc and check can_fc receives them. Needs the two buses wired together.");
+            CommandRouter::add([]() { CAN::node_test(can_fc, can_tvc); },
+            "can_node_test_fc_to_tvc",
+            "TEST ONLY: send FD frames from can_fc and check can_tvc receives them. Needs the two buses wired together.");
         };
 
         return success;

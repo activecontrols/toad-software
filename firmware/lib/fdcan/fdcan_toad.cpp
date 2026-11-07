@@ -702,9 +702,10 @@ void CAN::loopback_test(CAN& bus)
   }
 }
 
-// Sends one FD frame of tx_len bytes and checks it comes back with the padded length,
-// the same data, and zeros in any padding. Prints one result line and returns true on pass.
-static bool check_fd_frame(CAN& bus, uint8_t tx_len)
+// Sends one FD frame of tx_len bytes on tx_bus and checks it arrives on rx_bus with the padded length,
+// the same data, and zeros in any padding. For a loopback test, tx_bus and rx_bus are the same bus.
+// Prints one result line and returns true on pass.
+static bool check_fd_frame(CAN& tx_bus, CAN& rx_bus, uint8_t tx_len)
 {
   CAN::fd_msg_t tx_msg;
   tx_msg.id = 0x56;
@@ -714,7 +715,7 @@ static bool check_fd_frame(CAN& bus, uint8_t tx_len)
     tx_msg.data[i] = i + 1; // 1, 2, 3, ... so every byte differs and none are zero
   }
 
-  if (bus.write_fd(tx_msg) == 0)
+  if (tx_bus.write_fd(tx_msg) == 0)
   {
     CommsSerial.printf("  %2u bytes: FAIL, write_fd() failed (is the bus in an FD mode?)\n", tx_len);
     return false;
@@ -722,17 +723,20 @@ static bool check_fd_frame(CAN& bus, uint8_t tx_len)
 
   // a 64 byte FD frame at 500k takes about 1.2 ms, so 10 ms is plenty
   uint32_t start_ms = millis();
-  while (bus.available() == 0)
+  while (rx_bus.available() == 0)
   {
     if (millis() - start_ms > 10)
     {
+      // Nobody acknowledged the frame, so the controller would keep retrying it. Cancel it so the
+      // sender stops driving the bus.
+      HAL_FDCAN_AbortTxRequest(tx_bus.handle(), FDCAN_TX_BUFFER0);
       CommsSerial.printf("  %2u bytes: FAIL, nothing received\n", tx_len);
       return false;
     }
   }
 
   CAN::fd_msg_t rx_msg;
-  bus.read_fd(rx_msg);
+  rx_bus.read_fd(rx_msg);
 
   uint8_t expected_len = DLC_TO_BYTES[bytes_to_dlc(tx_len)];
   bool id_ok = (rx_msg.id == tx_msg.id);
@@ -766,8 +770,64 @@ void CAN::loopback_test_fd(CAN& bus)
   bool all_pass = true;
   for (uint8_t len : lengths)
   {
-    all_pass = check_fd_frame(bus, len) && all_pass; // call first so every length runs even after a failure
+    all_pass = check_fd_frame(bus, bus, len) && all_pass; // call first so every length runs even after a failure
   }
 
   CommsSerial.println(all_pass ? "FD loopback test PASS" : "FD loopback test FAIL");
+}
+
+// Names for the FDCAN "last error code" values (FDCAN_PROTOCOL_ERROR_* in the HAL).
+static const char* error_code_name(uint32_t code)
+{
+  static const char* const names[] = {"none", "stuff", "form", "ACK", "bit1", "bit0", "CRC", "no change"};
+  return names[code & 0x7];
+}
+
+// Prints a bus's error counters and protocol status. Reading the protocol status clears the last error
+// codes and the "last received" flags, so this shows what happened since the previous read.
+static void print_bus_status(CAN& bus, const char* name)
+{
+  FDCAN_ErrorCountersTypeDef counters = {0};
+  FDCAN_ProtocolStatusTypeDef status = {0};
+  HAL_FDCAN_GetErrorCounters(bus.handle(), &counters);
+  HAL_FDCAN_GetProtocolStatus(bus.handle(), &status);
+  CommsSerial.printf("  %s: tx errors %u, rx errors %u, last error %s, data phase last error %s, bus off %u\n", name,
+                     counters.TxErrorCnt, counters.RxErrorCnt, error_code_name(status.LastErrorCode),
+                     error_code_name(status.DataLastErrorCode), status.BusOff);
+  CommsSerial.printf("  %s: last frame received was FD %u, used BRS %u; measured TDC value %u\n", name,
+                     status.RxFDFflag, status.RxBRSflag, status.TDCvalue);
+}
+
+void CAN::node_test(CAN& tx_bus, CAN& rx_bus)
+{
+  // Empty both receive queues, and read the protocol status once to clear old error codes and flags,
+  // so everything printed below comes from this test.
+  CAN::fd_msg_t discard;
+  while (tx_bus.read_fd(discard))
+  {
+  }
+  while (rx_bus.read_fd(discard))
+  {
+  }
+  FDCAN_ProtocolStatusTypeDef clear_status;
+  HAL_FDCAN_GetProtocolStatus(tx_bus.handle(), &clear_status);
+  HAL_FDCAN_GetProtocolStatus(rx_bus.handle(), &clear_status);
+
+  const uint8_t lengths[] = {8, 10, 20, 64};
+  bool all_pass = true;
+  for (uint8_t len : lengths)
+  {
+    all_pass = check_fd_frame(tx_bus, rx_bus, len) && all_pass; // call first so every length runs
+  }
+
+  // In normal mode a sender never receives its own frames. If it did, a loopback mode is still on.
+  if (tx_bus.available() > 0)
+  {
+    CommsSerial.println("  FAIL: the sender received its own frames (is it still in a loopback mode?)");
+    all_pass = false;
+  }
+
+  print_bus_status(tx_bus, "sender  ");
+  print_bus_status(rx_bus, "receiver");
+  CommsSerial.println(all_pass ? "node test PASS" : "node test FAIL");
 }
