@@ -22,6 +22,7 @@ public:
 
   void begin();
   bool read_pts(float *pt0_reading, float *pt1_reading);
+  bool zero();
 
 private:
   ADS131M02 adc;
@@ -37,5 +38,7 @@ bool begin();
 pressure_readings_t read_pts();
 void print_pt_crc_errors(pressure_readings_t pt_readings);
 void print_pt_readings();
+void zero();
+void print_loop();
 
 } // namespace PressureSensors

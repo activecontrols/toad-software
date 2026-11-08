@@ -12,9 +12,10 @@ void PT_Board::begin() {
 float convert_reading_to_psi(int32_t raw_reading, float slope, float offset) {
   // Convert counts to volts
   // 2.4 is 2x ADC VREF
-  // 3.09 is PT board scaling
+  // 8.35 is PT board scaling
   // (1 << 24) is ADC precision
-  float reading = raw_reading * 2.4 * 3.09 / (1 << 24);
+  // 1.033 is an empirical calibration
+  float reading = raw_reading * 2.4 * 8.35 / (1 << 24) * 1.033;
 
   // Convert volts to PSI
   return reading * slope + offset;
@@ -36,15 +37,25 @@ bool PT_Board::read_pts(float *pt0_reading, float *pt1_reading) {
   return adc_reading.crc_ok;
 }
 
+bool PT_Board::zero() {
+  float pt0_reading, pt1_reading;
+  bool ok = read_pts(&pt0_reading, &pt1_reading);
+  if (ok) {
+    pt0_offset = -pt0_reading;
+    pt1_offset = -pt1_reading;
+  }
+  return ok;
+}
+
 namespace PressureSensors {
 
 /* clang-format off */
 PT_Board pt_board_1_2   (PT_BOARD_1_2_SPI_BUS,   PIN_PT_BOARD_1_2_CS,   PT_CALIBRATION(1),  PT_CALIBRATION(2));
 PT_Board pt_board_3_4   (PT_BOARD_3_4_SPI_BUS,   PIN_PT_BOARD_3_4_CS,   PT_CALIBRATION(3),  PT_CALIBRATION(4));
-PT_Board pt_board_5_6   (PT_BOARD_5_6_SPI_BUS,   PIN_PT_BOARD_5_6_CS,   PT_CALIBRATION(5),  PT_CALIBRATION(6));
-PT_Board pt_board_7_8   (PT_BOARD_7_8_SPI_BUS,   PIN_PT_BOARD_7_8_CS,   PT_CALIBRATION(7),  PT_CALIBRATION(8));
-PT_Board pt_board_9_10  (PT_BOARD_9_10_SPI_BUS,  PIN_PT_BOARD_9_10_CS,  PT_CALIBRATION(9),  PT_CALIBRATION(10));
-PT_Board pt_board_11_12 (PT_BOARD_11_12_SPI_BUS, PIN_PT_BOARD_11_12_CS, PT_CALIBRATION(11), PT_CALIBRATION(12));
+// PT_Board pt_board_5_6   (PT_BOARD_5_6_SPI_BUS,   PIN_PT_BOARD_5_6_CS,   PT_CALIBRATION(5),  PT_CALIBRATION(6));
+// PT_Board pt_board_7_8   (PT_BOARD_7_8_SPI_BUS,   PIN_PT_BOARD_7_8_CS,   PT_CALIBRATION(7),  PT_CALIBRATION(8));
+// PT_Board pt_board_9_10  (PT_BOARD_9_10_SPI_BUS,  PIN_PT_BOARD_9_10_CS,  PT_CALIBRATION(9),  PT_CALIBRATION(10));
+// PT_Board pt_board_11_12 (PT_BOARD_11_12_SPI_BUS, PIN_PT_BOARD_11_12_CS, PT_CALIBRATION(11), PT_CALIBRATION(12));
 static_assert(NUM_PT_BOARDS == 6);
 /* clang-format on */
 
@@ -53,10 +64,10 @@ static_assert(NUM_PT_BOARDS == 6);
 bool begin() {
   pt_board_1_2.begin();
   pt_board_3_4.begin();
-  pt_board_5_6.begin();
-  pt_board_7_8.begin();
-  pt_board_9_10.begin();
-  pt_board_11_12.begin();
+  // pt_board_5_6.begin();
+  // pt_board_7_8.begin();
+  // pt_board_9_10.begin();
+  // pt_board_11_12.begin();
 
   pressure_readings_t pt_readings = read_pts();
   if (pt_readings.crc_errors != NO_PT_CRC_ERRS) {
@@ -64,7 +75,9 @@ bool begin() {
     return false;
   }
 
-  CommandRouter::add(print_pt_readings, "print_pt", "Print PT readings in psi.");
+  CommandRouter::add(print_pt_readings, "pt_print", "Print PT readings in psi.");
+  CommandRouter::add(zero, "pt_zero");
+  CommandRouter::add(print_loop, "pt_loop");
 
   return true;
 }
@@ -79,10 +92,10 @@ pressure_readings_t read_pts() {
   /* clang-format off */
   pt_readings.crc_errors |= pt_board_1_2.read_pts(  &pt_readings.PT_1,  &pt_readings.PT_2)  ? NO_PT_CRC_ERRS : PT_BOARD_1_2_CRC_ERR;
   pt_readings.crc_errors |= pt_board_3_4.read_pts(  &pt_readings.PT_3,  &pt_readings.PT_4)  ? NO_PT_CRC_ERRS : PT_BOARD_3_4_CRC_ERR;
-  pt_readings.crc_errors |= pt_board_5_6.read_pts(  &pt_readings.PT_5,  &pt_readings.PT_6)  ? NO_PT_CRC_ERRS : PT_BOARD_5_6_CRC_ERR;
-  pt_readings.crc_errors |= pt_board_7_8.read_pts(  &pt_readings.PT_7,  &pt_readings.PT_8)  ? NO_PT_CRC_ERRS : PT_BOARD_7_8_CRC_ERR;
-  pt_readings.crc_errors |= pt_board_9_10.read_pts( &pt_readings.PT_9,  &pt_readings.PT_10) ? NO_PT_CRC_ERRS : PT_BOARD_9_10_CRC_ERR;
-  pt_readings.crc_errors |= pt_board_11_12.read_pts(&pt_readings.PT_11, &pt_readings.PT_12) ? NO_PT_CRC_ERRS : PT_BOARD_11_12_CRC_ERR;
+  // pt_readings.crc_errors |= pt_board_5_6.read_pts(  &pt_readings.PT_5,  &pt_readings.PT_6)  ? NO_PT_CRC_ERRS : PT_BOARD_5_6_CRC_ERR;
+  // pt_readings.crc_errors |= pt_board_7_8.read_pts(  &pt_readings.PT_7,  &pt_readings.PT_8)  ? NO_PT_CRC_ERRS : PT_BOARD_7_8_CRC_ERR;
+  // pt_readings.crc_errors |= pt_board_9_10.read_pts( &pt_readings.PT_9,  &pt_readings.PT_10) ? NO_PT_CRC_ERRS : PT_BOARD_9_10_CRC_ERR;
+  // pt_readings.crc_errors |= pt_board_11_12.read_pts(&pt_readings.PT_11, &pt_readings.PT_12) ? NO_PT_CRC_ERRS : PT_BOARD_11_12_CRC_ERR;
   /* clang-format on */
 
   return pt_readings;
@@ -103,22 +116,47 @@ void print_pt_crc_errors(pressure_readings_t pt_readings) {
 void print_pt_readings() {
   pressure_readings_t pt_readings = read_pts();
 
-  CommsSerial.print("PT Readings:");
-  CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_1), pt_readings.PT_1);
-  CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_2), pt_readings.PT_2);
-  CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_3), pt_readings.PT_3);
-  CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_4), pt_readings.PT_4);
-  CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_5), pt_readings.PT_5);
-  CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_6), pt_readings.PT_6);
-  CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_7), pt_readings.PT_7);
-  CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_8), pt_readings.PT_8);
-  CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_9), pt_readings.PT_9);
-  CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_10), pt_readings.PT_10);
-  CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_11), pt_readings.PT_11);
-  CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_12), pt_readings.PT_12);
+  CommsSerial.print("PT Readings:\n");
+  CommsSerial.printf("%25s: %6.4f psi\n", STRINGIFY(PT_1), pt_readings.PT_1);
+  CommsSerial.printf("%25s: %6.4f psi\n", STRINGIFY(PT_2), pt_readings.PT_2);
+  CommsSerial.printf("%25s: %6.4f psi\n", STRINGIFY(PT_3), pt_readings.PT_3);
+  CommsSerial.printf("%25s: %6.4f psi\n", STRINGIFY(PT_4), pt_readings.PT_4);
+  // CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_5), pt_readings.PT_5);
+  // CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_6), pt_readings.PT_6);
+  // CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_7), pt_readings.PT_7);
+  // CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_8), pt_readings.PT_8);
+  // CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_9), pt_readings.PT_9);
+  // CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_10), pt_readings.PT_10);
+  // CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_11), pt_readings.PT_11);
+  // CommsSerial.printf("%25s: %6.2f psi\n", STRINGIFY(PT_12), pt_readings.PT_12);
 
   if (pt_readings.crc_errors != NO_PT_CRC_ERRS) {
     print_pt_crc_errors(pt_readings);
+  }
+}
+
+void print_loop() {
+  while (true) {
+    print_pt_readings();
+    delay(100);
+    if (CommsSerial.read() == '\n') {
+      return;
+    }
+  }
+}
+
+void zero() {
+  uint8_t crc_errors = 0;
+  crc_errors |= pt_board_1_2.zero() ? NO_PT_CRC_ERRS : PT_BOARD_1_2_CRC_ERR;
+  crc_errors |= pt_board_3_4.zero() ? NO_PT_CRC_ERRS : PT_BOARD_3_4_CRC_ERR;
+  // crc_errors |= pt_board_5_6.zero() ? NO_PT_CRC_ERRS : PT_BOARD_5_6_CRC_ERR;
+  // crc_errors |= pt_board_7_8.zero() ? NO_PT_CRC_ERRS : PT_BOARD_7_8_CRC_ERR;
+  // crc_errors |= pt_board_9_10.zero() ? NO_PT_CRC_ERRS : PT_BOARD_9_10_CRC_ERR;
+  // crc_errors |= pt_board_11_12.zero() ? NO_PT_CRC_ERRS : PT_BOARD_11_12_CRC_ERR;
+  if (crc_errors == 0) {
+    CommsSerial.printf("All PTs zeroed ok.\n");
+  } else {
+    CommsSerial.printf("Some PTs failed to zero, crc bitmask: %d\n", crc_errors);
   }
 }
 

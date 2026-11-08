@@ -51,15 +51,15 @@ void setup() {
 
   bool all_modules_ok = true;
 
-  all_modules_ok &= can_begin();
-  all_modules_ok &= RS485s::begin();
+  // all_modules_ok &= can_begin();
+  // all_modules_ok &= RS485s::begin();
   all_modules_ok &= PressureSensors::begin();
-  all_modules_ok &= TemperatureSensors::begin();
-  all_modules_ok &= ThrottleValves::begin();
-  all_modules_ok &= SolenoidValves::begin();
-  all_modules_ok &= TVC_Actuators::begin();
-  all_modules_ok &= ValveController::begin();
-  all_modules_ok &= Spark::begin();
+  // all_modules_ok &= TemperatureSensors::begin();
+  // all_modules_ok &= ThrottleValves::begin();
+  // all_modules_ok &= SolenoidValves::begin();
+  // all_modules_ok &= TVC_Actuators::begin();
+  // all_modules_ok &= ValveController::begin();
+  // all_modules_ok &= Spark::begin();
 
   if (!all_modules_ok) {
     while (true) {
