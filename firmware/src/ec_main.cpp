@@ -78,6 +78,8 @@ void loop() {
   while (CommsSerial.available()) {
     CommandRouter::receive_byte(CommsSerial.read());
   }
+
+  ThrottleValves::update();
 }
 
 // TODO - these?
