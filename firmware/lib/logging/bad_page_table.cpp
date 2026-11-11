@@ -81,7 +81,7 @@ bool is_initial_bad_block(uint32_t block_num) {
 }
 
 bool get_runtime_bad_page(uint32_t block_num, uint32_t *out_page) {
-  *out_page = NAND_NUM_PAGES;
+  *out_page = NAND_PAGES_PER_BLOCK;
 
   // find the bad page in the block
   for (uint32_t i = 0; i < BPT_MAX_ENTRIES; i++) {
@@ -97,7 +97,7 @@ bool get_runtime_bad_page(uint32_t block_num, uint32_t *out_page) {
     }
   }
 
-  return *out_page != NAND_NUM_PAGES;
+  return *out_page != NAND_PAGES_PER_BLOCK;
 }
 
 bool add_entry(uint32_t page_address) {
@@ -135,7 +135,7 @@ bool scan_factory_bad_blocks() {
     uint32_t cur_page = i * NAND_PAGES_PER_BLOCK;
 
     uint8_t bad_block_mark;
-    if (Flash::read_spare(cur_page, 0, &bad_block_mark, 1, false) != FLASH_SUCCESS) {
+    if (Flash::read(cur_page, NAND_MAIN_PAGE_SIZE, &bad_block_mark, 1) != FLASH_SUCCESS) {
       return false;
     }
 
@@ -217,7 +217,7 @@ bool begin(void) {
 };
 
 page_status_t get_page_status(uint32_t page_address) {
-  if (page_address >= NAND_NUM_PAGES) {
+  if (page_address >= NAND_PAGES_PER_BLOCK) {
     return PAGE_BAD;
   }
 
@@ -235,7 +235,7 @@ page_status_t get_page_status(uint32_t page_address) {
 }
 
 bool mark_page_bad(uint32_t page_address) {
-  if (page_address >= NAND_NUM_PAGES) {
+  if (page_address >= NAND_PAGES_PER_BLOCK) {
     return false;
   }
 
@@ -247,7 +247,7 @@ bool mark_page_bad(uint32_t page_address) {
 };
 
 bool retire_block(uint32_t page_address) {
-  if (page_address >= NAND_NUM_PAGES) {
+  if (page_address >= NAND_PAGES_PER_BLOCK) {
     return false;
   }
 

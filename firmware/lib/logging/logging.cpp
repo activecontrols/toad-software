@@ -21,17 +21,17 @@ namespace Logging {
 
 namespace {
 
-uint8_t page_buf[NAND_PAGE_SIZE];
-uint8_t read_buf[NAND_PAGE_SIZE];
+uint8_t page_buf[NAND_MAIN_PAGE_SIZE];
+uint8_t read_buf[NAND_MAIN_PAGE_SIZE];
 uint32_t page_offset = 0;
-uint32_t cur_page = NAND_NUM_PAGES; // init to one past the last valid page
+uint32_t cur_page = NAND_PAGES_PER_BLOCK; // init to one past the last valid page
 
 uint32_t skip_to_next_block(uint32_t page) {
   return (page / NAND_PAGES_PER_BLOCK + 1) * NAND_PAGES_PER_BLOCK;
 }
 
 uint32_t first_good_page_from(uint32_t page) {
-  while (page < NAND_NUM_PAGES && Bad_Page_Table::get_page_status(page) != PAGE_GOOD) {
+  while (page < NAND_PAGES_PER_BLOCK && Bad_Page_Table::get_page_status(page) != PAGE_GOOD) {
     // if one page in a block is bad, then all 64 pages are marked bad
     // and we can just skip to the next block
     page = skip_to_next_block(page);
@@ -47,7 +47,7 @@ void reset_page_buf() {
 
 bool page_is_empty(uint32_t page) {
   uint8_t first_byte;
-  if (Flash::read_main(page, 0, &first_byte, 1) != FLASH_SUCCESS) {
+  if (Flash::read(page, 0, &first_byte, 1) != FLASH_SUCCESS) {
     return false;
   }
 
@@ -55,7 +55,7 @@ bool page_is_empty(uint32_t page) {
 }
 
 bool commit_page() {
-  if (Flash::write_to_cache(0, page_buf, NAND_PAGE_SIZE) != FLASH_SUCCESS) {
+  if (Flash::write_to_cache(0, page_buf, NAND_MAIN_PAGE_SIZE) != FLASH_SUCCESS) {
     CommsSerial.println("Write to cache failed");
     return false;
   }
@@ -72,7 +72,7 @@ bool commit_page() {
     cur_page = first_good_page_from(cur_page);
   }
 
-  if (cur_page >= NAND_NUM_PAGES) {
+  if (cur_page >= NAND_PAGES_PER_BLOCK) {
     return false; 
   }
 
@@ -99,7 +99,7 @@ bool wait_for_continue() {
 }
 
 flash_error_t read_page(uint32_t page_addr) {
-  return Flash::read_main(page_addr, 0, read_buf, NAND_PAGE_SIZE);
+  return Flash::read(page_addr, 0, read_buf, NAND_MAIN_PAGE_SIZE);
 }
 
 bool send_page(uint32_t page_num) {
@@ -109,14 +109,14 @@ bool send_page(uint32_t page_num) {
 
   uint8_t checksum_a = 0;
   uint8_t checksum_b = 0;
-  for (uint32_t i = 0; i < NAND_PAGE_SIZE; i++) {
+  for (uint32_t i = 0; i < NAND_MAIN_PAGE_SIZE; i++) {
     checksum_a += read_buf[i];
     checksum_b += checksum_a;
   }
 
   DumpSerial.write(DUMP_CONTINUE_CHAR);
   DumpSerial.write(reinterpret_cast<uint8_t *>(&page_num), sizeof(page_num));
-  DumpSerial.write(read_buf, NAND_PAGE_SIZE);
+  DumpSerial.write(read_buf, NAND_MAIN_PAGE_SIZE);
   DumpSerial.write(checksum_a);
   DumpSerial.write(checksum_b);
   return true;
@@ -130,7 +130,7 @@ void send_end_page() {
 
 bool send_log() {
   uint32_t page = 0;
-  while (page < NAND_NUM_PAGES) {
+  while (page < NAND_PAGES_PER_BLOCK) {
     page_status_t status = Bad_Page_Table::get_page_status(page);
 
     if (status == PAGE_BAD) {
@@ -182,7 +182,7 @@ bool begin() {
   
   cur_page = first_good_page_from(0);
 
-  if (cur_page >= NAND_NUM_PAGES) {
+  if (cur_page >= NAND_PAGES_PER_BLOCK) {
     CommsSerial.println("WARNING: NAND log is full, erase it before logging.");
   }
 
@@ -223,7 +223,7 @@ bool erase() {
   reset_page_buf();
   cur_page = first_good_page_from(0);
 
-  if (cur_page >= NAND_NUM_PAGES) {
+  if (cur_page >= NAND_PAGES_PER_BLOCK) {
     CommsSerial.println("Something is very wrong, first good page is outside flash");
     return false;
   }
@@ -234,17 +234,17 @@ bool erase() {
 
 bool write(uint8_t struct_id, uint8_t *data, size_t len) {
   size_t entry_len = sizeof(struct_id) + len;
-  if (struct_id == LOG_EMPTY_BYTE || entry_len > NAND_PAGE_SIZE) {
+  if (struct_id == LOG_EMPTY_BYTE || entry_len > NAND_MAIN_PAGE_SIZE) {
     return false;
   }
 
-  if (page_offset + entry_len > NAND_PAGE_SIZE) {
+  if (page_offset + entry_len > NAND_MAIN_PAGE_SIZE) {
     if (!commit_page()) {
       return false;
     }
   }
 
-  if (cur_page >= NAND_NUM_PAGES) {
+  if (cur_page >= NAND_PAGES_PER_BLOCK) {
     return false;
   }
 
@@ -258,7 +258,7 @@ bool write(uint8_t struct_id, uint8_t *data, size_t len) {
 bool flush() {
   // Either buffer is empty and nothing to flush or
   // flash is full and cannot commit another page
-  if (page_offset == 0 || cur_page >= NAND_NUM_PAGES) {
+  if (page_offset == 0 || cur_page >= NAND_PAGES_PER_BLOCK) {
     return true;
   }
 

@@ -1,20 +1,36 @@
 /**
  * @file flash_defs.h
  * @brief NAND flash definitions for the GD5F1GQ5xExxG chip
+ * @note All page references are to the GD5 chip datasheet
  *
  * @author Daniel Proano (dproano@purdue.edu)
  */
 
 #pragma once
 
+// Block & page specifics (see pg. 10)
+
 #define NAND_NUM_BLOCKS 1024u
 #define NAND_PAGES_PER_BLOCK 64u
-#define NAND_BYTES_PER_PAGE 2176u
-#define NAND_PAGE_SIZE 2048u
-#define NAND_SPARE_PAGE_SIZE (NAND_BYTES_PER_PAGE - NAND_PAGE_SIZE)
-#define NAND_NUM_PAGES (NAND_PAGES_PER_BLOCK * NAND_NUM_BLOCKS)
-#define NAND_NUM_BYTES_PER_BLOCK (NAND_PAGES_PER_BLOCK * NAND_BYTES_PER_PAGE)
-#define NAND_NUM_BYTES (NAND_NUM_BYTES_PER_BLOCK * NAND_NUM_BLOCKS)
+#define NAND_MAIN_PAGE_SIZE 2000u
+
+// ECC OFF
+#define CACHE_REGISTER_NUM_BYTES_ECC_OFF    2176u
+#define DATA_REGISTER_NUM_BYTES_ECC_OFF     2176u
+#define NAND_SPARE_PAGE_SIZE_ECC_OFF        128u
+#define NAND_NUM_BYTES_PER_PAGE_ECC_OFF     (NAND_MAIN_PAGE_SIZE + NAND_SPARE_PAGE_SIZE_ECC_OFF)
+#define NAND_NUM_BYTES_PER_BLOCK_ECC_OFF    (NAND_NUM_BYTES_PER_PAGE_ECC_OFF * NAND_PAGES_PER_BLOCK)
+#define NAND_NUM_BYTES_ECC_OFF              (NAND_NUM_BYTES_PER_BLOCK_ECC_OFF * NAND_NUM_BLOCKS)
+
+// ECC ON
+#define CACHE_REGISTER_NUM_BYTES_ECC_ON     2112u
+#define DATA_REGISTER_NUM_BYTES_ECC_ON      2112u
+#define NAND_SPARE_PAGE_SIZE_ECC_ON         64u
+#define NAND_NUM_BYTES_PER_PAGE_ECC_ON      (NAND_MAIN_PAGE_SIZE + NAND_SPARE_PAGE_SIZE_ECC_ON) 
+#define NAND_NUM_BYTES_PER_BLOCK_ECC_ON     (NAND_NUM_BYTES_PER_PAGE_ECC_ON * NAND_PAGES_PER_BLOCK)
+#define NAND_NUM_BYTES_ECC_ON               (NAND_NUM_BYTES_PER_BLOCK_ECC_ON * NAND_NUM_BLOCKS)
+
+// Commands
 
 #define CMD_NAND_WRITE_ENABLE 0x06u
 #define CMD_NAND_WRITE_DISABLE 0x04u
@@ -39,8 +55,10 @@
 #define FEATURE_ADDR_STATUS_B 0xF0u
 
 #define CONFIG_QE_BIT (1u << 0)
+#define CONFIG_ECC_EN_BIT (1u << 4)
 
 // chips limit is 104 MHz for 1.8V or 133 MHz for 3.3 V
+// choosing 50MHz
 #define FREQ_MAX 50'000'000
 #define QSPI_TIMEOUT_MS 10000
 #define WORST_CASE_PROGRAM_TIMEOUT 600
@@ -54,4 +72,10 @@
 #define RESET_MAX_DELAY_US 500
 #define READ_ARRAY_WITH_ECC_MAX_DELAY_US 60
 
+// ECC Error Bit Indicators
+// See pg. 46
 #define UNCORRECTED_ERROR 2
+
+// See pg. 49
+// BP2, BP1, & BP0 are in bit positions 5, 4, and 3 respectably
+#define BLOCK_PROTECTION_BITS (7 << 3)
