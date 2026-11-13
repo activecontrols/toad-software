@@ -24,33 +24,40 @@ namespace {
 QSPI_HandleTypeDef hqspi;
 
 // Header phase command
-#define QSPI_CMD_OR_RETURN(cmd_ptr, fail_ret)                       \
-  do {                                                              \
+#define QSPI_CMD_OR_RETURN(cmd_ptr, fail_ret)                           \
+  do {                                                                  \
     if (HAL_QSPI_Command(&hqspi, (cmd_ptr), QSPI_TIMEOUT_MS) != HAL_OK) \
-      return (fail_ret);                                            \
+      return (fail_ret);                                                \
   } while(0)
 
 // Data phase command
-#define QSPI_TRANSMIT_OR_RETURN(data_ptr, fail_ret)                   \
-  do {                                                                \
+#define QSPI_TRANSMIT_OR_RETURN(data_ptr, fail_ret)                       \
+  do {                                                                    \
     if (HAL_QSPI_Transmit(&hqspi, (data_ptr), QSPI_TIMEOUT_MS) != HAL_OK) \
-      return (fail_ret);                                              \
+      return (fail_ret);                                                  \
   } while(0)
 
 // Receives a QSPI data phase
-#define QSPI_RECV_OR_RETURN(data_ptr, fail_ret)                      \
-  do {                                                               \
-    if (HAL_QSPI_Receive(&hqspi, (data_ptr), QSPI_TIMEOUT_MS) != HAL_OK) \
-      return (fail_ret);                                             \
+#define QSPI_RECV_OR_RETURN(data_ptr, fail_ret)                           \
+  do {                                                                    \
+    if (HAL_QSPI_Receive(&hqspi, (data_ptr), QSPI_TIMEOUT_MS) != HAL_OK)  \
+      return (fail_ret);                                                  \
   } while(0)
 
 #define RETURN_AND_LOG_IF_FAILED(function, msg)                      \
   do {                                                               \
-    if (!(function)()) {                                               \
-      CommsSerial.printf((msg));                                       \
+    if (!(function)()) {                                             \
+      CommsSerial.printf((msg));                                     \
       return false;                                                  \
     }                                                                \
   } while(0)
+
+#define RETURN_IF_NULL(item, failure)                               \
+  do {                                                              \
+    if (item == NULL) {                                             \
+      return failure;                                               \
+    }                                                               \
+  } while(0);
 
 typedef struct {
   uint32_t opcode;
@@ -87,7 +94,9 @@ QSPI_CommandTypeDef build_cmd(cmd_spec spec) {
 }
 
 // load directly from register
-static bool get_feature(uint8_t feature_addr, uint8_t *data_out) {
+bool get_feature(uint8_t feature_addr, uint8_t *data_out) {
+  RETURN_IF_NULL(data_out, false);
+
   cmd_spec spec = {
     .opcode = CMD_NAND_GET_FEATURES,
     .addr = feature_addr,
@@ -101,7 +110,9 @@ static bool get_feature(uint8_t feature_addr, uint8_t *data_out) {
 }
 
 // set feature register
-static bool set_feature(uint8_t feature_addr, uint8_t *data) {
+bool set_feature(uint8_t feature_addr, uint8_t *data) {
+  RETURN_IF_NULL(data, false);
+
   cmd_spec spec = {
     .opcode = CMD_NAND_SET_FEATURES,
     .addr = feature_addr,
@@ -115,6 +126,8 @@ static bool set_feature(uint8_t feature_addr, uint8_t *data) {
 }
 
 bool get_status_a(flash_status_a_t *data_out) {
+  RETURN_IF_NULL(data_out, false);
+
   uint8_t data;
   if (!get_feature(FEATURE_ADDR_STATUS_A, &data)) {
     return false;
@@ -125,6 +138,8 @@ bool get_status_a(flash_status_a_t *data_out) {
 };
 
 bool get_status_b(flash_status_b_t *data_out) {
+  RETURN_IF_NULL(data_out, false);
+  
   uint8_t data;
   if (!get_feature(FEATURE_ADDR_STATUS_B, &data)) {
     return false;
@@ -367,6 +382,56 @@ flash_error_t flash_read_to_buffer(uint32_t row_addr, uint32_t col_addr, uint8_t
   return FLASH_SUCCESS;
 }
 
+bool operation_in_progress() {
+  flash_status_a_t data;
+  if (!get_status_a(&data)) {
+    return false;
+  }
+
+  // fail if OIP is set
+  if (data.OIP) {
+    return false;
+  }
+
+  return true;
+}
+
+bool disable_flash_write() {
+  cmd_spec write_disable_cmd = {
+    .opcode = CMD_NAND_WRITE_DISABLE
+  };
+
+  QSPI_CommandTypeDef cmd = build_cmd(write_disable_cmd);
+  if (HAL_QSPI_Command(&hqspi, &cmd, QSPI_TIMEOUT_MS) != HAL_OK) {
+    return false;
+  }
+
+  return true;
+}
+
+bool enable_flash_write() {
+  cmd_spec write_enable_cmd = {
+    .opcode = CMD_NAND_WRITE_DISABLE
+  };
+
+  QSPI_CommandTypeDef cmd = build_cmd(write_enable_cmd);
+  if (HAL_QSPI_Command(&hqspi, &cmd, QSPI_TIMEOUT_MS) != HAL_OK) {
+    disable_flash_write();
+    return false;
+  }
+
+  return true;
+}
+
+flash_error_t send_cmd_or_fail(QSPI_CommandTypeDef *cmd) {
+  if (HAL_QSPI_Command(&hqspi, cmd, QSPI_TIMEOUT_MS) != HAL_OK) {
+    disable_flash_write();
+    return FLASH_FAIL;
+  }
+
+  return FLASH_SUCCESS;
+}
+
 } // namespace
 
 
@@ -390,10 +455,14 @@ bool begin() {
 }
 
 flash_error_t read(uint32_t row_addr, uint32_t col_addr, uint8_t *out, size_t len) {
+  RETURN_IF_NULL(out, FLASH_FAIL);
+
   return flash_read_to_buffer(row_addr, col_addr, out, len);
 }
 
 flash_error_t write_to_cache(uint32_t col_addr, uint8_t *data, size_t len) {
+  RETURN_IF_NULL(data, FLASH_FAIL);
+
   // does cache page have enough space?
   if (col_addr + len > NAND_MAIN_PAGE_SIZE + NAND_SPARE_PAGE_SIZE_ECC_ON) {
     return FLASH_FAIL;
@@ -421,32 +490,11 @@ flash_error_t write_to_cache(uint32_t col_addr, uint8_t *data, size_t len) {
 }
 
 flash_error_t program(uint32_t row_addr) {
-  // Ensure no operation is in progress
-  flash_status_a_t data;
-  if (!get_status_a(&data)) {
+  if (!operation_in_progress()) {
     return FLASH_FAIL;
   }
 
-  // fail if OIP is set
-  if (data.OIP) {
-    return FLASH_FAIL;
-  }
-  
-  // NAND flash is locked, unlock it
-  cmd_spec write_enable_cmd = {
-    .opcode = CMD_NAND_WRITE_ENABLE
-  };
-
-  //NAND flash lock spec
-  cmd_spec write_disable_cmd = {
-    .opcode = CMD_NAND_WRITE_DISABLE
-  };
-
-  QSPI_CommandTypeDef disable_cmd = build_cmd(write_disable_cmd);
-
-  QSPI_CommandTypeDef cmd = build_cmd(write_enable_cmd);
-  if (HAL_QSPI_Command(&hqspi, &cmd, QSPI_TIMEOUT_MS) != HAL_OK) {
-    HAL_QSPI_Command(&hqspi, &disable_cmd, QSPI_TIMEOUT_MS);
+  if (!enable_flash_write()) {
     return FLASH_FAIL;
   }
 
@@ -457,25 +505,18 @@ flash_error_t program(uint32_t row_addr) {
     .addr_size = QSPI_ADDRESS_24_BITS
   };
 
-  cmd = build_cmd(commit_cache_cmd);
-  if (HAL_QSPI_Command(&hqspi, &cmd, QSPI_TIMEOUT_MS) != HAL_OK) {
-    HAL_QSPI_Command(&hqspi, &disable_cmd, QSPI_TIMEOUT_MS);
+  QSPI_CommandTypeDef commit_cmd = build_cmd(commit_cache_cmd);
+  send_cmd_or_fail(&commit_cmd);
+  
+  if (!disable_flash_write()) {
     return FLASH_FAIL;
   }
-  
-  QSPI_CMD_OR_RETURN(&disable_cmd, FLASH_FAIL);
+
   return FLASH_SUCCESS;
 }
 
 flash_error_t check_program_status() {
-  // ensure no operation is in progress currently
-  flash_status_a_t data;
-  if (!get_status_a(&data)) {
-    return FLASH_FAIL;
-  }
-
-  // fail if OIP is set
-  if (data.OIP) {
+  if (!operation_in_progress()) {
     return FLASH_FAIL;
   }
 
@@ -498,25 +539,11 @@ flash_error_t check_program_status() {
 flash_error_t erase_block(uint32_t row_addr) {
   // ensure chip is done with any previous erases
   flash_error_t err = wait_until_ready(WORST_CASE_MEMORY_TIMEOUT);
-  if (err != FLASH_READY)
+  if (err != FLASH_READY) {
     return err;
+  }
 
-  // NAND flash unlock spec
-  cmd_spec write_enable_cmd = {
-    .opcode = CMD_NAND_WRITE_ENABLE,
-  };
-
-  // NAND flash lock spec
-  cmd_spec write_disable_cmd = {
-    .opcode = CMD_NAND_WRITE_DISABLE
-  };
-
-  QSPI_CommandTypeDef disable_cmd = build_cmd(write_disable_cmd);
-  
-  // Unlock flash by enabling writing
-  QSPI_CommandTypeDef cmd = build_cmd(write_enable_cmd);
-  if (HAL_QSPI_Command(&hqspi, &cmd, QSPI_TIMEOUT_MS) != HAL_OK) {
-    HAL_QSPI_Command(&hqspi, &disable_cmd, QSPI_TIMEOUT_MS);
+  if (!enable_flash_write()) {
     return FLASH_FAIL;
   }
 
@@ -527,16 +554,15 @@ flash_error_t erase_block(uint32_t row_addr) {
     .addr_size = QSPI_ADDRESS_24_BITS
   };
   
-  cmd = build_cmd(erase_cmd);
-  if (HAL_QSPI_Command(&hqspi, &cmd, QSPI_TIMEOUT_MS) != HAL_OK) {
-    HAL_QSPI_Command(&hqspi, &disable_cmd, QSPI_TIMEOUT_MS);
+  QSPI_CommandTypeDef erase = build_cmd(erase_cmd);
+  if (!send_cmd_or_fail(&erase)) {
     return FLASH_FAIL;
   }
 
   // wait for erase to finish
   err = wait_until_ready(WORST_CASE_MEMORY_TIMEOUT);
   if (err != FLASH_READY) {
-    HAL_QSPI_Command(&hqspi, &disable_cmd, QSPI_TIMEOUT_MS);
+    disable_flash_write();
     return err;
   }
 
@@ -545,18 +571,19 @@ flash_error_t erase_block(uint32_t row_addr) {
 
   // load status register
   if (!get_status_a(&status_a)) {
-    HAL_QSPI_Command(&hqspi, &disable_cmd, QSPI_TIMEOUT_MS);
+    disable_flash_write();
     return FLASH_FAIL;
   }
 
   // mark block as bad if erase failed
   if (status_a.E_FAIL) {
-    HAL_QSPI_Command(&hqspi, &disable_cmd, QSPI_TIMEOUT_MS);
+    disable_flash_write();
     return FLASH_BAD_BLOCK;
   }
 
-  // disable write
-  QSPI_CMD_OR_RETURN(&disable_cmd, FLASH_FAIL);
+  if (!disable_flash_write()) {
+    return FLASH_FAIL;
+  }
 
   return FLASH_SUCCESS;
 }
