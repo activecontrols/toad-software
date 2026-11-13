@@ -2,9 +2,9 @@
 
 #include "CommandRouter.h"
 #include "CommsSerial.h"
-#include "ErrorCounters.h"
 #include "PressureSensors.h"
 #include "RCS.h"
+#include "logging.h"
 #include "RS485.h"
 #include "SolenoidValves.h"
 #include "Spark.h"
@@ -13,6 +13,7 @@
 #include "ThrottleValves.h"
 #include "ValveController.h"
 #include "fdcan_toad.h"
+#include "ErrorCounters.h"
 
 // shared interfaces
 CommsSerial_t<USBSerial> USB_CommsSerial;
@@ -29,6 +30,20 @@ bool kill_flag;
 bool arm_flag;
 void flight_loop();
 bool can_begin(void);
+
+static bool in_flight = false;
+
+static void dump_log_cmd() {
+  if (!in_flight && Logging::dump()) {
+    CommsSerial.println("Log dump finished");
+  }
+}
+
+static void erase_log_cmd() {
+  if (!in_flight) {
+    Logging::erase();
+  }
+}
 
 void setup() {
   // All shared interfaces are begun here.
@@ -59,6 +74,7 @@ void setup() {
   all_modules_ok &= SolenoidValves::begin();
   all_modules_ok &= TVC_Actuators::begin();
   all_modules_ok &= ValveController::begin();
+  all_modules_ok &= Logging::begin();
   all_modules_ok &= Spark::begin();
 
   if (!all_modules_ok) {
@@ -70,6 +86,8 @@ void setup() {
   }
 
   CommandRouter::add(flight_loop, "start_flight_loop");
+  CommandRouter::add(dump_log_cmd, "dump logs");
+  CommandRouter::add(erase_log_cmd, "erase logs");
   CommandRouter::add_flag(&kill_flag, "k", "terminate the flight loop early");
   CommandRouter::add_flag(&arm_flag, "arm", "start following a trajectory");
 }
@@ -87,6 +105,7 @@ void loop() {
 #define STARTING_VALVE_ANGLE_FU 30
 
 void flight_loop() {
+  in_flight = true;
   kill_flag = false;
   arm_flag = false;
 
@@ -127,6 +146,8 @@ void flight_loop() {
   // TODO - safe remaining valves
   ThrottleValves::stop();
   RCS::close();
+  Logging::flush();
+  in_flight = false;
 }
 
 /* Platform-dependent can_begin(); because fdcan lib is used by multiple platforms, it's best to keep platform-dependent

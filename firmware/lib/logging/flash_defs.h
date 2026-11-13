@@ -1,0 +1,81 @@
+/**
+ * @file flash_defs.h
+ * @brief NAND flash definitions for the GD5F1GQ5xExxG chip
+ * @note All page references are to the GD5 chip datasheet
+ *
+ * @author Daniel Proano (dproano@purdue.edu)
+ */
+
+#pragma once
+
+// Block & page specifics (see pg. 10)
+
+#define NAND_NUM_BLOCKS 1024u
+#define NAND_PAGES_PER_BLOCK 64u
+#define NAND_MAIN_PAGE_SIZE 2000u
+
+// ECC OFF
+#define CACHE_REGISTER_NUM_BYTES_ECC_OFF    2176u
+#define DATA_REGISTER_NUM_BYTES_ECC_OFF     2176u
+#define NAND_SPARE_PAGE_SIZE_ECC_OFF        128u
+#define NAND_NUM_BYTES_PER_PAGE_ECC_OFF     (NAND_MAIN_PAGE_SIZE + NAND_SPARE_PAGE_SIZE_ECC_OFF)
+#define NAND_NUM_BYTES_PER_BLOCK_ECC_OFF    (NAND_NUM_BYTES_PER_PAGE_ECC_OFF * NAND_PAGES_PER_BLOCK)
+#define NAND_NUM_BYTES_ECC_OFF              (NAND_NUM_BYTES_PER_BLOCK_ECC_OFF * NAND_NUM_BLOCKS)
+
+// ECC ON
+#define CACHE_REGISTER_NUM_BYTES_ECC_ON     2112u
+#define DATA_REGISTER_NUM_BYTES_ECC_ON      2112u
+#define NAND_SPARE_PAGE_SIZE_ECC_ON         64u
+#define NAND_NUM_BYTES_PER_PAGE_ECC_ON      (NAND_MAIN_PAGE_SIZE + NAND_SPARE_PAGE_SIZE_ECC_ON) 
+#define NAND_NUM_BYTES_PER_BLOCK_ECC_ON     (NAND_NUM_BYTES_PER_PAGE_ECC_ON * NAND_PAGES_PER_BLOCK)
+#define NAND_NUM_BYTES_ECC_ON               (NAND_NUM_BYTES_PER_BLOCK_ECC_ON * NAND_NUM_BLOCKS)
+
+// Commands
+
+#define CMD_NAND_WRITE_ENABLE 0x06u
+#define CMD_NAND_WRITE_DISABLE 0x04u
+#define CMD_NAND_GET_FEATURES 0x0Fu
+#define CMD_NAND_SET_FEATURES 0x1Fu
+#define CMD_NAND_PAGE_READ 0x13u
+#define CMD_NAND_READ_FROM_CACHE 0x03u
+#define CMD_NAND_READ_FROM_CACHE_QUAD 0x6Bu
+#define CMD_NAND_READ_FROM_CACHE_QUAD_IO 0xEBu
+#define CMD_NAND_READ_ID 0x9Fu
+#define CMD_NAND_PROGRAM_LOAD 0x02u
+#define CMD_NAND_PROGRAM_LOAD_QUAD 0x32u
+#define CMD_NAND_PROGRAM_EXECUTE 0x10u
+#define CMD_NAND_PROGRAM_LOAD_RANDOM 0x84u
+#define CMD_NAND_PROGRAM_LOAD_RANDOM_QUAD 0xC4u
+#define CMD_NAND_BLOCK_ERASE 0xD8u
+#define CMD_NAND_RESET 0xFFu
+
+#define FEATURE_ADDR_BLOCK_LOCK 0xA0u
+#define FEATURE_ADDR_CONFIG 0xB0u
+#define FEATURE_ADDR_STATUS_A 0xC0u
+#define FEATURE_ADDR_STATUS_B 0xF0u
+
+#define CONFIG_QE_BIT (1u << 0)
+#define CONFIG_ECC_EN_BIT (1u << 4)
+
+// chips limit is 104 MHz for 1.8V or 133 MHz for 3.3 V
+// choosing 50MHz
+#define FREQ_MAX 50'000'000
+#define QSPI_TIMEOUT_MS 10000
+#define WORST_CASE_PROGRAM_TIMEOUT 600
+#define WORST_CASE_MEMORY_TIMEOUT 10'000
+
+// MID & DID ID values for GD5F1GQ5UExxG
+#define MANUFACTURER_ID 0xC8u
+#define DEVICE_ID 0x51u
+
+// Cmd worst case timing
+#define RESET_MAX_DELAY_US 500
+#define READ_ARRAY_WITH_ECC_MAX_DELAY_US 60
+
+// ECC Error Bit Indicators
+// See pg. 46
+#define UNCORRECTED_ERROR 2
+
+// See pg. 49
+// BP2, BP1, & BP0 are in bit positions 5, 4, and 3 respectably
+#define BLOCK_PROTECTION_BITS (7 << 3)
