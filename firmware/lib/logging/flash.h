@@ -14,7 +14,9 @@ enum flash_error_t {
   FLASH_READY, 
   FLASH_FAIL, 
   FLASH_TIMED_OUT, 
-  FLASH_BAD_BLOCK
+  FLASH_BAD_BLOCK,
+  FLASH_BUSY,
+  FLASH_ECC_FAIL
 };
 
 struct __attribute__((packed)) flash_status_a_t {

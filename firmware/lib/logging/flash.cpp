@@ -57,7 +57,14 @@ QSPI_HandleTypeDef hqspi;
     if (item == NULL) {                                             \
       return failure;                                               \
     }                                                               \
-  } while(0);
+  } while(0)
+
+#define RETURN_IF_EMPTY(item, failure)                              \
+  do {                                                              \
+    if (item == 0) {                                                \
+      return failure;                                               \
+    }                                                               \
+  } while(0)
 
 typedef struct {
   uint32_t opcode;
@@ -207,6 +214,8 @@ bool disable_block_protection() {
 
 bool init_qspi_peripheral() {
   // See page 1261 of STM32H7 dm00392525 user manual
+  __HAL_RCC_QSPI_CLK_ENABLE();
+
   uint32_t f_hclk = HAL_RCC_GetHCLKFreq();
 
   hqspi.Instance = QUADSPI;
@@ -376,7 +385,7 @@ flash_error_t flash_read_to_buffer(uint32_t row_addr, uint32_t col_addr, uint8_t
   // check whether read was ok
   // see pg. 46
   if (status_a.ECCS == UNCORRECTED_ERROR) {
-    return FLASH_BAD_BLOCK;
+    return FLASH_ECC_FAIL;
   }
 
   return FLASH_SUCCESS;
@@ -390,10 +399,10 @@ bool operation_in_progress() {
 
   // fail if OIP is set
   if (data.OIP) {
-    return false;
+    return true;
   }
 
-  return true;
+  return false;
 }
 
 bool disable_flash_write() {
@@ -411,7 +420,7 @@ bool disable_flash_write() {
 
 bool enable_flash_write() {
   cmd_spec write_enable_cmd = {
-    .opcode = CMD_NAND_WRITE_DISABLE
+    .opcode = CMD_NAND_WRITE_ENABLE
   };
 
   QSPI_CommandTypeDef cmd = build_cmd(write_enable_cmd);
@@ -423,13 +432,13 @@ bool enable_flash_write() {
   return true;
 }
 
-flash_error_t send_cmd_or_fail(QSPI_CommandTypeDef *cmd) {
+bool send_cmd_or_fail(QSPI_CommandTypeDef *cmd) {
   if (HAL_QSPI_Command(&hqspi, cmd, QSPI_TIMEOUT_MS) != HAL_OK) {
     disable_flash_write();
-    return FLASH_FAIL;
+    return false;
   }
 
-  return FLASH_SUCCESS;
+  return true;
 }
 
 } // namespace
@@ -456,16 +465,22 @@ bool begin() {
 
 flash_error_t read(uint32_t row_addr, uint32_t col_addr, uint8_t *out, size_t len) {
   RETURN_IF_NULL(out, FLASH_FAIL);
+  RETURN_IF_EMPTY(len, FLASH_FAIL);
 
   return flash_read_to_buffer(row_addr, col_addr, out, len);
 }
 
 flash_error_t write_to_cache(uint32_t col_addr, uint8_t *data, size_t len) {
   RETURN_IF_NULL(data, FLASH_FAIL);
+  RETURN_IF_EMPTY(len, FLASH_FAIL);
 
   // does cache page have enough space?
   if (col_addr + len > NAND_MAIN_PAGE_SIZE + NAND_SPARE_PAGE_SIZE_ECC_ON) {
     return FLASH_FAIL;
+  }
+
+  if (operation_in_progress()) {
+    return FLASH_BUSY;
   }
 
   // Program Load at col 0 clears the cache, Load Random keeps existing content
@@ -490,8 +505,8 @@ flash_error_t write_to_cache(uint32_t col_addr, uint8_t *data, size_t len) {
 }
 
 flash_error_t program(uint32_t row_addr) {
-  if (!operation_in_progress()) {
-    return FLASH_FAIL;
+  if (operation_in_progress()) {
+    return FLASH_BUSY;
   }
 
   if (!enable_flash_write()) {
@@ -506,18 +521,20 @@ flash_error_t program(uint32_t row_addr) {
   };
 
   QSPI_CommandTypeDef commit_cmd = build_cmd(commit_cache_cmd);
-  send_cmd_or_fail(&commit_cmd);
-  
-  if (!disable_flash_write()) {
+  if (!send_cmd_or_fail(&commit_cmd)) {
     return FLASH_FAIL;
   }
 
+  // See pg. 16 of docs, but program execute will reset
+  // the write enable latch, disabling the ability to write
+  // to flash
+  
   return FLASH_SUCCESS;
 }
 
 flash_error_t check_program_status() {
-  if (!operation_in_progress()) {
-    return FLASH_FAIL;
+  if (operation_in_progress()) {
+    return FLASH_BUSY;
   }
 
   // ensure successful previous program
@@ -527,7 +544,6 @@ flash_error_t check_program_status() {
     return FLASH_FAIL;
   }
 
-  // Program failed operation, assume cause is bad block
   if (status_a.P_FAIL) {
     return FLASH_BAD_BLOCK;
   }
@@ -581,9 +597,9 @@ flash_error_t erase_block(uint32_t row_addr) {
     return FLASH_BAD_BLOCK;
   }
 
-  if (!disable_flash_write()) {
-    return FLASH_FAIL;
-  }
+  // See pg. 16, a block erase
+  // will reset the write enable latch,
+  // handling the disabling of flash
 
   return FLASH_SUCCESS;
 }
