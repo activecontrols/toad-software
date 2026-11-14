@@ -134,7 +134,7 @@ void flight_loop() {
 bool can_begin(void) {
   bool is_ok = true;
 
-  is_ok &= can_tvc.begin(CanBitRate::BR_500k);
+  is_ok &= can_tvc.begin(CanBitRate::BR_1000k);
   is_ok &= can_fc.begin(CanBitRate::BR_500k);
 
   if (is_ok) {

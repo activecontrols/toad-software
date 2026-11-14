@@ -13,8 +13,6 @@
 
 namespace TVC_Actuators {
 
-CAN actuators_can(PIN_CAN_TVC_TX, PIN_CAN_TVC_RX);
-
 constexpr CanBitRate ACTUATORS_CAN_BIT_RATE = CanBitRate::BR_1000k;
 bool tvc_debug_mode = false;
 
@@ -33,23 +31,23 @@ uint16_t length_to_target_pos(float length_mm) {
 
 bool begin() {
   // TODO: fail if actuator not connected
-  return actuators_can.begin(ACTUATORS_CAN_BIT_RATE);
+  return true;
 }
 
 void set_angles_pitch_yaw(float pitch, float yaw) {
   float pitch_len, yaw_len;
   calc_actuator_lengths(pitch, yaw, &pitch_len, &yaw_len); // already implemented
 
-  send_target_pos(actuators_can, CAN_ID_TVC_PITCH, length_to_target_pos(pitch_len));
-  send_target_pos(actuators_can, CAN_ID_TVC_YAW, length_to_target_pos(yaw_len));
+  send_target_pos(can_tvc, CAN_ID_TVC_PITCH, length_to_target_pos(pitch_len));
+  send_target_pos(can_tvc, CAN_ID_TVC_YAW, length_to_target_pos(yaw_len));
 }
 
 // Call every flight_loop() iteration - nothing currently does. Drains
 // whatever arrived in the RX FIFO since the last call and decodes anything
 // addressed to the TVC actuators.
 void poll() {
-  while (actuators_can.available() > 0) {
-    arduino::CanMsg msg = actuators_can.read();
+  while (can_tvc.available() > 0) {
+    arduino::CanMsg msg = can_tvc.read();
     uint32_t id = msg.isStandardId() ? msg.getStandardId() : msg.getExtendedId();
 
     if (id == CAN_ID_TVC_PITCH || id == CAN_ID_TVC_YAW) {
