@@ -1,6 +1,6 @@
 #include "TVC_Actuators.h"
 #include "GimbalKinematics.h"
-#include "UltramotionActuator.hpp"
+#include "UltramotionActuator.h"
 #include "ec_pins.h"
 #include "fdcan_toad.h"
 #include "toad_can_bus.h"
@@ -15,7 +15,7 @@ namespace TVC_Actuators {
 
 CAN actuators_can(PIN_CAN_TVC_TX, PIN_CAN_TVC_RX);
 
-constexpr uint32_t ACTUATORS_CAN_BIT_RATE = 1000000;
+constexpr CanBitRate ACTUATORS_CAN_BIT_RATE = CanBitRate::BR_1000k;
 bool tvc_debug_mode = false;
 
 // TODO - PLACEHOLDER scaling. Assumes a straight linear map from physical
@@ -32,10 +32,8 @@ uint16_t length_to_target_pos(float length_mm) {
 }
 
 bool begin() {
-  float actual_rate = actuators_can.begin(ACTUATORS_CAN_BIT_RATE);
-  if (actual_rate <= 0.0f) {
-    return false;
-  }
+  // TODO: fail if actuator not connected
+  return actuators_can.begin(ACTUATORS_CAN_BIT_RATE);
 }
 
 void set_angles_pitch_yaw(float pitch, float yaw) {
