@@ -554,7 +554,7 @@ flash_error_t check_program_status() {
 
 flash_error_t erase_block(uint32_t row_addr) {
   // ensure chip is done with any previous erases
-  flash_error_t err = wait_until_ready(WORST_CASE_MEMORY_TIMEOUT);
+  flash_error_t err = wait_until_ready(WORST_CASE_MEMORY_TIMEOUT_US);
   if (err != FLASH_READY) {
     return err;
   }
@@ -576,7 +576,7 @@ flash_error_t erase_block(uint32_t row_addr) {
   }
 
   // wait for erase to finish
-  err = wait_until_ready(WORST_CASE_MEMORY_TIMEOUT);
+  err = wait_until_ready(WORST_CASE_MEMORY_TIMEOUT_US);
   if (err != FLASH_READY) {
     disable_flash_write();
     return err;

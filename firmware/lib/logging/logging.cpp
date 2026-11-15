@@ -174,7 +174,7 @@ flash_error_t wait_for_program() {
       return err;
     }
 
-    if (micros() - start_time > WORST_CASE_PROGRAM_TIMEOUT) {
+    if (micros() - start_time > WORST_CASE_PROGRAM_TIMEOUT_US) {
       return FLASH_TIMED_OUT;
     }
   }
