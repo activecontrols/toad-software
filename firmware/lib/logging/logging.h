@@ -19,6 +19,8 @@ namespace Logging {
 
 bool begin();
 
+void set_in_flight(bool flying);
+
 bool erase();
 
 bool write(uint8_t struct_id, uint8_t *data, size_t len);

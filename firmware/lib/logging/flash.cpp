@@ -54,15 +54,15 @@ QSPI_HandleTypeDef hqspi;
 
 #define RETURN_IF_NULL(item, failure)                               \
   do {                                                              \
-    if (item == NULL) {                                             \
-      return failure;                                               \
+    if ((item) == NULL) {                                           \
+      return (failure);                                             \
     }                                                               \
   } while(0)
 
 #define RETURN_IF_EMPTY(item, failure)                              \
   do {                                                              \
-    if (item == 0) {                                                \
-      return failure;                                               \
+    if ((item) == 0) {                                              \
+      return (failure);                                             \
     }                                                               \
   } while(0)
 
