@@ -19,7 +19,9 @@ namespace Logging {
 
 bool begin();
 
-void set_in_flight(bool flying);
+bool is_armed();
+
+bool disarm();
 
 bool erase();
 

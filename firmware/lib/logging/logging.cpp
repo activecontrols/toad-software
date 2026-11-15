@@ -11,11 +11,14 @@
 #include "CommandRouter.h"
 #include "CommsSerial.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 #define DUMP_CONTINUE_CHAR  'c'
 #define DUMP_KILL_CHAR      'k'
 #define DUMP_TIMEOUT_MS     5000u
+#define ARM_KEY_MIN         1000
+#define ARM_KEY_MAX         10000
 #define LOG_FIRST_ROW_ADDR  0u
 #define PAGE_FIRST_COL_ADDR 0u
 #define DumpSerial          SerialUSB
@@ -49,7 +52,8 @@ uint32_t pending_row_addr = NAND_NUM_PAGES;
 // Holds a page read back from flash during a dump
 uint8_t read_buf[NAND_MAIN_PAGE_SIZE];
 
-bool in_flight = false;
+// Logging only writes while armed, arming erases the old log
+bool b_is_armed = false;
 
 uint32_t skip_to_next_block(uint32_t row_addr) {
   return (row_addr / NAND_PAGES_PER_BLOCK + 1) * NAND_PAGES_PER_BLOCK;
@@ -116,7 +120,9 @@ bool find_empty_page_in_block(uint32_t block_row_addr, uint32_t *out_row_addr) {
   return false;
 }
 
-uint32_t first_empty_good_page() {
+// Not used while arming always erases the log, kept so a future
+// "resume logging" option can append to an existing log
+[[maybe_unused]] uint32_t first_empty_good_page() {
   uint32_t last_used_block = NAND_NUM_PAGES;
   uint32_t block_row_addr = first_good_page_from(LOG_FIRST_ROW_ADDR);
 
@@ -321,27 +327,50 @@ bool send_log() {
   return true;
 }
 
-void dump_log_cmd() {
-  // never dump during flight, it blocks for a long time
-  if (in_flight) {
+bool user_confirm_erase() {
+  srand(millis());
+  int key = rand() % (ARM_KEY_MAX - ARM_KEY_MIN) + ARM_KEY_MIN;
+
+  CommsSerial.println("WARNING: arming erases the entire NAND log.");
+  CommsSerial.printf("Enter %d to proceed: \n", key);
+
+  char *res = CommsSerial.readline();
+  if (atoi(res) != key) {
+    CommsSerial.println("Confirmation failed");
+    return false;
+  }
+
+  return true;
+}
+
+void arm_log_cmd() {
+  if (b_is_armed) {
+    CommsSerial.println("Logging is already armed");
     return;
   }
 
+  // protects against accidentally erasing the old log
+  if (!user_confirm_erase()) {
+    return;
+  }
+
+  // erase also resets the write address to the beginning of flash
+  if (!erase()) {
+    CommsSerial.println("Erase failed, logging not armed");
+    return;
+  }
+
+  b_is_armed = true;
+  CommsSerial.println("Logging armed");
+}
+
+void dump_log_cmd() {
   if (!dump()) {
     CommsSerial.println("Log dump failed");
     return;
   }
 
   CommsSerial.println("Log dump finished");
-}
-
-void erase_log_cmd() {
-  // never erase during flight
-  if (in_flight) {
-    return;
-  }
-
-  erase();
 }
 
 } // namespace
@@ -359,24 +388,35 @@ bool begin() {
 
   reset_page_buf();
 
-  // append to the existing log instead of overwriting it
-  cur_row_addr = first_empty_good_page();
-
-  if (flash_is_full()) {
-    CommsSerial.println("WARNING: NAND log is full, erase it before logging.");
-  }
-
+  CommandRouter::add(arm_log_cmd, "log_arm", "Erase the NAND log and start logging.");
   CommandRouter::add(dump_log_cmd, "dump_logs", "Dump the NAND log over USB serial.");
-  CommandRouter::add(erase_log_cmd, "erase_logs", "Erase the NAND log.");
 
   return true;
 }
 
-void set_in_flight(bool flying) {
-  in_flight = flying;
+bool is_armed() {
+  return b_is_armed;
+}
+
+bool disarm() {
+  if (!b_is_armed) {
+    return true;
+  }
+
+  // make sure everything logged so far is in flash
+  bool ok = flush();
+  b_is_armed = false;
+
+  return ok;
 }
 
 bool erase() {
+  // never erase while armed, it would wipe the log being recorded
+  if (b_is_armed) {
+    CommsSerial.println("Cannot erase while logging is armed");
+    return false;
+  }
+
   bool ok = true;
 
   CommsSerial.println("Erasing NAND log. This may take a while.");
@@ -402,9 +442,10 @@ bool erase() {
 
     flash_error_t err = Flash::erase_block(first_row_addr);
 
+    // a worn out block is just marked bad, logging skips it
     if (err == FLASH_BAD_BLOCK) {
-      // only takes one bad page marking to fail
       ok &= Bad_Page_Table::mark_page_bad(first_row_addr);
+      continue;
     }
 
     if (err != FLASH_SUCCESS) {
@@ -425,6 +466,8 @@ bool erase() {
 }
 
 bool write(uint8_t struct_id, uint8_t *data, size_t len) {
+  // never write unless armed, so the old log is never overwritten
+  RETURN_IF_FAILED(b_is_armed, false, false);
   RETURN_IF_FAILED(data, nullptr, false);
 
   size_t entry_len = sizeof(struct_id) + len;
@@ -461,7 +504,12 @@ bool flush() {
 }
 
 bool dump() {
-  RETURN_IF_FAILED(flush(), false, false);
+  // never dump while armed, it blocks for a long time,
+  // and disarming already flushed everything to flash
+  if (b_is_armed) {
+    CommsSerial.println("Cannot dump while logging is armed");
+    return false;
+  }
 
   return send_log();
 }

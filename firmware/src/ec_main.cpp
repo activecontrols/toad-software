@@ -89,7 +89,11 @@ void loop() {
 #define STARTING_VALVE_ANGLE_FU 30
 
 void flight_loop() {
-  Logging::set_in_flight(true);
+  if (!Logging::is_armed()) {
+    CommsSerial.println("ERROR: Logging is not armed; arm with log_arm command");
+    return;
+  }
+
   kill_flag = false;
   arm_flag = false;
 
@@ -130,8 +134,7 @@ void flight_loop() {
   // TODO - safe remaining valves
   ThrottleValves::stop();
   RCS::close();
-  Logging::flush();
-  Logging::set_in_flight(false);
+  Logging::disarm();
 }
 
 /* Platform-dependent can_begin(); because fdcan lib is used by multiple platforms, it's best to keep platform-dependent
