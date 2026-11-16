@@ -285,6 +285,12 @@ void SystemClock_Config(void) {
   }
 
   __HAL_RCC_FDCAN_CLK_ENABLE();
+  
+  __HAL_RCC_QSPI_CONFIG(RCC_QSPICLKSOURCE_D1HCLK);
+  __HAL_RCC_QSPI_CLK_ENABLE();
+
+  __HAL_RCC_QSPI_FORCE_RESET();
+  __HAL_RCC_QSPI_RELEASE_RESET();;
 }
 
 // The clock config in this file is only valid if HSE is 8MHz

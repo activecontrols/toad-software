@@ -2,9 +2,9 @@
 
 #include "CommandRouter.h"
 #include "CommsSerial.h"
-#include "ErrorCounters.h"
 #include "PressureSensors.h"
 #include "RCS.h"
+#include "logging.h"
 #include "RS485.h"
 #include "SolenoidValves.h"
 #include "Spark.h"
@@ -13,6 +13,7 @@
 #include "ThrottleValves.h"
 #include "ValveController.h"
 #include "fdcan_toad.h"
+#include "ErrorCounters.h"
 
 // shared interfaces
 CommsSerial_t<USBSerial> USB_CommsSerial;
@@ -59,6 +60,7 @@ void setup() {
   all_modules_ok &= SolenoidValves::begin();
   all_modules_ok &= TVC_Actuators::begin();
   all_modules_ok &= ValveController::begin();
+  all_modules_ok &= Logging::begin();
   all_modules_ok &= Spark::begin();
 
   if (!all_modules_ok) {
@@ -87,6 +89,11 @@ void loop() {
 #define STARTING_VALVE_ANGLE_FU 30
 
 void flight_loop() {
+  if (!Logging::is_armed()) {
+    CommsSerial.println("ERROR: Logging is not armed; arm with log_arm command");
+    return;
+  }
+
   kill_flag = false;
   arm_flag = false;
 
@@ -127,6 +134,7 @@ void flight_loop() {
   // TODO - safe remaining valves
   ThrottleValves::stop();
   RCS::close();
+  Logging::disarm();
 }
 
 /* Platform-dependent can_begin(); because fdcan lib is used by multiple platforms, it's best to keep platform-dependent
