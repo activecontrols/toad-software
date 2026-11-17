@@ -8,9 +8,9 @@ CHANNELS = {
 #    2: ("Venturi Throat", 5589424, 99.28998837, 2.079860712),
 #    0: ("Venturi Throat", 11409838, 147.9777035, -3.692041074),
 
-    0: ("Venturi Upstream", 12771390, 5.0, 0.034),
-    2: ("Venturi Throat", 12826192, 5.0, 0.02),
-    1: ("Upstream Negative", 0, 0, 0),
+    2: ("Venturi Upstream", 12771390, 5.0, 0.03),
+#    2: ("Venturi Throat", 12826192, 5.0, 0.02),
+#    1: ("Upstream Negative", 0, 0, 0),
     3: ("Throat Negative", 0, 0, 0)
 }
 
