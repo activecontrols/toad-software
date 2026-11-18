@@ -5,6 +5,9 @@
 #include "prog_pins.h"
 #include "toad_can_bus.h"
 
+// TODO after rebasing - include fdcan_toad.h instead
+#include <api/CanMsg.h>
+
 // Based on
 // https://www.st.com/resource/en/application_note/an4286-how-to-use-spi-protocol-in-bootloader-on-stm32-mcus-stmicroelectronics.pdf
 // Citations commented as [pg#]
@@ -17,7 +20,8 @@ SPIClass Prog_SPI(PIN_PROG_SPI_MOSI, PIN_PROG_SPI_MISO, PIN_PROG_SPI_SCK);
 
 constexpr uint8_t ACK = 0x79;
 constexpr uint8_t NACK = 0x15;
-constexpr uint8_t SYNC = 0x5A;
+constexpr uint8_t MOSI_SYNC = 0x5A;
+constexpr uint8_t MISO_SYNC = 0xA5;
 constexpr uint8_t CMD_WriteMem = 0x31;
 constexpr uint8_t CMD_EraseMem = 0x44;
 
@@ -27,6 +31,16 @@ constexpr uint8_t CMD_EraseMem = 0x44;
   do {                   \
     if (!(expr))         \
       return false;      \
+  } while (0)
+
+// Meant to be used with std::optional<T>
+#define SetOrFail(dest, src) \
+  do {                       \
+    auto x = (src);          \
+    if (!x) {                \
+      return false;          \
+    }                        \
+    (dest) = x.value();      \
   } while (0)
 
 prog_id_t prog_type;
@@ -50,9 +64,13 @@ bool chunk_rcv[NUM_CAN_CHUNKS_PER_PAGE];
 
 void reset_h7();
 void enter_bootloader_cmd();
+bool get_cmd();
 
+uint16_t my_can_id;
 void setup() {
   // All shared interfaces are begun here.
+  digitalWrite(PIN_PROG_SPI_CS, HIGH);
+  pinMode(PIN_PROG_SPI_CS, OUTPUT);
 
   // Use same baud rate on all Comm Serials for consistency.
   USB_CommsSerial.begin(RADIO_BAUD);
@@ -61,7 +79,6 @@ void setup() {
 
   // Configure SPI interface and set CS HIGH
   Prog_SPI.begin();
-  digitalWrite(PIN_PROG_SPI_CS, HIGH);
 
   // Configure BOOT and NRST to default the STM32H7 into normal code execution
   pinMode(PIN_H7_BOOT, BOOT_MODE_RUN);
@@ -76,13 +93,24 @@ void setup() {
 
   if (prog_type == PROG_FLIGHT_CONTROLLER) {
     CommsSerial.println("Flight Controller Programmer Started!");
+
+    my_can_id = CAN_ID_FLIGHT_PROG;
   } else {
     CommsSerial.println("Engine Controller Programmer Started!");
+
+    my_can_id = CAN_ID_ENGINE_PROG;
   }
 
   CommandRouter::begin();
   CommandRouter::add(reset_h7, "reset_h7");
   CommandRouter::add(enter_bootloader_cmd, "enter_bootloader_cmd");
+  CommandRouter::add(
+      []() {
+        if (!get_cmd()) {
+          CommsSerial.println("Failed");
+        }
+      },
+      "get_bootloader");
 
   prog_state = STATE_IDLE;
 }
@@ -96,21 +124,47 @@ void reset_h7() {
 
 // Sends ACK frame, returns true if bootloader
 // responded with ACK, false otherwise
-// TODO - pretty sure sometimes this has to cycle around until ACK
+// See [6] for related state machine diagram
 bool spi_ack_frame() {
+  // AN did not seem to specify a timeout
+  constexpr uint32_t TIMEOUT_MS = 1000U;
+
   Prog_SPI.transfer(0x00);
-  uint8_t resp = Prog_SPI.transfer(0x00);
+
+  uint32_t time_start = millis();
+  uint32_t data;
+  for (;;) {
+    data = Prog_SPI.transfer(0x00);
+
+    if (data == ACK) {
+      break;
+    }
+
+    if (data == NACK) {
+      CommsSerial.println("H7 sent NACK");
+      break;
+    }
+
+    if (millis() - time_start > TIMEOUT_MS) {
+      CommsSerial.println("ack frame timed out");
+      return false;
+    }
+  }
+
   Prog_SPI.transfer(ACK);
 
-  CommsSerial.printf("\nACK BITS: %d\n", resp);
+  return (data == ACK);
+}
 
-  if (resp == ACK) {
-    return true;
-  } else if (resp == NACK) {
-    return false;
-  } else {
-    return false;
-  }
+bool command(uint8_t command_code) {
+  // [7]
+  Prog_SPI.transfer(MOSI_SYNC);
+
+  Prog_SPI.transfer(command_code);
+
+  Prog_SPI.transfer(~command_code);
+
+  return true;
 }
 
 void exit_bootloader() {
@@ -124,22 +178,46 @@ bool enter_bootloader() {
   pinMode(PIN_H7_BOOT, BOOT_MODE_FLASH);
   reset_h7();
 
-  // Send SYNC byte and get ACK [6]
-  digitalWrite(PIN_PROG_SPI_CS, LOW);
+  // Send MOSI_SYNC byte and get ACK [6]
   Prog_SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
-  Prog_SPI.transfer(SYNC);
+  digitalWrite(PIN_PROG_SPI_CS, LOW);
+  delay(1);
+  Prog_SPI.transfer(MOSI_SYNC);
   if (!spi_ack_frame()) {
     Prog_SPI.endTransaction();
     exit_bootloader();
     return false;
   }
-  Prog_SPI.endTransaction();
+  // Prog_SPI.endTransaction();
+
+  return true;
+}
+
+/* Gets the version and allowed commands supported by the current version of the bootloader. */
+bool get_cmd() {
+  // [10-11]
+  ExitOnFail(command(0x00));
+  ExitOnFail(spi_ack_frame());
+
+  // first byte is dummy to start data [7]
+  Prog_SPI.transfer(0x00);
+
+  uint8_t n_bytes = Prog_SPI.transfer(0x00);
+
+  // Prevent overflow that could occur next
+  ExitOnFail(n_bytes != 0xFFu);
+
+  for (uint8_t i = 0; i < n_bytes + 1; ++i) {
+    CommsSerial.println(Prog_SPI.transfer(0x00), HEX);
+  }
+
+  ExitOnFail(spi_ack_frame());
 
   return true;
 }
 
 bool erase_memory() {
-  Prog_SPI.transfer(SYNC);
+  Prog_SPI.transfer(MOSI_SYNC);
   Prog_SPI.transfer(CMD_EraseMem);
   Prog_SPI.transfer(~CMD_EraseMem);
   ExitOnFail(spi_ack_frame());
@@ -154,7 +232,7 @@ bool erase_memory() {
 }
 
 bool write_memory(uint32_t addr, const uint8_t *bytes, size_t len) {
-  Prog_SPI.transfer(SYNC);
+  Prog_SPI.transfer(MOSI_SYNC);
   Prog_SPI.transfer(CMD_WriteMem);
   Prog_SPI.transfer(~CMD_WriteMem);
   ExitOnFail(spi_ack_frame());
@@ -184,7 +262,7 @@ bool write_memory(uint32_t addr, const uint8_t *bytes, size_t len) {
 }
 
 void enter_bootloader_cmd() {
-  CommsSerial.print("Entering bootloader...");
+  CommsSerial.println("Entering bootloader...");
   bool result = enter_bootloader();
   if (result) {
     CommsSerial.println("Success...");
@@ -193,11 +271,93 @@ void enter_bootloader_cmd() {
   }
 }
 
+struct can_receive_register_t {
+  CanMsg msg;
+  bool is_full;
+};
+
+can_receive_register_t can_receive_register = {};
+
+bool can_msg_available() {
+  if (can_receive_register.is_full) {
+    return true;
+  }
+
+  // todo - check if can bus is waiting for message
+
+  return false;
+}
+
+// receive_can either receives a message from the can bus or a message that was placed in the can receive register via
+// serial
+CanMsg receive_can() {
+  // todo - try to receive from can bus
+
+  if (can_receive_register.is_full) {
+    can_receive_register.is_full = false;
+
+    return can_receive_register.msg;
+  }
+
+  return CanMsg();
+}
+
+// Receive a message over serial and place it in the CAN receive register
+// this gives an easy method to upload over USB without having to write USBSerial-dependent logic
+bool cmd_write_can_reg() {
+  auto read_with_timeout = [](uint32_t timeout = 100) -> std::optional<uint8_t> {
+    uint32_t start_ms = millis();
+
+    while (!CommsSerial.available()) {
+      if (millis() - start_ms > timeout) {
+        return std::nullopt;
+      }
+    }
+
+    return static_cast<uint8_t>(CommsSerial.read());
+  };
+  // receive 16 bit id (little endian)
+  uint8_t low;
+  uint8_t high;
+
+  SetOrFail(low, read_with_timeout());
+  SetOrFail(high, read_with_timeout());
+
+  uint32_t id = (high << 8) | (low);
+
+  // convert 8 bit dlc to length
+  uint8_t dlc;
+
+  SetOrFail(dlc, read_with_timeout());
+
+  ExitOnFail(dlc < FDCAN_DLC_SIZES.size());
+  uint8_t len = FDCAN_DLC_SIZES[dlc];
+
+  // receive length bytes
+  uint8_t data[64];
+
+  for (uint8_t i = 0; i < len; ++i) {
+    SetOrFail(data[i], read_with_timeout());
+  }
+
+  can_receive_register.msg = CanMsg(id, len, data);
+  can_receive_register.is_full = true;
+}
+
 void loop() {
   while (CommsSerial.available()) {
     CommandRouter::receive_byte(CommsSerial.read());
   }
 
+  if (!can_msg_available()) {
+    return;
+  }
+
+  CanMsg msg = receive_can();
+
+  if (msg.isExtendedId() || msg.getStandardId() != my_can_id) {
+    return; // ignore message - ID doesn't match
+  }
   // // TODO - prog state machine
   // // Wait for CAN cmds, control reset and boot
   // // Load flash files and flash over SPI

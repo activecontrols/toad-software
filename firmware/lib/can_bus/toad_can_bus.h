@@ -38,19 +38,19 @@ constexpr uint16_t CAN_ID_POWER_BOARD = 0x016;
 // Messages can be 1 - 64 bytes.
 
 // Heartbeat / Status Messages (ID range 0b0000_XXXX)
-struct can_msg_heartbeat_t {
+struct __attribute__((packed)) can_msg_heartbeat_t {
   static constexpr uint8_t cmd_id = 0x00;
 };
 
 // Sent as an error reply when device receives a command with an invalid ID,
 // or that command is not supported on this device.
-struct can_msg_invalid_cmd_t {
+struct __attribute__((packed)) can_msg_invalid_cmd_t {
   static constexpr uint8_t cmd_id = 0x01;
   uint8_t rcv_cmd_id; // The command that was received.
 };
 
 // Sent as an error reply when device receives a command with a payload that did not match the expected length.
-struct can_msg_incorrect_len_t {
+struct __attribute__((packed)) can_msg_incorrect_len_t {
   static constexpr uint8_t cmd_id = 0x02;
   uint8_t rcv_cmd_id;   // The command that was received.
   uint8_t len;          // Payload length of received command.
@@ -58,7 +58,7 @@ struct can_msg_incorrect_len_t {
 };
 
 // Sent as an error reply when device receives a command that is not valid in its current state machine state.
-struct can_msg_unexpected_state_t {
+struct __attribute__((packed)) can_msg_unexpected_state_t {
   static constexpr uint8_t cmd_id = 0x03;
   uint8_t rcv_cmd_id;     // The command that was received.
   uint8_t state;          // State machine state when cmd was received.
@@ -66,50 +66,59 @@ struct can_msg_unexpected_state_t {
 };
 
 // Telemetry Messages (ID range 0b0001_XXXX)
-struct can_msg_fc_telemetry {
+struct __attribute__((packed)) can_msg_fc_telemetry {
   static constexpr uint8_t cmd_id = 0x10;
 };
 
-struct can_msg_ec_telemetry {
+struct __attribute__((packed)) can_msg_ec_telemetry {
   static constexpr uint8_t cmd_id = 0x11;
 };
 
 // Flight Commands (ID range 0b0010_XXXX)
 
 // Flash Control (ID range 0b0011_XXXX)
-struct can_msg_reset_controller_t {
+namespace CAN_Programmer {
+// Unless otherwise specified, the host must wait for the programmer MCU to reply with a msg_error_t before sending
+// further commands
+
+// Resets H7 and boots into ROM Bootloader
+struct __attribute__((packed)) msg_reset_controller_t {
   static constexpr uint8_t cmd_id = 0x30;
 };
 
-struct can_msg_enter_bootloader_t {
+// Enters into SPI bootloader (assert CS)
+struct __attribute__((packed)) msg_enter_bootloader_t {
   static constexpr uint8_t cmd_id = 0x31;
 };
 
-struct can_msg_erase_flash_t {
+// Resets the corresponding H7 and has it boot into application firmware
+struct __attribute__((packed)) msg_reset_into_app_t {
   static constexpr uint8_t cmd_id = 0x32;
 };
 
-struct can_msg_select_page_t {
+// Upon receiving this command, programmer MCU places data[] on MOSI and records data received on MISO
+// MCU replies over CAN with a can_msg_spi_response_t with the bytes that were returned on MISO
+// Host must wait for programmer to reply with either a can_error_t (in case of error) or
+// can_msg_spi_response_t (indicates success and returns data received by MISO)
+struct __attribute__((packed)) msg_spi_transfer_t {
   static constexpr uint8_t cmd_id = 0x33;
-  uint16_t page_addr;
+  uint8_t len;      // number of bytes to put on SPI bus
+  uint8_t data[62]; // data to put on SPI bus
 };
 
-struct can_msg_mem_packet_t {
+struct __attribute__((packed)) msg_spi_response_t {
   static constexpr uint8_t cmd_id = 0x34;
-  uint8_t chunk_addr;
-  uint16_t page_addr;
-  uint8_t flash_bytes[32];
+  uint8_t len;
+  uint8_t data[62];
 };
 
-struct can_msg_request_mem_packet_t {
+struct __attribute__((packed)) msg_error_t {
+  enum error_code_t : uint8_t { SUCCESS, FAIL };
   static constexpr uint8_t cmd_id = 0x35;
-  uint8_t chunk_addr;
-  uint16_t page_addr;
+  error_code_t code;
+  char msg[62]; // null-terminated message string
 };
-
-struct can_msg_write_flash_t {
-  static constexpr uint8_t cmd_id = 0x36;
-};
+} // namespace CAN_Programmer
 
 // RESERVED for Extended Command Format (ID range 0b0111_XXXX)
 
