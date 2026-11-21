@@ -2,6 +2,7 @@
 #include <optional>
 #include <stdint.h>
 #include <string.h>
+#include <array>
 
 /// BUS TOPOLOGY
 // The primary vehicle CAN bus runs from the flight
@@ -81,12 +82,12 @@ namespace CAN_Programmer {
 // Unless otherwise specified, the host must wait for the programmer MCU to reply with a msg_error_t before sending
 // further commands
 
-// Resets H7 and boots into ROM Bootloader
-struct __attribute__((packed)) msg_reset_controller_t {
+struct __attribute__((packed)) msg_reset_t
+{
   static constexpr uint8_t cmd_id = 0x30;
 };
 
-// Enters into SPI bootloader (assert CS)
+// Resets H7, enters bootloader, asserts CS to enter SPI bootloader
 struct __attribute__((packed)) msg_enter_bootloader_t {
   static constexpr uint8_t cmd_id = 0x31;
 };
@@ -103,20 +104,20 @@ struct __attribute__((packed)) msg_reset_into_app_t {
 struct __attribute__((packed)) msg_spi_transfer_t {
   static constexpr uint8_t cmd_id = 0x33;
   uint8_t len;      // number of bytes to put on SPI bus
-  uint8_t data[62]; // data to put on SPI bus
+  uint8_t data[63]; // data to put on SPI bus
 };
 
 struct __attribute__((packed)) msg_spi_response_t {
   static constexpr uint8_t cmd_id = 0x34;
   uint8_t len;
-  uint8_t data[62];
+  uint8_t data[63];
 };
 
 struct __attribute__((packed)) msg_error_t {
   enum error_code_t : uint8_t { SUCCESS, FAIL };
   static constexpr uint8_t cmd_id = 0x35;
   error_code_t code;
-  char msg[62]; // null-terminated message string
+  char msg[63]; // null-terminated message string
 };
 } // namespace CAN_Programmer
 
@@ -214,7 +215,8 @@ struct fdcan_size_t {
 
 // Returns the FDCAN size information for the provided struct
 template <typename T> constexpr fdcan_size_t fdcan_size_of() {
-  constexpr size_t size = std::is_empty_v<T> ? 0 : sizeof(T);
+  // Add 1 because the cmd field takes one byte but is declared static in every struct
+  constexpr size_t size = (std::is_empty_v<T> ? 0 : sizeof(T)) + 1;
   static_assert(size <= FDCAN_DLC_SIZES.back(), "Type exceeds maximum FDCAN frame payload (64 bytes).");
   for (size_t dlc = 0; dlc < FDCAN_DLC_SIZES.size(); ++dlc) {
     if (size <= FDCAN_DLC_SIZES[dlc]) {
