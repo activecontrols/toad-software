@@ -40,7 +40,12 @@ bool program_test(void)
 
     ExitOnFail(sync_frame());
 
-    
+    std::cout << "SYNC frame achieved!" << std::endl;
+
+    // wait for user to press something
+    getchar();
+
+    return true;
 }
 
 
@@ -55,7 +60,7 @@ bool sync_frame(void)
 
     // from AN[6] - loop until we receive either ACK or NACK
     // here I also impose max # of retries
-    for (int i = 0; i < 100; ++i)
+    for (int i = 0; i < 200; ++i)
     {
         Prog_API::spi_transfer(&NULL_BYTE, &res, sizeof(NULL_BYTE));
 
@@ -69,8 +74,6 @@ bool sync_frame(void)
             std::cerr << "Received NACK" << std::endl;
             return false;
         }
-
-        sleep(10);
     }
 
     std::cerr << "sync_frame() hit max number of retries" << std::endl;
