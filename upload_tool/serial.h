@@ -33,7 +33,7 @@ public:
     }
 
     bool is_open();
-};
+}; // class Serial
 
 // defined in main.cpp
 extern Serial serial;

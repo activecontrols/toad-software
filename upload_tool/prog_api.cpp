@@ -3,7 +3,6 @@
 #include "prog_api.h"
 #include "util.h"
 #include "can_bus_defs.h"
-
 #include "serial.h"
 
 using namespace CAN_Programmer;
@@ -29,6 +28,8 @@ uint8_t recv_len;
 uint8_t recv_id;
 
 constexpr const char TOOL_CMD[] = "tool_cmd\n";
+
+bool receive_frame(void);
 
 template <typename T>
 inline T convert_frame(void)
@@ -73,7 +74,7 @@ void print_error(msg_error_t error_msg)
     // Insert null-terminator for safety
     tmp[sizeof(tmp) - 1] = 0;
 
-    std::cout << tmp << std::endl;
+    std::cerr << tmp << std::endl;
     
     return;
 }
@@ -152,14 +153,17 @@ bool spi_transfer(const uint8_t* mosi, uint8_t* miso, size_t len)
         // On success, G4 replies with msg_spi_response_t
         // which contains the data that was seen on MISO
 
-        ExitOnFail(recv_id == msg_spi_response_t::cmd_id);
+        ExitMsgOnFail(recv_id == msg_spi_response_t::cmd_id, "spi_transfer(): received invalid response cmd_id");
 
         msg_spi_response_t response = convert_frame<msg_spi_response_t>();
 
         ExitOnFail(response.len == data_frame_len);
 
         // copy MISO data to output buf
-        memcpy(miso + idx, response.data, response.len);
+        if (miso != nullptr)
+        {
+            memcpy(miso + idx, response.data, response.len);
+        }
 
         idx += data_frame_len;
     }
@@ -169,21 +173,23 @@ bool spi_transfer(const uint8_t* mosi, uint8_t* miso, size_t len)
 
 bool receive_frame(void)
 {
+    static constexpr char TIMED_OUT_MSG[] = "receive_frame(): timed out";
+
     uint8_t tmp_size = 0;
     uint8_t tmp_id = 0;
     uint8_t tmp_data[sizeof(recv_buf)];
 
     size_t n_read = serial.read(&tmp_size, sizeof(tmp_size));
 
-    ExitOnFail(n_read == sizeof(tmp_size));
+    ExitMsgOnFail(n_read == sizeof(tmp_size), TIMED_OUT_MSG);
 
     n_read = serial.read(&tmp_id, sizeof(tmp_id));
 
-    ExitOnFail(n_read == sizeof(tmp_id));
+    ExitMsgOnFail(n_read == sizeof(tmp_id), TIMED_OUT_MSG);
 
     n_read = serial.read(tmp_data, tmp_size);
 
-    ExitOnFail(n_read == tmp_size);
+    ExitMsgOnFail(n_read == tmp_size, TIMED_OUT_MSG);
 
     // Copy data over
     recv_len = tmp_size;

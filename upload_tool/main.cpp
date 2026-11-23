@@ -1,82 +1,106 @@
 #include <iostream>
 #include <unistd.h>
 #include <stdint.h>
+#include <vector>
 
 #include "can_bus_defs.h"
 #include "util.h"
 #include "prog_api.h"
+#include "boot_api.h"
 #include "serial.h"
 
 Serial serial;
 
 using namespace CAN_Programmer;
 
-constexpr uint8_t MOSI_SYNC = 0x5A;
-constexpr uint8_t MISO_SYNC = 0xA5;
-constexpr uint8_t NULL_BYTE = 0x00;
-constexpr uint8_t ACK = 0x79;
-constexpr uint8_t NACK = 0x1F;
+bool program(FILE* f);
 
-bool sync_frame(void);
-bool program_test(void);
-
-int main(void)
+int main(int argc, char* argv[])
 {
-    if (!serial.open("/dev/ttyACM0"))
+    if (argc != 3)
     {
-        std::cout << "Failed to open serial port" << std::endl;
+        std::cerr << "Usage:\nupload_tool USB <path to .bin>\nOR\nupload_tool CAN <path to .bin>" << std::endl;
         return -1;
     }
 
-    program_test();
+    if (strcmp(argv[1], "USB") != 0)
+    {
+        std::cerr << "Only USB upload is currently supported" << std::endl;
+        return -1;
+    }
 
+    FILE* f = fopen(argv[2], "rb");
+
+    if (f == nullptr)
+    {
+        std::cerr << "Error: '" << argv[2] << "' not found" << std::endl;
+        return -1;
+    }
+
+    if (!serial.open("/dev/ttyACM0"))
+    {
+        std::cerr << "Failed to open serial port" << std::endl;
+        fclose(f);
+        return -1;
+    }
+
+    program(f);
+
+    fclose(f);
     serial.close();
     return 0;
 }
 
-bool program_test(void)
+bool program(FILE* f)
 {
     ExitOnFail(Prog_API::enter_bootloader());
 
-    ExitOnFail(sync_frame());
+    ExitOnFail(Boot_API::sync_frame());
 
     std::cout << "SYNC frame achieved!" << std::endl;
 
-    // wait for user to press something
-    getchar();
+    std::cout << "Erasing bank 1" << std::endl;
 
-    return true;
-}
+    ExitOnFail(Boot_API::bank1_erase());
 
+    std::cout << "Erased bank 1" << std::endl;
 
-bool sync_frame(void)
-{
-    uint8_t res = 0;
-    ExitOnFail(Prog_API::spi_transfer(&MOSI_SYNC, &res, sizeof(MOSI_SYNC)));
+    constexpr uint32_t bank1_start = 0x08000000;
+    uint32_t write_addr = bank1_start;
+    uint8_t tmp[256];
 
-    ExitOnFail(res == MISO_SYNC);
-
-    ExitOnFail(Prog_API::spi_transfer(&NULL_BYTE, &res, sizeof(NULL_BYTE)));
-
-    // from AN[6] - loop until we receive either ACK or NACK
-    // here I also impose max # of retries
-    for (int i = 0; i < 200; ++i)
+    for (;;)
     {
-        Prog_API::spi_transfer(&NULL_BYTE, &res, sizeof(NULL_BYTE));
+        size_t read_count = fread(tmp, 1, sizeof(tmp), f);
 
-        if (res == ACK)
+        if (read_count == 0)
         {
-            return true;
+            if (feof(f) != EOF)
+            {
+                std::cerr << "Got error when reading from file:" << ferror(f) << std::endl;
+                return false;
+            }
+            break;
         }
 
-        if (res == NACK)
+        ExitMsgOnFail(Boot_API::write_memory(write_addr, tmp, read_count), "program(): Boot_API::write_memory() failed");
+
+        write_addr += read_count;
+
+        if (read_count != sizeof(tmp))
         {
-            std::cerr << "Received NACK" << std::endl;
-            return false;
+            // check for eof
+            if (feof(f) != EOF)
+            {
+                std::cerr << "Got error when reading from file:" << ferror(f) << std::endl;
+                return false;
+            }
+            // we have reached end of file
+            break;
         }
     }
 
-    std::cerr << "sync_frame() hit max number of retries" << std::endl;
+    std::cout << "Program complete" << std::endl;
 
-    return false;
+    return true;
 }
