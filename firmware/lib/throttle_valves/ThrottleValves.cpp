@@ -8,6 +8,9 @@ static uint32_t csv_time_start_ms = 0U;
 // Encoder RS-485 address, identical for fu and ox because they're on different lines
 constexpr int ENCODER_ID = 0x54;
 
+// Gear ratio on the valve, 10:1.
+constexpr int16_t GEAR_RATIO = 10;
+
 // Wraps angle in degrees to [-180, 180] using fmod
 static float wrapAngleDeg(float angle) {
   angle = std::fmod(angle + 180.0, 360.0);
@@ -45,8 +48,8 @@ void ThrottleValve::set_position(float angle) {
   mode = VALVE_MOVEMENT_MODE_POSITION;
 }
 
-void ThrottleValve::set_speed(int16_t speed) {
-  motor.set_speed(speed);
+void ThrottleValve::set_speed(int16_t speed, int16_t acceleration) {
+  motor.set_speed(speed, acceleration);
   mode = VALVE_MOVEMENT_MODE_CONSTANT_SPEED;
 }
 
@@ -64,6 +67,199 @@ bool ThrottleValve::zero_encoder() {
   return encoder.zero();
 }
 
+float ThrottleValve::calculate_rpm(float current_angle, float prev_angle, uint32_t current_us, uint32_t prev_us) {
+  float angle_difference = fabsf(wrapAngleDeg(current_angle - prev_angle)); // Degrees
+  float time_difference = (current_us - prev_us) / 1000000.0f;              // Seconds
+  return (angle_difference / time_difference) * 60.0f / 360.0f;             // RPM
+}
+
+// Rotates the motor until it stops, then zeroes the encoder.
+// Blocks the control loop, so should only run before the control loop starts.
+// Another concern: This can't tell if the motor has reached the hard stop or if it's broken down in some way.
+bool ThrottleValve::zero_valve() {
+  // ================== Initialize Variables ==================
+  // Valve RPM (after the gearbox)
+  constexpr int16_t zero_angular_velocity = 10;
+
+  // At what percentage of zero_angular_velocity is the motor considered "stopped"?
+  constexpr int stopped_velocity_percent_threshold = 10;
+  constexpr float stopped_velocity_threshold = zero_angular_velocity * stopped_velocity_percent_threshold / 100.0f;
+
+  // Timeout
+  constexpr uint32_t timeout_us = 2000000;
+
+  // The number of zero-velocity loops required before zeroing.
+  // Prevents encoder misreads/failures from causing an inaccurate zero.
+  int stopped_counter = 0;
+  constexpr int stopped_counter_limit = 5;
+
+  // Timer used for commsserial printing
+  int print_position_clock = 0;
+
+  // Angle measurement vars
+  float init_angle = 0.0f;
+  float prev_angle = 0.0f;
+  float current_angle = 0.0f;
+
+  // Time measurement vars
+  uint32_t init_us = 0;
+  uint32_t prev_us = 0;
+  uint32_t current_us = 0;
+
+  // ================== Lambdas ==================
+  // Read encoder position and update timestamp.
+  // Returns false if the encoder read fails.
+  auto update_position = [&](float *angle, uint32_t *time) -> bool {
+    if (!read_position(angle)) {
+      return false;
+    }
+
+    *time = micros();
+    return true;
+  };
+
+  auto update_previous_vars = [&]() {
+    prev_angle = current_angle;
+    prev_us = current_us;
+  };
+
+  // ================== Move backwards and initialize ==================
+  // Print initial angle
+  float logging_angle = 0.0f;
+  if (!read_position(&logging_angle)) {
+    stop();
+    return false;
+  }
+  CommsSerial.printf("Valve Zero: About to Move Backward: %f\n", logging_angle);
+
+  // Move backwards slightly
+  set_speed(-zero_angular_velocity * GEAR_RATIO);
+  delay(100);
+  stop();
+
+  // Start moving forward
+  set_speed(zero_angular_velocity * GEAR_RATIO);
+
+  // Initialize timing vars
+  init_us = micros();
+  prev_us = init_us;
+  current_us = init_us;
+
+  // Initialize angle reading vars
+  if (!read_position(&prev_angle)) {
+    stop();
+    return false;
+  }
+  init_angle = prev_angle;
+  current_angle = prev_angle;
+
+  CommsSerial.printf("Valve Zero: About to move Forward: %f\n", current_angle);
+
+  // ================== Check that the valve starts moving ==================
+  bool moved = false;
+  while (current_us - init_us < timeout_us) {
+    if (!update_position(&current_angle, &current_us)) {
+      stop();
+      CommsSerial.println("Valve Zero: Failed. Encoder read error in initial movement check.");
+      return false;
+    }
+
+    // Prevent dividing by 0
+    if (current_us == prev_us) {
+      delay(2);
+      continue;
+    }
+
+    // Check if motor has moved >1 deg since startup.
+    // Used to prevent stop detection if the motor never moves in the first place.
+    if (fabsf(wrapAngleDeg(current_angle - init_angle)) > 1) {
+      moved = true;
+    }
+
+    update_previous_vars();
+
+    if (moved) {
+      break;
+    }
+
+    delay(10);
+  }
+
+  // Report an error if it didn't move
+  if (!moved) {
+    stop();
+    CommsSerial.println("Valve Zero: Failed. Motor never moved");
+    return false;
+  }
+
+  // ================== Wait for the valve to get up to speed ==================
+  delay(50);
+
+  // ================== Wait for the valve to stop ==================
+  // Update timing/angle vars
+  if (!read_position(&prev_angle)) {
+    stop();
+    return false;
+  }
+  prev_us = micros();
+  current_us = prev_us;
+
+  bool success = false;
+  while (current_us - init_us < timeout_us) {
+    if (!update_position(&current_angle, &current_us)) {
+      stop();
+      CommsSerial.println("Valve Zero: Failed. Encoder read error in stop listener loop.");
+      return false;
+    }
+
+    // Prevent dividing by 0
+    if (current_us == prev_us) {
+      delay(2);
+      continue;
+    }
+
+    // Calculate current velocity
+    float current_angular_velocity = calculate_rpm(current_angle, prev_angle, current_us, prev_us);
+
+    // If the motor is stopped, increment stopped_counter
+    bool is_stopped = current_angular_velocity <= stopped_velocity_threshold;
+    if (is_stopped) {
+      stopped_counter++;
+    } else {
+      stopped_counter = 0;
+    }
+
+    // Zero the encoder if the motor has been stopped long enough
+    if (stopped_counter >= stopped_counter_limit) {
+      stop();
+      delay(2);
+      success = zero_encoder();
+      break;
+    }
+
+    // Cancel when comms serial is available
+    if (CommsSerial.available()) {
+      break;
+    }
+
+    update_previous_vars();
+
+    // Print the current angle
+    if (print_position_clock > 50) {
+      print_position_clock = 0;
+      CommsSerial.printf("Valve Zero: Current Position: %f\n", current_angle);
+    }
+    print_position_clock++;
+
+    delay(10);
+  }
+
+  // ================== Stop and Return ==================
+  stop();
+  CommsSerial.printf("Valve Zero: %s. Final Angle: %f\n", success ? "Successful" : "Failed", current_angle);
+  return success;
+}
+
 void ThrottleValve::update(bool log_csv) {
   if (log_csv)
     log_csv_sticky = true;
@@ -77,8 +273,8 @@ void ThrottleValve::update(bool log_csv) {
   if (millis() - last_update_ms < ENCODER_UPDATE_INTERVAL_MS)
     return;
 
+  // Get current encoder position
   float current_angle = 0.0f;
-
   if (!read_position(&current_angle)) {
     last_update_ms = millis();
     return; // error occurred while trying to read encoder position
@@ -161,6 +357,15 @@ template <ThrottleValve &valve> void zero_encoder_cmd() {
   valve.zero_encoder();
 }
 
+// Templated zero valve command function
+template <ThrottleValve &valve> void zero_valve_cmd() {
+  if (valve.zero_valve()) {
+    CommsSerial.println("Valve zeroed successfully");
+  } else {
+    CommsSerial.println("Valve zeroing failed");
+  }
+}
+
 // This probably won't be used for static test / actual vehicle because control code should go somewhere else
 // This should probably be removed
 void motor_follow_profile_cmd(const char *cmd) {
@@ -206,12 +411,14 @@ bool begin() {
   CommandRouter::add(get_position_cmd<ox_valve>, "get_ox_position");
   CommandRouter::add(stop_valve_cmd<ox_valve>, "stop_ox_valve");
   CommandRouter::add(zero_encoder_cmd<ox_valve>, "zero_ox_encoder");
+  CommandRouter::add(zero_valve_cmd<ox_valve>, "zero_ox_valve");
 
   CommandRouter::add(set_position_cmd<fu_valve, false>, "set_fu_position");
   CommandRouter::add(set_speed_cmd<fu_valve, false>, "set_fu_speed");
   CommandRouter::add(get_position_cmd<fu_valve>, "get_fu_position");
   CommandRouter::add(stop_valve_cmd<fu_valve>, "stop_fu_valve");
   CommandRouter::add(zero_encoder_cmd<fu_valve>, "zero_fu_encoder");
+  CommandRouter::add(zero_valve_cmd<fu_valve>, "zero_fu_valve");
 
   CommandRouter::add(motor_follow_profile_cmd, "motor_follow_profile");
 
