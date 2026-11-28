@@ -67,94 +67,163 @@ bool ThrottleValve::zero_encoder() {
   return encoder.zero();
 }
 
+float ThrottleValve::calculate_rpm(float current_angle, float prev_angle, uint32_t current_us, uint32_t prev_us) {
+  float angle_difference = fabsf(wrapAngleDeg(current_angle - prev_angle)); // Degrees
+  float time_difference = (current_us - prev_us) / 1000000.0f;              // Seconds
+  return (angle_difference / time_difference) * 60.0f / 360.0f;             // RPM
+}
+
 // Rotates the motor until it stops, then zeroes the encoder.
 // Blocks the control loop, so should only run before the control loop starts.
 // Another concern: This can't tell if the motor has reached the hard stop or if it's broken down in some way.
 bool ThrottleValve::zero_valve() {
-  // Actual target output RPM (gearbox considered below)
+  // ================== Initialize Variables ==================
+  // Valve RPM (after the gearbox)
   constexpr int16_t zero_angular_velocity = 10;
-  // How many degrees must the motor move to be considered "started"?
-  constexpr int motor_started_moving_threshold = 1;
+
   // At what percentage of zero_angular_velocity is the motor considered "stopped"?
   constexpr int stopped_velocity_percent_threshold = 10;
-  // How long after motor startup do we start listening for motor stops?
-  constexpr uint32_t motor_startup_us = 50000;
-  // Timeout
-  constexpr uint32_t timeout_us = 2000000;
-  // How long do we want the motor to remain still before zeroing?
-  constexpr int stopped_counter_limit = 5;
-
   constexpr float stopped_velocity_threshold = zero_angular_velocity * stopped_velocity_percent_threshold / 100.0f;
 
-  // Get initial previous angle
-  float logging_angle = 0U;
+  // Timeout
+  constexpr uint32_t timeout_us = 2000000;
+
+  // The number of zero-velocity loops required before zeroing.
+  // Prevents encoder misreads/failures from causing an inaccurate zero.
+  int stopped_counter = 0;
+  constexpr int stopped_counter_limit = 5;
+
+  // Timer used for commsserial printing
+  int print_position_clock = 0;
+
+  // Angle measurement vars
+  float init_angle = 0.0f;
+  float prev_angle = 0.0f;
+  float current_angle = 0.0f;
+
+  // Time measurement vars
+  uint32_t init_us = 0;
+  uint32_t prev_us = 0;
+  uint32_t current_us = 0;
+
+  // ================== Lambdas ==================
+  // Read encoder position and update timestamp.
+  // Returns false if the encoder read fails.
+  auto update_position = [&](float *angle, uint32_t *time) -> bool {
+    if (!read_position(angle)) {
+      return false;
+    }
+
+    *time = micros();
+    return true;
+  };
+
+  auto update_previous_vars = [&]() {
+    prev_angle = current_angle;
+    prev_us = current_us;
+  };
+
+  // ================== Move backwards and initialize ==================
+  // Print initial angle
+  float logging_angle = 0.0f;
   if (!read_position(&logging_angle)) {
     stop();
     return false;
   }
-  CommsSerial.printf("Starting Valve Zero, About to Move Backward: %f\n", logging_angle);
+  CommsSerial.printf("Valve Zero: About to Move Backward: %f\n", logging_angle);
 
   // Move backwards slightly
   set_speed(-zero_angular_velocity * GEAR_RATIO);
   delay(100);
   stop();
 
-  uint32_t start_us = micros();
-  uint32_t prev_us = start_us;
-  uint32_t current_us = start_us;
-  float prev_angle = 0U;
-  // Has the motor moved from its initial position?
-  bool moved = false;
-  // How long has the motor remained still?
-  int stopped_counter = 0;
-
-  int print_position_clock = 0;
-
   // Start moving forward
   set_speed(zero_angular_velocity * GEAR_RATIO);
 
-  // Get initial previous angle
+  // Initialize timing vars
+  init_us = micros();
+  prev_us = init_us;
+  current_us = init_us;
+
+  // Initialize angle reading vars
   if (!read_position(&prev_angle)) {
     stop();
     return false;
   }
+  init_angle = prev_angle;
+  current_angle = prev_angle;
 
-  float start_angle = prev_angle;
-  float current_angle = prev_angle;
+  CommsSerial.printf("Valve Zero: About to move Forward: %f\n", current_angle);
 
-  CommsSerial.printf("Starting Valve Zero Loop, About to move Forward: %f\n", current_angle);
-
-  // Returned boolean
-  bool success = false;
-  // Loop
-  while (current_us - start_us < timeout_us) {
-    // Get current encoder position
-    if (!read_position(&current_angle)) {
-      break;
+  // ================== Check that the valve starts moving ==================
+  bool moved = false;
+  while (current_us - init_us < timeout_us) {
+    if (!update_position(&current_angle, &current_us)) {
+      stop();
+      CommsSerial.println("Valve Zero: Failed. Encoder read error in initial movement check.");
+      return false;
     }
 
-    current_us = micros();
-
-    // Prevent division by zero if time hasn't changed
+    // Prevent dividing by 0
     if (current_us == prev_us) {
       delay(2);
       continue;
     }
 
-    // Check if motor has moved since startup.
+    // Check if motor has moved >1 deg since startup.
     // Used to prevent stop detection if the motor never moves in the first place.
-    if (fabsf(wrapAngleDeg(current_angle - start_angle)) > motor_started_moving_threshold) {
+    if (fabsf(wrapAngleDeg(current_angle - init_angle)) > 1) {
       moved = true;
     }
 
-    // Calculate current velocity
-    float angle_difference = fabsf(wrapAngleDeg(current_angle - prev_angle));               // Degrees
-    float time_difference = (current_us - prev_us) / 1000000.0f;                            // Seconds
-    float current_angular_velocity = (angle_difference / time_difference) * 60.0f / 360.0f; // RPM
+    update_previous_vars();
 
-    // If the motor has moved before, is stopped, and motor_startup_ms has passed, increment stopped_counter
+    if (moved) {
+      break;
+    }
+
+    delay(10);
+  }
+
+  // Report an error if it didn't move
+  if (!moved) {
+    stop();
+    CommsSerial.println("Valve Zero: Failed. Motor never moved");
+    return false;
+  }
+
+  // ================== Wait for the valve to get up to speed ==================
+  delay(50);
+
+  // ================== Wait for the valve to stop ==================
+  // Update timing/angle vars
+  if (!read_position(&prev_angle)) {
+    stop();
+    return false;
+  }
+  prev_us = micros();
+  current_us = prev_us;
+
+  bool success = false;
+  while (current_us - init_us < timeout_us) {
+    if (!update_position(&current_angle, &current_us)) {
+      stop();
+      CommsSerial.println("Valve Zero: Failed. Encoder read error in stop listener loop.");
+      return false;
+    }
+
+    // Prevent dividing by 0
+    if (current_us == prev_us) {
+      delay(2);
+      continue;
+    }
+
+    // Calculate current velocity
+    float current_angular_velocity = calculate_rpm(current_angle, prev_angle, current_us, prev_us);
+
+    // If the motor is stopped, increment stopped_counter
     bool is_stopped = current_angular_velocity <= stopped_velocity_threshold;
-    if (moved && is_stopped && ((current_us - start_us) > motor_startup_us)) {
+    if (is_stopped) {
       stopped_counter++;
     } else {
       stopped_counter = 0;
@@ -173,22 +242,21 @@ bool ThrottleValve::zero_valve() {
       break;
     }
 
-    // Update velocity calc values
-    prev_angle = current_angle;
-    prev_us = current_us;
-    print_position_clock++;
+    update_previous_vars();
 
+    // Print the current angle
     if (print_position_clock > 50) {
       print_position_clock = 0;
-      CommsSerial.printf("Current Zero Position: %f\n", current_angle);
+      CommsSerial.printf("Valve Zero: Current Position: %f\n", current_angle);
     }
+    print_position_clock++;
 
     delay(10);
   }
 
-  // Stop motor and return
+  // ================== Stop and Return ==================
   stop();
-  CommsSerial.printf("Ending Valve Zero: %f\n", current_angle);
+  CommsSerial.printf("Valve Zero: %s. Final Angle: %f\n", success ? "Successful" : "Failed", current_angle);
   return success;
 }
 

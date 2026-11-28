@@ -21,6 +21,7 @@ public:
 
   void set_speed(int16_t speed, int16_t acceleration = (uint8_t)32U);
   bool read_position(float *pos);
+  float calculate_rpm(float current_angle, float prev_angle, uint32_t current_us, uint32_t prev_us);
   bool zero_encoder();
 
   // Rotates the motor until it stops, then zeroes the encoder.
